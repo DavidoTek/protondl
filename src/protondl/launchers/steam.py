@@ -1,8 +1,8 @@
 # src/proton_manager/launchers/steam.py
 from pathlib import Path
 
-from ..core.base_launcher import Launcher
-from ..core.models import InstallMode
+from protondl.core.base_launcher import Launcher
+from protondl.core.models import InstallMode
 
 
 class SteamLauncher(Launcher):

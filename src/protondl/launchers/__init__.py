@@ -1,5 +1,5 @@
-from ..core.base_launcher import Launcher
-from .steam import SteamLauncher
+from protondl.core.base_launcher import Launcher
+from protondl.launchers.steam import SteamLauncher
 
 # Registry of all launcher classes the library supports
 SUPPORTED_LAUNCHER_CLASSES = [
