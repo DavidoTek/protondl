@@ -22,6 +22,7 @@ class CtInstaller(ABC):
         info_url (str): The official website or repository URL for the tool.
         release_info_url (str): URL to the releases page.
             Formatted with {version} for specific release details.
+        release_format (str): The expected file format of the release asset (e.g., ".tar.gz").
     """
 
     name: str
@@ -29,9 +30,11 @@ class CtInstaller(ABC):
     supported_launchers: list[type[Launcher]]
     info_url: str
     release_info_url: str
+    release_format: str
 
     def __init__(self) -> None:
         self.request_config: RequestConfig = RequestConfig()
+        self.buffer_size = 65536
 
     @abstractmethod
     async def fetch_releases(self, count: int = 30, page: int = 1) -> list[str]:

@@ -1,4 +1,3 @@
-# src/proton_manager/launchers/steam.py
 from pathlib import Path
 
 from protondl.core.base_launcher import Launcher

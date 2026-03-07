@@ -18,3 +18,12 @@ class RequestConfig:
         if self.github_token:
             headers["Authorization"] = f"token {self.github_token}"
         return headers
+
+
+@dataclass
+class ReleaseData:
+    version: str
+    date: str
+    download: str | None = None
+    size: int | None = None
+    checksum: str | None = None
