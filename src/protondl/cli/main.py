@@ -222,5 +222,44 @@ def install_tool(
         raise typer.Exit(1) from e
 
 
+@app.command(name="list-installed")
+def list_installed_tools(
+    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+) -> None:
+    """
+    List all compatibility tools currently installed for a specific launcher.
+    """
+    launchers = detect_all_launchers()
+    if not (0 <= launcher_id < len(launchers)):
+        console.print(f"[red]Error: Launcher ID {launcher_id} not found.[/red]")
+        raise typer.Exit(1)
+
+    target_launcher = launchers[launcher_id]
+
+    with console.status(
+        f"[bold blue]Scanning {target_launcher.name} directories...", spinner="bouncingBar"
+    ):
+        installed_tools = target_launcher.get_installed_tools()
+
+    if not installed_tools:
+        console.print(
+            f"[yellow]No custom compatibility tools found for {target_launcher.name}.[/yellow]"
+        )
+        console.print(f"[dim]Checked: {target_launcher.get_compatibility_tools_path()}[/dim]")
+        return
+
+    table = Table(title=f"Installed Tools: [bold cyan]{target_launcher.name}[/bold cyan]")
+    table.add_column("Index", justify="right", style="dim")
+    table.add_column("Tool Folder Name", style="green")
+    table.add_column("Path", style="dim", overflow="ellipsis")
+
+    tools_path = target_launcher.get_compatibility_tools_path()
+
+    for idx, folder_name in enumerate(sorted(installed_tools), 1):
+        table.add_row(str(idx), folder_name, str(tools_path / folder_name))
+
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()

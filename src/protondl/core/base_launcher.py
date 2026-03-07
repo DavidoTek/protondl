@@ -41,3 +41,16 @@ class Launcher(ABC):
             Path: The path to the compatibility tools directory.
         """
         pass
+
+    def get_installed_tools(self) -> list[str]:
+        """
+        Returns a list of installed compatibility tools for this launcher by checking the
+        compatibility tools directory.
+
+        Returns:
+            list[str]: A list of installed tool names (e.g., ["GE-Proton9-1", "Boxtron"]).
+        """
+        tools_path = self.get_compatibility_tools_path()
+        if not tools_path.exists():
+            return []
+        return [item.name for item in tools_path.iterdir() if item.is_dir()]
