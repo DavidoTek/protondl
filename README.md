@@ -1,10 +1,14 @@
 # protondl 🧬
 
-## 🏗️ This library is Work in Progress!
-
 protondl is a modern, headless Python library for downloading and managing Proton compatibility tools (like GE-Proton, Luxtorpeda, and Boxtron) for Steam, Lutris, and other Linux game launchers.
 
 Inspired by the logic of ProtonUp-Qt, protondl decouples the core management logic from the GUI, providing a modular and developer-friendly API for automation, CLI tools, or custom integrations.
+
+## 🏗️ This library is Work in Progress!
+
+The goal of this project is to port all functionality from ProtonUp-Qt into a headless library that is indepenent from the Qt GUI to allow for future use in different projects.
+This is more of a side project that I will work on here and there. Please use [ProtonUp-Qt](https://github.com/DavidoTek/ProtonUp-Qt) instead for managing your compatibility tools!
+
 
 ## ✨ Features
 
@@ -102,8 +106,9 @@ protondl uses the [uv](https://docs.astral.sh/uv/) package manager for high-perf
 
 ```
 src/protondl/
+├── cli/            # Rich-powered terminal interface
 ├── core/           # Abstract Base Classes and Enums (The Contract)
-├── launchers/      # Launcher discovery (Steam, Lutris, etc.)
 ├── installers/     # Tool-specific logic (GE-Proton, Luxtorpeda)
-└── cli/            # Rich-powered terminal interface
+├── launchers/      # Launcher discovery (Steam, Lutris, etc.)
+└── util/           # Utility functions (downloads, etc.)
 ```
