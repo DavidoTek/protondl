@@ -206,3 +206,41 @@ def calculate_sha512(filepath: Path, buffer_size: int) -> str:
         while chunk := f.read(buffer_size):
             sha512.update(chunk)
     return sha512.hexdigest()
+
+
+async def download_file(
+    url: str,
+    destination: Path,
+    client: httpx.AsyncClient,
+    progress_callback: Callable[[int, int], None] | None = None,
+    known_size: int = 0,
+    buffer_size: int = 65536,
+) -> None:
+    """
+    Downloads a file from the specified URL to the given destination path.
+
+    Args:
+        url (str): The URL of the file to download.
+        destination (Path): The destination path where the file should be saved.
+        client (httpx.AsyncClient): An instance of httpx.AsyncClient to use for the download.
+        progress_callback (Callable[[int, int], None], optional): An optional callback function
+            that receives the number of bytes downloaded and total size.
+        known_size (int): The known size of the file, if available.
+            If 0, it will attempt to determine the size from the response headers.
+        buffer_size (int): The size of the buffer to use when reading the file in bytes.
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    async with client.stream("GET", url) as response:
+        response.raise_for_status()
+
+        total_size = known_size
+        if not total_size:
+            total_size = int(response.headers.get("Content-Length", 0))
+
+        with open(destination, "wb") as f:
+            async for chunk in response.aiter_bytes(chunk_size=buffer_size):
+                f.write(chunk)
+                if progress_callback:
+                    progress_callback(len(chunk), total_size)
+            f.flush()
