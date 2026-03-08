@@ -112,3 +112,9 @@ src/protondl/
 ├── launchers/      # Launcher discovery (Steam, Lutris, etc.)
 └── util/           # Utility functions (downloads, etc.)
 ```
+
+## 📸 Credits & Story
+
+The project was originally inspired by AUNaseef's [protonup](https://github.com/AUNaseef/protonup) for which I created an [initial GUI](https://github.com/AUNaseef/protonup/pull/9). Since the library didn't have the necessary features and upstreaming was slow, I started with the development of [ProtonUp-Qt](https://github.com/DavidoTek/ProtonUp-Qt).
+Thanks to the many [ProtonUp-Qt contributers](https://github.com/DavidoTek/ProtonUp-Qt/graphs/contributors), the project was able to grow and become as feature rich as it is today.
+While ProtonUp-Qt is well working, the original idea of having a headless library and a separate GUI was lost. This is where protondl comes in. The idea is to port the features of ProtonUp-Qt into a headless library, featuring modern CLI and API interfaces.
