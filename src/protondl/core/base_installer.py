@@ -99,7 +99,8 @@ class CtInstaller(ABC):
         async with httpx.AsyncClient(
             headers=self.request_config.get_headers(), follow_redirects=True
         ) as client:
-            with tempfile.NamedTemporaryFile(suffix=self.release_format, delete=False) as tmp_file:
+            suffix = release_data.original_filename or self.release_format
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
                 tmp_path = Path(tmp_file.name)
 
                 try:

@@ -27,3 +27,4 @@ class ReleaseData:
     download: str | None = None
     size: int | None = None
     checksum: str | None = None
+    original_filename: str | None = None

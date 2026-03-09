@@ -135,6 +135,7 @@ async def fetch_project_release_data(
                 if not asset_condition or asset_condition(asset):
                     release_data.download = download_url
                     release_data.size = int(asset.get("size", -1))
+                    release_data.original_filename = name
 
             if checksum_suffix and name.endswith(checksum_suffix):
                 release_data.checksum = download_url
