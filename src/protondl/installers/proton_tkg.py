@@ -14,6 +14,7 @@ class ProtonTkgInstaller(CtInstaller):
     description = (
         "Custom Proton build for running Windows games, built with the Wine-tkg build system."
     )
+    advanced = False
     supported_launchers = [SteamLauncher]
     info_url = "https://github.com/Frogging-Family/wine-tkg-git"
     release_info_url = "https://github.com/Frogging-Family/wine-tkg-git/releases/tag/{version}"

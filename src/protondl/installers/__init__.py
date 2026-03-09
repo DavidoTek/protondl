@@ -9,14 +9,16 @@ CT_INSTALLERS = [
 ]
 
 
-def get_tools_for_launcher(launcher: Launcher) -> list[CtInstaller]:
+def get_tools_for_launcher(launcher: Launcher, advanced: bool = True) -> list[CtInstaller]:
     """
     Returns a list of compatibility tool installers that support the specified launcher.
 
     Args:
         launcher (Launcher): The launcher instance.
-
-    Returns:
-        List[CtInstaller]: A filtered list of installers compatible with the launcher.
+        advanced (bool): Whether to include advanced tools.
     """
-    return [tool for tool in CT_INSTALLERS if tool.supports_launcher(launcher)]
+    return [
+        tool
+        for tool in CT_INSTALLERS
+        if tool.supports_launcher(launcher) and (advanced or not tool.advanced)
+    ]

@@ -28,6 +28,7 @@ class CtInstaller(ABC):
     Attributes:
         name (str): The human-readable name of the compatibility tool.
         description (str): A brief summary of what the tool does.
+        advanced (bool): Whether this tool is considered "advanced".
         supported_launchers (list[Launcher]): A collection of launcher identifiers compatible
             with this tool.
         info_url (str): The official website or repository URL for the tool.
@@ -40,6 +41,7 @@ class CtInstaller(ABC):
 
     name: str
     description: str
+    advanced: bool
     supported_launchers: list[type[Launcher]]
     info_url: str
     release_info_url: str
