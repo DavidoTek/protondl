@@ -1,8 +1,12 @@
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
 from protondl.installers.ge_proton import GEProtonInstaller
+from protondl.installers.proton_tkg import ProtonTkgInstaller
 
-CT_INSTALLERS = [GEProtonInstaller()]
+CT_INSTALLERS = [
+    GEProtonInstaller(),
+    ProtonTkgInstaller(),
+]
 
 
 def get_tools_for_launcher(launcher: Launcher) -> list[CtInstaller]:

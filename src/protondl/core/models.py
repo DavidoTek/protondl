@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TypedDict
 
 
 class InstallMode(Enum):
@@ -28,3 +29,25 @@ class ReleaseData:
     size: int | None = None
     checksum: str | None = None
     original_filename: str | None = None
+
+
+class GitHubWorkflowRun(TypedDict):
+    """Represents a GitHub Actions workflow run associated with an artifact."""
+
+    id: int
+    head_sha: str
+
+
+class GitHubArtifact(TypedDict):
+    """Represents an artifact from a GitHub Actions workflow run."""
+
+    name: str
+    size_in_bytes: int
+    updated_at: str
+    workflow_run: GitHubWorkflowRun
+
+
+class GitHubArtifactResponse(TypedDict):
+    """Represents the response from the GitHub API when querying for artifacts."""
+
+    artifacts: list[GitHubArtifact]
