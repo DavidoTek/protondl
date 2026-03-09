@@ -7,7 +7,7 @@ import httpx
 
 from protondl.core.base_launcher import Launcher
 from protondl.core.models import ReleaseData, RequestConfig
-from protondl.util.archive import extract_tar
+from protondl.util.archive import extract_tar, extract_tar_zst, extract_zip
 from protondl.util.download import (
     calculate_sha512,
     download_file,
@@ -201,7 +201,13 @@ class CtInstaller(ABC):
         Raises:
             ValueError: If the archive format is unsupported.
         """
-        if self.release_format.endswith(".tar.gz") or self.release_format.endswith(".tgz"):
-            extract_tar(archive_path, extract_to, compression="gz")
+        if self.release_format.endswith(".tar.zst"):
+            extract_tar_zst(archive_path, extract_to)
+        elif ".tar." in self.release_format:
+            extract_tar(
+                archive_path, extract_to, compression=self.release_format.split(".tar.")[-1]
+            )
+        elif self.release_format.endswith(".zip"):
+            extract_zip(archive_path, extract_to)
         else:
             raise ValueError(f"Unsupported archive format: {self.release_format}")
