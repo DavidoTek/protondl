@@ -51,12 +51,11 @@ async def is_online(host: str = "https://api.github.com/rate_limit", timeout: in
         return False
 
 
-def check_rate_limits(url: str, response_json: Any) -> Any:
+def check_rate_limits(response_json: Any) -> Any:
     """
     Checks API responses for rate limit errors and raises RateLimitError if limits are exceeded.
 
     Args:
-        url: The API URL that was called.
         response_json: The JSON response from the API call.
 
     Returns:
@@ -71,13 +70,12 @@ def check_rate_limits(url: str, response_json: Any) -> Any:
     message = str(response_json.get("message", ""))
 
     # GitHub check
-    if GITHUB_API in url and "rate limit exceeded" in message.lower():
+    if "rate limit exceeded" in message.lower():
         raise RateLimitError("GitHub API rate limit exceeded. Provide a token to increase limits.")
 
     # GitLab check
-    if is_gitlab_instance(url):
-        if any(msg in message for msg in GITLAB_RATELIMIT_MSGS):
-            raise RateLimitError("GitLab API rate limit exceeded.")
+    if any(msg in message for msg in GITLAB_RATELIMIT_MSGS):
+        raise RateLimitError("GitLab API rate limit exceeded.")
 
     return response_json
 
@@ -116,7 +114,7 @@ async def fetch_project_release_data(
 
     async with httpx.AsyncClient(headers=config.get_headers(), follow_redirects=True) as client:
         resp = await client.get(fetch_url)
-        data = check_rate_limits(fetch_url, resp.json())
+        data = check_rate_limits(resp.json())
 
         release_data = ReleaseData(
             version=data.get(tag_key, "unknown"), date=data.get(date_key, "unknown").split("T")[0]
@@ -173,7 +171,7 @@ async def fetch_project_releases(
     async with httpx.AsyncClient(headers=config.get_headers(), follow_redirects=True) as client:
         response = await client.get(releases_url, params=params)
 
-        data = check_rate_limits(releases_url, response.json())
+        data = check_rate_limits(response.json())
 
         if not isinstance(data, list):
             return []
