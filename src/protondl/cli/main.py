@@ -11,9 +11,9 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from protondl.cli.helpers import get_launchers, resolve_installer, select_launcher
 from protondl.core.models import RequestConfig
-from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
-from protondl.launchers import detect_all_launchers
+from protondl.installers import get_tools_for_launcher
 
 app = typer.Typer(help="Proton Compatibility Tool Manager")
 state = {"request_config": RequestConfig(github_token=None)}
@@ -37,26 +37,23 @@ def list_launchers() -> None:
     """
     Scan the system and display all detected game launchers in a table.
     """
-    launchers = detect_all_launchers()
+    launchers = get_launchers()
 
     if not launchers:
         console.print("[yellow]No launchers detected on your system.[/yellow]")
         return
 
-    # Create a Rich table for a modern look
     table = Table(
         title="Detected Launchers",
         caption="Use the [bold cyan]ID[/bold cyan] to target a specific launcher in other commands",
         title_style="bold magenta",
     )
 
-    # Define columns
     table.add_column("ID", justify="center", style="cyan", no_wrap=True)
     table.add_column("Launcher Name", style="white")
     table.add_column("Mode", style="green")
     table.add_column("Root Path", style="dim")
 
-    # Add rows using the index as the ID
     for idx, launcher in enumerate(launchers, 1):
         table.add_row(
             str(idx),
@@ -75,24 +72,13 @@ def list_supported_tools(
     """
     List all compatibility tools supported by a specific launcher instance.
     """
-    # 1. Get all launchers to resolve the ID
-    launchers = detect_all_launchers()
-    launcher_id -= 1
-
-    if not (0 <= launcher_id < len(launchers)):
-        console.print(f"[red]Error: Launcher ID {launcher_id} is out of range.[/red]")
-        raise typer.Exit(code=1)
-
-    target_launcher = launchers[launcher_id]
-
-    # 2. Filter tools using our generic function
+    target_launcher = select_launcher(launcher_id)
     compatible_tools = get_tools_for_launcher(target_launcher)
 
     if not compatible_tools:
         console.print(f"[yellow]No compatible tools found for {target_launcher.name}.[/yellow]")
         return
 
-    # 3. Display the results in a pretty table
     table = Table(
         title=f"Compatible Tools for [bold cyan]{target_launcher.name}[/bold cyan]"
         + f"({target_launcher.install_mode.value})",
@@ -121,18 +107,7 @@ def list_versions(
     """
     Fetch and list all available remote versions for a specific tool.
     """
-    # 1. Find the installer by name
-    installer = next((i for i in CT_INSTALLERS if i.name.lower() == tool_name.lower()), None)
-
-    if not installer and tool_name.isdigit():
-        # If the tool_name is a digit, we treat it as an ID from the 'list-tools' command
-        all_launchers = detect_all_launchers()
-        compatible_tools = []
-        for launcher in all_launchers:
-            compatible_tools.extend(get_tools_for_launcher(launcher))
-        tool_id = int(tool_name) - 1
-        if 0 <= tool_id < len(compatible_tools):
-            installer = compatible_tools[tool_id]
+    installer = resolve_installer(tool_name)
 
     if not installer:
         console.print(f"[red]Error: Tool '{tool_name}' not found in registry.[/red]")
@@ -140,12 +115,10 @@ def list_versions(
 
     installer.request_config = state["request_config"]
 
-    # 2. Fetch versions with a loading spinner
     try:
         with console.status(
             f"[bold blue]Fetching versions for {installer.name}...", spinner="dots"
         ):
-            # Run the async fetch_releases method
             versions = asyncio.run(installer.fetch_releases(count=count, page=page))
     except Exception as e:
         console.print(f"[red]Failed to fetch versions: {e}[/red]")
@@ -155,7 +128,6 @@ def list_versions(
         console.print(f"[yellow]No versions found for {installer.name}.[/yellow]")
         return
 
-    # 3. Display in a table
     table = Table(title=f"Available Versions: [bold cyan]{installer.name}[/bold cyan]")
     table.add_column("Version String", style="green")
 
@@ -178,25 +150,8 @@ def install_tool(
     """
     Download and install a compatibility tool for a specific launcher.
     """
-    # 1. Resolve Launcher
-    launchers = detect_all_launchers()
-    launcher_id -= 1
-    if not (0 <= launcher_id < len(launchers)):
-        console.print(f"[red]Error: Launcher ID {launcher_id} not found.[/red]")
-        raise typer.Exit(1)
-
-    target_launcher = launchers[launcher_id]
-
-    # 2. Resolve Installer (Case-insensitive search)
-    # We look through our registry for a tool with a matching name
-    installer = next((i for i in CT_INSTALLERS if i.name.lower() == tool_name.lower()), None)
-
-    if not installer and tool_name.isdigit():
-        # If the tool_name is a digit, we treat it as an ID from the 'list-tools' command
-        compatible_tools = get_tools_for_launcher(target_launcher)
-        tool_id = int(tool_name) - 1
-        if 0 <= tool_id < len(compatible_tools):
-            installer = compatible_tools[tool_id]
+    target_launcher = select_launcher(launcher_id)
+    installer = resolve_installer(tool_name, launcher=target_launcher)
 
     if not installer:
         console.print(f"[red]Error: Tool '{tool_name}' is not supported.[/red]")
@@ -204,14 +159,12 @@ def install_tool(
 
     installer.request_config = state["request_config"]
 
-    # 3. Check Compatibility
     if not installer.supports_launcher(target_launcher):
         console.print(
             f"[red]Error: {installer.name} does not support {target_launcher.name}.[/red]"
         )
         raise typer.Exit(1)
 
-    # 4. Execute Installation (Handling the Async call)
     console.print(
         f"Preparing to install [bold cyan]{installer.name}[/bold cyan] "
         + f"to [bold green]{target_launcher.name}[/bold green]..."
@@ -250,13 +203,7 @@ def list_installed_tools(
     """
     List all compatibility tools currently installed for a specific launcher.
     """
-    launchers = detect_all_launchers()
-    launcher_id -= 1
-    if not (0 <= launcher_id < len(launchers)):
-        console.print(f"[red]Error: Launcher ID {launcher_id} not found.[/red]")
-        raise typer.Exit(1)
-
-    target_launcher = launchers[launcher_id]
+    target_launcher = select_launcher(launcher_id)
 
     with console.status(
         f"[bold blue]Scanning {target_launcher.name} directories...", spinner="bouncingBar"
