@@ -245,7 +245,6 @@ def list_installed_tools(
         console.print(
             f"[yellow]No custom compatibility tools found for {target_launcher.name}.[/yellow]"
         )
-        console.print(f"[dim]Checked: {target_launcher.get_compatibility_tools_path()}[/dim]")
         return
 
     table = Table(title=f"Installed Tools: [bold cyan]{target_launcher.name}[/bold cyan]")
@@ -253,10 +252,8 @@ def list_installed_tools(
     table.add_column("Tool Folder Name", style="green")
     table.add_column("Path", style="dim", overflow="ellipsis")
 
-    tools_path = target_launcher.get_compatibility_tools_path()
-
-    for idx, folder_name in enumerate(sorted(installed_tools), 1):
-        table.add_row(str(idx), folder_name, str(tools_path / folder_name))
+    for idx, tool in enumerate(sorted(installed_tools, key=lambda x: x.full_name), 1):
+        table.add_row(str(idx), tool.full_name, str(tool.install_dir))
 
     console.print(table)
 

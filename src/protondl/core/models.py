@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TypedDict
 
 
@@ -13,6 +14,22 @@ class InstallMode(Enum):
 class CompatToolType(Enum):
     PROTON = "proton"
     VKD3D = "vkd3d"
+
+
+@dataclass
+class CompatTool:
+    """
+    Represents a compatibility tool (like Proton or VKD3D) installed for a specific launcher.
+
+    Attributes:
+        full_name: The full name of the installed tool, often including version information.
+        tool_type: The type of compatibility tool (e.g., PROTON, VKD3D).
+        install_dir: The directory where the tool is installed.
+    """
+
+    full_name: str
+    tool_type: CompatToolType
+    install_dir: Path
 
 
 @dataclass

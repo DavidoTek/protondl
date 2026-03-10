@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from protondl.core.models import CompatToolType, InstallMode
+from protondl.core.models import CompatTool, CompatToolType, InstallMode
 
 
 class Launcher(ABC):
@@ -59,13 +59,13 @@ class Launcher(ABC):
         """
         pass
 
-    def get_installed_tools(self) -> list[str]:
+    def get_installed_tools(self) -> list[CompatTool]:
         """
         Returns a list of installed compatibility tools for this launcher by checking the
         compatibility tools directory.
 
         Returns:
-            list[str]: A list of installed tool names (e.g., ["GE-Proton9-1", "Boxtron"]).
+            list[CompatTool]: A list of installed compatibility tools.
         """
         installed_tools = []
 
@@ -73,7 +73,11 @@ class Launcher(ABC):
             tools_path = self.get_compatibility_tools_path(tool_type)
             if tools_path.exists():
                 installed_tools.extend(
-                    [item.name for item in tools_path.iterdir() if item.is_dir()]
+                    [
+                        CompatTool(full_name=item.name, tool_type=tool_type, install_dir=item)
+                        for item in tools_path.iterdir()
+                        if item.is_dir()
+                    ]
                 )
 
         return installed_tools
