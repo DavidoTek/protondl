@@ -4,7 +4,7 @@ import typer
 
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
-from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
+from protondl.installers import CT_INSTALLERS
 from protondl.launchers import detect_all_launchers
 
 
@@ -37,19 +37,18 @@ def select_launcher(launcher_id: int) -> Launcher:
     return launchers[idx]
 
 
-def resolve_installer(tool_name: str, launcher: Launcher | None = None) -> CtInstaller | None:
+def resolve_installer(tool_name: str) -> CtInstaller | None:
     """
-    Resolve a compatibility tool installer based on the provided tool name or numeric ID.
+    Resolve a compatibility tool installer from a name or numeric identifier.
 
     Args:
-        tool_name (str): The name or numeric ID of the tool to resolve.
-        launcher (Launcher, optional): The launcher context to filter tools by. If provided,
-            only tools compatible with this launcher will be considered for numeric ID resolution.
+        tool_name: human name or 1-based numeric ID of the tool.
+        launcher: ignored; present to keep the API stable.
 
     Returns:
-        CtInstaller | None: The resolved installer instance, or None if not found.
+        The matching :class:`CtInstaller` instance, or ``None`` if no match
+        exists.
     """
-
     installer = next(
         (i for i in CT_INSTALLERS if i.name.lower() == tool_name.lower()),
         None,
@@ -59,14 +58,7 @@ def resolve_installer(tool_name: str, launcher: Launcher | None = None) -> CtIns
 
     if tool_name.isdigit():
         tool_id = int(tool_name) - 1
-        if launcher:
-            candidates = get_tools_for_launcher(launcher)
-        else:
-            candidates = []
-            for ln in get_launchers():
-                candidates.extend(get_tools_for_launcher(ln))
-
-        if 0 <= tool_id < len(candidates):
-            return candidates[tool_id]
+        if 0 <= tool_id < len(CT_INSTALLERS):
+            return CT_INSTALLERS[tool_id]
 
     return None

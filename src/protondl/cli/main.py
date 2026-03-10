@@ -13,7 +13,7 @@ from rich.table import Table
 
 from protondl.cli.helpers import get_launchers, resolve_installer, select_launcher
 from protondl.core.models import RequestConfig
-from protondl.installers import get_tools_for_launcher
+from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
 
 app = typer.Typer(help="Proton Compatibility Tool Manager")
 state = {"request_config": RequestConfig(github_token=None)}
@@ -74,6 +74,7 @@ def list_supported_tools(
     """
     target_launcher = select_launcher(launcher_id)
     compatible_tools = get_tools_for_launcher(target_launcher)
+    compatible_tools.sort(key=lambda t: CT_INSTALLERS.index(t))
 
     if not compatible_tools:
         console.print(f"[yellow]No compatible tools found for {target_launcher.name}.[/yellow]")
@@ -90,15 +91,18 @@ def list_supported_tools(
     table.add_column("Description", style="white")
     table.add_column("More Info", style="blue")
 
-    for idx, tool in enumerate(compatible_tools, 1):
-        table.add_row(str(idx), tool.name, tool.description, tool.info_url)
+    for tool in compatible_tools:
+        global_id = CT_INSTALLERS.index(tool) + 1
+        table.add_row(str(global_id), tool.name, tool.description, tool.info_url)
 
     console.print(table)
 
 
 @app.command(name="list-versions")
 def list_versions(
-    tool_name: str = typer.Argument(..., help="The name or ID of the tool (e.g., 'GE-Proton')"),
+    tool_name: str = typer.Argument(
+        ..., help="The name or global ID of the tool (e.g., 'GE-Proton' or '1')"
+    ),
     count: int = typer.Option(
         30, "--count", "-c", help="Number of versions to show", min=1, max=100
     ),
@@ -151,7 +155,7 @@ def install_tool(
     Download and install a compatibility tool for a specific launcher.
     """
     target_launcher = select_launcher(launcher_id)
-    installer = resolve_installer(tool_name, launcher=target_launcher)
+    installer = resolve_installer(tool_name)
 
     if not installer:
         console.print(f"[red]Error: Tool '{tool_name}' is not supported.[/red]")
