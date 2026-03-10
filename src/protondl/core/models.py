@@ -10,6 +10,11 @@ class InstallMode(Enum):
     SNAP = "snap"
 
 
+class CompatToolType(Enum):
+    PROTON = "proton"
+    VKD3D = "vkd3d"
+
+
 @dataclass
 class RequestConfig:
     github_token: str | None = field(default_factory=lambda: os.getenv("GITHUB_TOKEN"))

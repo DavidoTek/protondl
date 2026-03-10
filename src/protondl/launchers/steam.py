@@ -1,10 +1,14 @@
 from pathlib import Path
 
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import InstallMode
+from protondl.core.models import CompatToolType, InstallMode
 
 
 class SteamLauncher(Launcher):
+    supported_tools_folders = {
+        CompatToolType.PROTON: Path("compatibilitytools.d"),
+    }
+
     @classmethod
     def discover(cls) -> list[Launcher]:
         found: list[Launcher] = []
@@ -51,7 +55,13 @@ class SteamLauncher(Launcher):
         """
         return (path / "config").is_dir() or (path / "ubuntu12_32").exists()
 
-    def get_compatibility_tools_path(self) -> Path:
-        path = self.root_path / "compatibilitytools.d"
+    def get_compatibility_tools_path(self, tool_type: CompatToolType) -> Path:
+        if tool_type not in self.supported_tools_folders:
+            raise ValueError(
+                "SteamLauncher only supports the following tool types: "
+                + f"{self.supported_tools_folders}, got {tool_type}"
+            )
+
+        path = self.root_path / self.supported_tools_folders[tool_type]
         path.mkdir(parents=True, exist_ok=True)
         return path

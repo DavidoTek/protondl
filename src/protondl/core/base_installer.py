@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import ReleaseData, RequestConfig
+from protondl.core.models import CompatToolType, ReleaseData, RequestConfig
 from protondl.util.archive import extract_tar, extract_tar_zst, extract_zip
 from protondl.util.download import (
     calculate_sha512,
@@ -28,9 +28,8 @@ class CtInstaller(ABC):
     Attributes:
         name (str): The human-readable name of the compatibility tool.
         description (str): A brief summary of what the tool does.
+        tool_type (CompatToolType): The type/category of the compatibility tool.
         advanced (bool): Whether this tool is considered "advanced".
-        supported_launchers (list[Launcher]): A collection of launcher identifiers compatible
-            with this tool.
         info_url (str): The official website or repository URL for the tool.
         release_info_url (str): URL to the releases page.
             Formatted with {version} for specific release details.
@@ -41,8 +40,8 @@ class CtInstaller(ABC):
 
     name: str
     description: str
+    tool_type: CompatToolType
     advanced: bool
-    supported_launchers: list[type[Launcher]]
     info_url: str
     release_info_url: str
     api_url: str
@@ -136,7 +135,7 @@ class CtInstaller(ABC):
         Returns:
             bool: True if the tool supports the launcher, False otherwise.
         """
-        return isinstance(launcher, tuple(self.supported_launchers))
+        return self.tool_type in launcher.supported_tools_folders
 
     def _get_extract_dir(self, launcher: Launcher) -> Path:
         """
@@ -148,7 +147,7 @@ class CtInstaller(ABC):
         Returns:
             Path: The path to the extraction directory.
         """
-        return launcher.get_compatibility_tools_path()
+        return launcher.get_compatibility_tools_path(self.tool_type)
 
     async def _fetch_release_data(self, version: str) -> ReleaseData:
         """

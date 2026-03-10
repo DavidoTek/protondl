@@ -1,6 +1,5 @@
+from protondl.core.models import CompatToolType
 from protondl.installers.proton_tkg import ProtonTkgInstaller
-from protondl.launchers.lutris import LutrisLauncher
-from protondl.launchers.steam import SteamLauncher
 
 
 class ProtonTkgValveWineInstaller(ProtonTkgInstaller):
@@ -9,7 +8,7 @@ class ProtonTkgValveWineInstaller(ProtonTkgInstaller):
         "Custom Proton build for running Windows games, built with the Wine-tkg build system. "
         "This build is based on Valve Wine bleeding_edge."
     )
+    tool_type = CompatToolType.PROTON
     advanced = True
-    supported_launchers = [SteamLauncher, LutrisLauncher]
 
     proton_package_name = "wine-valvexbe"

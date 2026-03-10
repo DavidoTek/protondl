@@ -1,10 +1,20 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from protondl.core.models import InstallMode
+from protondl.core.models import CompatToolType, InstallMode
 
 
 class Launcher(ABC):
+    """
+    Abstract base class for game launchers.
+
+    Attributes:
+        supported_tool_types: A mapping of supported compatibility tool types to their
+            respective installation subdirectories, relative to the launcher's root path.
+    """
+
+    supported_tools_folders: dict[CompatToolType, Path]
+
     def __init__(self, name: str, root_path: Path, install_mode: InstallMode) -> None:
         """
         Initializes a Launcher instance.
@@ -32,13 +42,20 @@ class Launcher(ABC):
         pass
 
     @abstractmethod
-    def get_compatibility_tools_path(self) -> Path:
+    def get_compatibility_tools_path(self, tool_type: CompatToolType) -> Path:
         """
         Returns the directory path where compatibility tools should be installed for this launcher.
         The folder is created if the launcher is detected but the folder doesn't exist yet.
 
+        Args:
+            tool_type: The type of compatibility tool (e.g., Proton, VKD3D, ...) to determine the
+                appropriate installation path.
+
         Returns:
             Path: The path to the compatibility tools directory.
+
+        Raises:
+            ValueError: If the launcher does not support the specified tool type.
         """
         pass
 
@@ -50,7 +67,13 @@ class Launcher(ABC):
         Returns:
             list[str]: A list of installed tool names (e.g., ["GE-Proton9-1", "Boxtron"]).
         """
-        tools_path = self.get_compatibility_tools_path()
-        if not tools_path.exists():
-            return []
-        return [item.name for item in tools_path.iterdir() if item.is_dir()]
+        installed_tools = []
+
+        for tool_type, _ in self.supported_tools_folders.items():
+            tools_path = self.get_compatibility_tools_path(tool_type)
+            if tools_path.exists():
+                installed_tools.extend(
+                    [item.name for item in tools_path.iterdir() if item.is_dir()]
+                )
+
+        return installed_tools
