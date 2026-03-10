@@ -2,12 +2,14 @@ from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
 from protondl.installers.ge_proton import GEProtonInstaller
 from protondl.installers.proton_tkg import ProtonTkgInstaller
+from protondl.installers.proton_tkg_valvewine import ProtonTkgValveWineInstaller
 from protondl.installers.proton_tkg_winemaster import ProtonTkgWinemasterInstaller
 
 CT_INSTALLERS = [
     GEProtonInstaller(),
     ProtonTkgInstaller(),
     ProtonTkgWinemasterInstaller(),
+    ProtonTkgValveWineInstaller(),
 ]
 
 
