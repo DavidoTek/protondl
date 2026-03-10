@@ -145,11 +145,10 @@ def list_versions(
 
     # 3. Display in a table
     table = Table(title=f"Available Versions: [bold cyan]{installer.name}[/bold cyan]")
-    table.add_column("Index", justify="right", style="dim")
     table.add_column("Version String", style="green")
 
-    for idx, version in enumerate(versions):
-        table.add_row(str(idx), version)
+    for version in versions:
+        table.add_row(version)
 
     console.print(table)
 
