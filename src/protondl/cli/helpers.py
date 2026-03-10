@@ -25,7 +25,7 @@ def select_launcher(launcher_id: int) -> Launcher:
         Launcher: The selected Launcher instance.
 
     Raises:
-        ValueError: If the launcher_id is out of range.
+        typer.Exit: If the launcher_id is out of range.
     """
 
     launchers = get_launchers()

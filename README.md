@@ -93,7 +93,8 @@ protondl uses the [uv](https://docs.astral.sh/uv/) package manager for high-perf
     We use Ruff for linting/formatting and Mypy for strict type checking.
     - Format code: `uv run ruff format .`
     - Lint code: `uv run ruff check --fix .`
-    - Type check: `uv run mypy src`
+    - Type check: `uv run mypy src tests`
+    - Unit tests: `uv run pytest tests`
 
 3. **Pre-commit Hooks**
 
