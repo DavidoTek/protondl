@@ -1,4 +1,5 @@
 from protondl.installers.proton_tkg import ProtonTkgInstaller
+from protondl.launchers.lutris import LutrisLauncher
 from protondl.launchers.steam import SteamLauncher
 
 
@@ -9,6 +10,6 @@ class ProtonTkgWinemasterInstaller(ProtonTkgInstaller):
         "This build is based on Wine Master."
     )
     advanced = True
-    supported_launchers = [SteamLauncher]
+    supported_launchers = [SteamLauncher, LutrisLauncher]
 
     proton_package_name = "proton-arch-nopackage.yml"

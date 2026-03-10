@@ -1,9 +1,11 @@
 from protondl.core.base_launcher import Launcher
+from protondl.launchers.lutris import LutrisLauncher
 from protondl.launchers.steam import SteamLauncher
 
 # Registry of all launcher classes the library supports
 SUPPORTED_LAUNCHER_CLASSES = [
     SteamLauncher,
+    LutrisLauncher,
 ]
 
 

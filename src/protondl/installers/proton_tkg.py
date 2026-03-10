@@ -5,6 +5,7 @@ import httpx
 
 from protondl.core.base_installer import CtInstaller
 from protondl.core.models import GitHubArtifact, GitHubArtifactResponse, ReleaseData
+from protondl.launchers.lutris import LutrisLauncher
 from protondl.launchers.steam import SteamLauncher
 from protondl.util.archive import extract_tar, extract_tar_zst, extract_zip
 
@@ -15,7 +16,7 @@ class ProtonTkgInstaller(CtInstaller):
         "Custom Proton build for running Windows games, built with the Wine-tkg build system."
     )
     advanced = False
-    supported_launchers = [SteamLauncher]
+    supported_launchers = [SteamLauncher, LutrisLauncher]
     info_url = "https://github.com/Frogging-Family/wine-tkg-git"
     release_info_url = "https://github.com/Frogging-Family/wine-tkg-git/releases/tag/{version}"
     api_url = "https://github.com/Frogging-Family/wine-tkg-git/releases"
