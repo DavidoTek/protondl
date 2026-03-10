@@ -57,7 +57,7 @@ def list_launchers() -> None:
     table.add_column("Root Path", style="dim")
 
     # Add rows using the index as the ID
-    for idx, launcher in enumerate(launchers):
+    for idx, launcher in enumerate(launchers, 1):
         table.add_row(
             str(idx),
             launcher.name,
@@ -77,6 +77,7 @@ def list_supported_tools(
     """
     # 1. Get all launchers to resolve the ID
     launchers = detect_all_launchers()
+    launcher_id -= 1
 
     if not (0 <= launcher_id < len(launchers)):
         console.print(f"[red]Error: Launcher ID {launcher_id} is out of range.[/red]")
@@ -98,19 +99,20 @@ def list_supported_tools(
         header_style="bold magenta",
     )
 
+    table.add_column("ID", justify="center", style="cyan", no_wrap=True)
     table.add_column("Tool Name", style="cyan", no_wrap=True)
     table.add_column("Description", style="white")
     table.add_column("More Info", style="blue")
 
-    for tool in compatible_tools:
-        table.add_row(tool.name, tool.description, tool.info_url)
+    for idx, tool in enumerate(compatible_tools, 1):
+        table.add_row(str(idx), tool.name, tool.description, tool.info_url)
 
     console.print(table)
 
 
 @app.command(name="list-versions")
 def list_versions(
-    tool_name: str = typer.Argument(..., help="The name of the tool (e.g., 'GE-Proton')"),
+    tool_name: str = typer.Argument(..., help="The name or ID of the tool (e.g., 'GE-Proton')"),
     count: int = typer.Option(
         30, "--count", "-c", help="Number of versions to show", min=1, max=100
     ),
@@ -121,6 +123,16 @@ def list_versions(
     """
     # 1. Find the installer by name
     installer = next((i for i in CT_INSTALLERS if i.name.lower() == tool_name.lower()), None)
+
+    if not installer and tool_name.isdigit():
+        # If the tool_name is a digit, we treat it as an ID from the 'list-tools' command
+        all_launchers = detect_all_launchers()
+        compatible_tools = []
+        for launcher in all_launchers:
+            compatible_tools.extend(get_tools_for_launcher(launcher))
+        tool_id = int(tool_name) - 1
+        if 0 <= tool_id < len(compatible_tools):
+            installer = compatible_tools[tool_id]
 
     if not installer:
         console.print(f"[red]Error: Tool '{tool_name}' not found in registry.[/red]")
@@ -156,7 +168,9 @@ def list_versions(
 @app.command(name="install")
 def install_tool(
     launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
-    tool_name: str = typer.Argument(..., help="Name of the tool to install (e.g., 'GE-Proton')"),
+    tool_name: str = typer.Argument(
+        ..., help="Name or ID of the tool to install (e.g., 'GE-Proton' or '1')"
+    ),
     version: str = typer.Argument(
         ..., help="Version to install (e.g., 'latest' or 'GE-Proton9-2')"
     ),
@@ -166,6 +180,7 @@ def install_tool(
     """
     # 1. Resolve Launcher
     launchers = detect_all_launchers()
+    launcher_id -= 1
     if not (0 <= launcher_id < len(launchers)):
         console.print(f"[red]Error: Launcher ID {launcher_id} not found.[/red]")
         raise typer.Exit(1)
@@ -175,6 +190,13 @@ def install_tool(
     # 2. Resolve Installer (Case-insensitive search)
     # We look through our registry for a tool with a matching name
     installer = next((i for i in CT_INSTALLERS if i.name.lower() == tool_name.lower()), None)
+
+    if not installer and tool_name.isdigit():
+        # If the tool_name is a digit, we treat it as an ID from the 'list-tools' command
+        compatible_tools = get_tools_for_launcher(target_launcher)
+        tool_id = int(tool_name) - 1
+        if 0 <= tool_id < len(compatible_tools):
+            installer = compatible_tools[tool_id]
 
     if not installer:
         console.print(f"[red]Error: Tool '{tool_name}' is not supported.[/red]")
@@ -229,6 +251,7 @@ def list_installed_tools(
     List all compatibility tools currently installed for a specific launcher.
     """
     launchers = detect_all_launchers()
+    launcher_id -= 1
     if not (0 <= launcher_id < len(launchers)):
         console.print(f"[red]Error: Launcher ID {launcher_id} not found.[/red]")
         raise typer.Exit(1)
