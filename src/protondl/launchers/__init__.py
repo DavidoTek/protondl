@@ -1,4 +1,5 @@
 from protondl.core.base_launcher import Launcher
+from protondl.launchers.heroic import HeroicLauncher
 from protondl.launchers.lutris import LutrisLauncher
 from protondl.launchers.steam import SteamLauncher
 
@@ -6,6 +7,7 @@ from protondl.launchers.steam import SteamLauncher
 SUPPORTED_LAUNCHER_CLASSES = [
     SteamLauncher,
     LutrisLauncher,
+    HeroicLauncher,
 ]
 
 
