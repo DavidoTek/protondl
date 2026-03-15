@@ -1,6 +1,7 @@
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
 from protondl.installers.dxvk import DXVKInstaller
+from protondl.installers.dxvk_async import DXVKAsyncInstaller
 from protondl.installers.ge_proton import GEProtonInstaller
 from protondl.installers.proton_tkg import ProtonTkgInstaller
 from protondl.installers.proton_tkg_valvewine import ProtonTkgValveWineInstaller
@@ -15,6 +16,7 @@ CT_INSTALLERS = [
     ProtonTkgValveWineInstaller(),
     WineTkgWinemasterInstaller(),
     DXVKInstaller(),
+    DXVKAsyncInstaller(),
     VKD3DProtonInstaller(),
 ]
 

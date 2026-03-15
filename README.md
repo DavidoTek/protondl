@@ -33,6 +33,7 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 - [Wine-Tkg](https://github.com/Frogging-Family/wine-tkg-git) (Wine)
 - [Proton-Tkg](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
 - [DXVK](https://github.com/doitsujin/dxvk) (DXVK)
+- [DXVK Async](https://gitlab.com/Ph42oN/dxvk-gplasync) (DXVK)
 - [vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) (VKD3D)
 
 ## 🚀 Quick Start
