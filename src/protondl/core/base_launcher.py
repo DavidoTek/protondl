@@ -76,6 +76,7 @@ class Launcher(ABC):
         """
         installed_tools = []
         seen_dirs = set()  # Avoid duplicates if multiple tool types share the same folder
+        # TODO: Wine tools are detected as Proton tools since they share the same folder (Lutris)
 
         for tool_type, _ in self.supported_tools_folders.items():
             tools_path = self.get_compatibility_tools_path(tool_type)

@@ -5,12 +5,14 @@ from protondl.installers.proton_tkg import ProtonTkgInstaller
 from protondl.installers.proton_tkg_valvewine import ProtonTkgValveWineInstaller
 from protondl.installers.proton_tkg_winemaster import ProtonTkgWinemasterInstaller
 from protondl.installers.vkd3dproton import VKD3DProtonInstaller
+from protondl.installers.wine_tkg_winemaster import WineTkgWinemasterInstaller
 
 CT_INSTALLERS = [
     GEProtonInstaller(),
     ProtonTkgInstaller(),
     ProtonTkgWinemasterInstaller(),
     ProtonTkgValveWineInstaller(),
+    WineTkgWinemasterInstaller(),
     VKD3DProtonInstaller(),
 ]
 

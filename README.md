@@ -30,6 +30,7 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 ### Supported Tools
 
 - [GE-Proton](https://github.com/GloriousEggroll/proton-ge-custom) (Proton)
+- [Wine-Tkg](https://github.com/Frogging-Family/wine-tkg-git) (Wine)
 - [Proton-Tkg](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
 - [vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) (VKD3D)
 
