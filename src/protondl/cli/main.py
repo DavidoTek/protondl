@@ -222,11 +222,12 @@ def list_installed_tools(
 
     table = Table(title=f"Installed Tools: [bold cyan]{target_launcher.name}[/bold cyan]")
     table.add_column("Index", justify="right", style="dim")
-    table.add_column("Tool Folder Name", style="green")
+    table.add_column("Tool Name", style="green")
+    table.add_column("Type", style="cyan")
     table.add_column("Path", style="dim", overflow="ellipsis")
 
     for idx, tool in enumerate(sorted(installed_tools, key=lambda x: x.full_name), 1):
-        table.add_row(str(idx), tool.full_name, str(tool.install_dir))
+        table.add_row(str(idx), tool.full_name, tool.tool_type.value, str(tool.install_dir))
 
     console.print(table)
 
