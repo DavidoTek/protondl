@@ -18,6 +18,21 @@ This is more of a side project that I will work on here and there. Please use [P
 - **Headless by Design**: No Qt/GUI dependencies in the core library.
 - **Modern Tooling**: Powered by uv, ruff, and mypy for a rock-solid developer experience.
 
+### Supported Launchers
+
+Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.com/lutris/lutris) | [Heroic Games Launcher](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher)
+----------|-------|--------|--------
+⚛️ Proton | ✅    | ✅     | ✅
+🍷 Wine   | ❌    | ✅     | ✅
+🇽 VKD3D  | ❌    | ✅     | ✅
+9️⃣ DXVK   | ❌    | ✅     | ✅
+
+### Supported Tools
+
+- [GE-Proton](https://github.com/GloriousEggroll/proton-ge-custom) (Proton)
+- [Proton-Tkg](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
+- [vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) (VKD3D)
+
 ## 🚀 Quick Start
 
 ### Installation (for users)
