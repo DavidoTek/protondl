@@ -13,6 +13,8 @@ class InstallMode(Enum):
 
 class CompatToolType(Enum):
     PROTON = "proton"
+    WINE = "wine"
+    DXVK = "dxvk"
     VKD3D = "vkd3d"
 
 

@@ -7,6 +7,8 @@ from protondl.core.models import CompatToolType, InstallMode
 class LutrisLauncher(Launcher):
     supported_tools_folders = {
         CompatToolType.PROTON: Path("runners/wine"),
+        CompatToolType.WINE: Path("runners/wine"),
+        CompatToolType.DXVK: Path("runtime/dxvk"),
         CompatToolType.VKD3D: Path("runtime/vkd3d"),
     }
 

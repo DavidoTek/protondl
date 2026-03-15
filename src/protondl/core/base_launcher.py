@@ -59,25 +59,36 @@ class Launcher(ABC):
         """
         pass
 
-    def get_installed_tools(self) -> list[CompatTool]:
+    def get_installed_tools(
+        self, tool_types: list[CompatToolType] | None = None
+    ) -> list[CompatTool]:
         """
         Returns a list of installed compatibility tools for this launcher by checking the
         compatibility tools directory.
+
+        Args:
+            tool_types (list[CompatToolType] | None):
+                An optional list of tool types to filter by.
+                If None, all supported tool types are checked.
 
         Returns:
             list[CompatTool]: A list of installed compatibility tools.
         """
         installed_tools = []
+        seen_dirs = set()  # Avoid duplicates if multiple tool types share the same folder
 
         for tool_type, _ in self.supported_tools_folders.items():
             tools_path = self.get_compatibility_tools_path(tool_type)
             if tools_path.exists():
-                installed_tools.extend(
-                    [
-                        CompatTool(full_name=item.name, tool_type=tool_type, install_dir=item)
-                        for item in tools_path.iterdir()
-                        if item.is_dir()
-                    ]
-                )
+                for item in tools_path.iterdir():
+                    if (
+                        item.is_dir()
+                        and item not in seen_dirs
+                        and (tool_types is None or tool_type in tool_types)
+                    ):
+                        installed_tools.append(
+                            CompatTool(full_name=item.name, tool_type=tool_type, install_dir=item)
+                        )
+                        seen_dirs.add(item)
 
         return installed_tools
