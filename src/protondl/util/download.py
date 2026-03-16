@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from protondl.core.models import ReleaseData, RequestConfig
+from protondl.core.models import GitHubArtifactResponse, ReleaseData, RequestConfig
 
 GITHUB_API = "https://api.github.com/"
 GITLAB_APIS = ["https://gitlab.com/api/"]
@@ -187,6 +187,117 @@ async def fetch_project_releases(
                 releases_list.extend(include_extra_asset(release))
 
         return releases_list
+
+
+async def fetch_github_project_workflows(
+    ct_workflow_url: str,
+    package_name: str,
+    config: RequestConfig,
+    count: int = 30,
+    page: int = 1,
+) -> list[str]:
+    """
+    Fetches workflow run IDs for a given GitHub Actions workflow
+    that match the specified package name.
+
+    Args:
+        ct_workflow_url (str): The API URL for the GitHub Actions workflows.
+        package_name (str): The name of the package to filter workflows by.
+        config (RequestConfig): Configuration for API requests, including auth tokens.
+        count (int): The number of workflow runs to fetch per page.
+        page (int): The page number for paginated API requests.
+
+    Returns:
+        list[str]: A list of workflow run IDs that match
+            the specified package name, sorted by newest first.
+    """
+    async with httpx.AsyncClient(headers=config.get_headers(), follow_redirects=True) as client:
+        tags = []
+        wf_resp = await client.get(f"{ct_workflow_url}?per_page={str(count)}&page={str(page)}")
+        for wf in wf_resp.json().get("workflows", []):
+            if wf["state"] != "active" or package_name not in wf["path"]:
+                continue
+            page = 1
+            while page != -1 and page < 5:
+                # fetch more (up to 5 pages) if first releases all failed
+                # ensure the reason that len(tags)=0 is that releases failed
+                at_least_one_failed = False
+                runs_resp = await client.get(
+                    f"{wf['url']}/runs?per_page={str(count)}&page={str(page)}"
+                )
+                for run in runs_resp.json().get("workflow_runs", []):
+                    if run["conclusion"] == "success":
+                        tags.append(str(run["id"]))
+                    elif run["conclusion"] == "failure":
+                        at_least_one_failed = True
+                if len(tags) == 0 and at_least_one_failed:
+                    page += 1
+                else:
+                    page = -1
+
+        return tags
+
+
+async def fetch_github_artifact_data(
+    api_url: str, ct_artifact_url: str, ct_nightly_link: str, version: str, config: RequestConfig
+) -> ReleaseData:
+    """
+    Fetches release data for a given version by first attempting to find an artifact from
+    the workflow run ID (which is the version), and if not found, falls back to fetching
+    release data from the GitHub API using the version as a tag.
+
+    Args:
+        api_url: The base API URL for fetching release data (e.g., GitHub releases API).
+        ct_artifact_url: The API URL template for fetching artifacts associated with a workflow run.
+        ct_nightly_link: The URL template for downloading nightly builds based
+            on workflow run ID and artifact name.
+        version: The version string to fetch release data for.
+        config: Configuration for API requests, including auth tokens.
+
+    Returns:
+        A ReleaseData object containing the release information.
+    """
+    async with httpx.AsyncClient(headers=config.get_headers()) as client:
+        resp = await client.get(f"{ct_artifact_url.format(version)}?per_page=100")
+        artifact_info: GitHubArtifactResponse = resp.json()
+        if artifact_info.get("total_count") != 1:
+            raise ValueError(f"No artifact found for version '{version}'")
+
+        artifact = artifact_info["artifacts"][0]
+
+        if artifact:
+            return ReleaseData(
+                version=artifact["workflow_run"]["head_sha"],
+                date=artifact["updated_at"].split("T")[0],
+                download=ct_nightly_link.format(version=version, artifact_name=artifact["name"]),
+                size=artifact["size_in_bytes"],
+                original_filename=f"{artifact['name']}.zip",
+            )
+
+        url = f"{api_url}/tags/{version}" if version else f"{api_url}/latest"
+        resp = await client.get(url)
+        data = resp.json()
+
+        if "tag_name" not in data:
+            raise ValueError(f"Release with version '{version}' not found.")
+
+        download_url = None
+        size = 0
+        for asset in data.get("assets", []):
+            if "proton" in asset["name"]:
+                download_url = asset["browser_download_url"]
+                size = asset["size"]
+                break
+
+        if not download_url:
+            raise ValueError(f"No suitable asset found for version '{version}'.")
+
+        return ReleaseData(
+            version=data["tag_name"],
+            date=data["published_at"].split("T")[0],
+            download=download_url,
+            size=size,
+        )
 
 
 def calculate_sha512(filepath: Path, buffer_size: int) -> str:

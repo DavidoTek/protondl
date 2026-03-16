@@ -74,4 +74,5 @@ class GitHubArtifact(TypedDict):
 class GitHubArtifactResponse(TypedDict):
     """Represents the response from the GitHub API when querying for artifacts."""
 
+    total_count: int
     artifacts: list[GitHubArtifact]

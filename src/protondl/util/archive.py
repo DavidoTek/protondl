@@ -1,3 +1,5 @@
+import glob
+import shutil
 import tarfile
 import zipfile
 from pathlib import Path
@@ -98,3 +100,46 @@ def extract_tar_zst(zst_path: Path, extract_path: Path) -> None:
                     tf.extractall(extract_path, filter="data")
     except Exception as e:
         raise ArchiveError(f"Could not extract .zst archive '{zst_path}': {e}") from e
+
+
+def extract_zip_with_tar(zip_path: Path, extract_path: Path) -> None:
+    """
+    Extracts a .zip file that contains either a .tar.zst or .tar archive.
+    Renames the extracted "usr" directory to match the archive name (without .tar extension).
+    Dotfiles like .BUILDINFO, .INSTALL, .MTREE, and .PKGINFO are removed after extraction.
+
+    Args:
+        zip_path: The path to the .zip file.
+        extract_path: The path where the archive should be extracted.
+    Raises:
+        ArchiveError: If the archive file is invalid or if extraction fails.
+    """
+    archive_str = str(zip_path)
+
+    if archive_str.endswith(".tar.gz"):
+        extract_tar(zip_path, extract_path, compression="gz")
+    elif archive_str.endswith(".zip"):
+        tmp_dir = extract_path / "extract_tmp"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            extract_zip(zip_path, tmp_dir)
+
+            if zst_files := glob.glob(f"{tmp_dir}/*.tar.zst"):
+                zst_file = Path(zst_files[0])
+                extract_tar_zst(zst_file, extract_path)
+                if (extract_path / "usr").exists():
+                    (extract_path / "usr").rename(extract_path / zst_file.stem.replace(".tar", ""))
+                for dotfile in [".BUILDINFO", ".INSTALL", ".MTREE", ".PKGINFO"]:
+                    (extract_path / dotfile).unlink(missing_ok=True)
+                zst_file.unlink(missing_ok=True)
+            elif tar_files := glob.glob(f"{tmp_dir}/*.tar*"):
+                tar_file = Path(tar_files[0])
+                extract_tar(tar_file, extract_path)
+                tar_file.unlink(missing_ok=True)
+        except Exception as e:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise ArchiveError(f"Failed to extract zip with tar '{zip_path}': {e}") from e
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+    else:
+        raise ArchiveError(f"Unsupported archive format for file: {zip_path}")
