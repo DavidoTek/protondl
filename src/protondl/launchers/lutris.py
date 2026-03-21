@@ -1,6 +1,7 @@
+from collections.abc import Sequence
 from pathlib import Path
 
-from protondl.core.base_launcher import Launcher
+from protondl.core.base_launcher import Game, Launcher
 from protondl.core.models import CompatToolType, InstallMode
 
 
@@ -42,3 +43,6 @@ class LutrisLauncher(Launcher):
         path = self.root_path / self.supported_tools_folders[tool_type]
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    def get_game_list(self) -> Sequence[Game]:
+        raise NotImplementedError()

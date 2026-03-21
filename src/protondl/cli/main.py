@@ -232,5 +232,35 @@ def list_installed_tools(
     console.print(table)
 
 
+@app.command(name="list-games")
+def list_games(
+    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+) -> None:
+    """
+    List all compatibility tools currently installed for a specific launcher.
+    """
+    target_launcher = select_launcher(launcher_id)
+
+    with console.status(
+        f"[bold blue]Scanning {target_launcher.name} directories...", spinner="bouncingBar"
+    ):
+        games = target_launcher.get_game_list()
+
+    if not games:
+        console.print(f"[yellow]No games found for {target_launcher.name}.[/yellow]")
+        return
+
+    table = Table(title=f"Installed Games: [bold cyan]{target_launcher.name}[/bold cyan]")
+    table.add_column("ID", justify="right", style="dim")
+    table.add_column("Game Name", style="green")
+    table.add_column("Compatibility Tool", overflow="ellipsis")
+    table.add_column("Path", overflow="ellipsis")
+
+    for game in sorted(games, key=lambda x: x.name):
+        table.add_row(game.id, game.name, game.compat_tool_name, str(game.install_path))
+
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()

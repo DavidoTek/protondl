@@ -1,7 +1,29 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
 
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
+
+
+class Game:
+    """
+    Abstract base class for games.
+
+    Attributes:
+        id (str): Internal identifier
+        name (str): The human-readable name/title of the game.
+        compat_tool_name (str): Name of the used compatibility tool.
+        install_path (Path): The filesystem path where the game is installed.
+    """
+
+    __slots__ = ("id", "name", "compat_tool_name", "install_path")
+
+    def __init__(self, id: str, name: str, compat_tool_name: str, install_path: Path) -> None:
+        self.id = id
+        self.name = name
+        self.compat_tool_name = compat_tool_name
+        self.install_path = install_path
+        super().__init__()
 
 
 class Launcher(ABC):
@@ -9,8 +31,12 @@ class Launcher(ABC):
     Abstract base class for game launchers.
 
     Attributes:
-        supported_tool_types: A mapping of supported compatibility tool types to their
+        supported_tool_types (dict[CompatToolType, Path]):
+            A mapping of supported compatibility tool types to their
             respective installation subdirectories, relative to the launcher's root path.
+        name (str): The human-readable name of the launcher (e.g., "Steam", "Lutris (Flatpak)").
+        root_path (Path): The filesystem path to the launcher's main directory.
+        install_mode (InstallMode): The installation mode (native, flatpak, snap).
     """
 
     supported_tools_folders: dict[CompatToolType, Path]
@@ -93,3 +119,18 @@ class Launcher(ABC):
                         seen_dirs.add(item)
 
         return installed_tools
+
+    @abstractmethod
+    def get_game_list(self) -> Sequence[Game]:
+        """
+        Returns a list of games installed in this launcher.
+
+        Returns:
+            Sequence[Game]: A list of Game instances representing the installed games.
+                The type of Game may vary based on the launcher (e.g., SteamGame, LutrisGame)
+                since Sequence is immutable and allows for covariant return types.
+
+        Raises:
+            ValueError: If loading the game list failed
+        """
+        pass

@@ -56,7 +56,7 @@ uv tool install protondl
 2. List compatibilty tools available for the launcher:
 
     ```bash
-    protondl list-tools 0
+    protondl list-tools 1
     ```
 
 3. Find available versions for a tool:
@@ -68,7 +68,14 @@ uv tool install protondl
 4. Install it:
 
     ```bash
-    protondl install 0 GE-Proton GE-Proton10-10
+    protondl install 1 GE-Proton GE-Proton10-10
+    ```
+
+
+5. List installed games and the compatibility tools used by them:
+
+    ```bash
+    protondl list-games 1
     ```
 
 ### Basic Usage (Library API)
