@@ -24,6 +24,6 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
       - name: Mypy static type check
-        run: mypy src tests
+        run: mypy src tests --config-file=./pyproject.toml
       - name: Run tests
         run: pytest tests
