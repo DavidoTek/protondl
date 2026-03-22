@@ -27,5 +27,5 @@ jobs:
           path: ~/.cache 
           restore-keys: |
             mkdocs-material-
-      - run: apt install -y pngquant && pip install mkdocs-material
+      - run: sudo apt install -y pngquant && pip install mkdocs-material
       - run: mkdocs gh-deploy --force
