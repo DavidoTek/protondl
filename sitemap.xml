@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://davidotek.github.io/protondl/</loc>
+         <lastmod>2026-03-22</lastmod>
+    </url>
+    <url>
+         <loc>https://davidotek.github.io/protondl/CLI/</loc>
+         <lastmod>2026-03-22</lastmod>
+    </url>
+    <url>
+         <loc>https://davidotek.github.io/protondl/CLI/10_manage_tools/</loc>
+         <lastmod>2026-03-22</lastmod>
+    </url>
+    <url>
+         <loc>https://davidotek.github.io/protondl/CLI/20_manage_games/</loc>
+         <lastmod>2026-03-22</lastmod>
+    </url>
+    <url>
+         <loc>https://davidotek.github.io/protondl/Library_API/</loc>
+         <lastmod>2026-03-22</lastmod>
+    </url>
+</urlset>
