@@ -1,0 +1,30 @@
+site_name: protondl Documentation
+site_description: |
+  Documentation of the protondl library.
+  Modern, headless, and async-first Python library and CLI for managing Steam & Linux gaming compatibility tools.
+
+site_url: https://davidotek.github.io/protondl
+repo_url: https://github.com/DavidoTek/protondl
+repo_name: DavidoTek/protondl
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.path
+    - navigation.instant
+    - navigation.instant.prefetch
+    - toc.follow
+    - toc.integrate 
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - optimize
+  - privacy
+  - tags
+
+extra_css:
+  - stylesheets/launcher_badges.css
