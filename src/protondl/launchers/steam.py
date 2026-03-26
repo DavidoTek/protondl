@@ -6,7 +6,7 @@ import vdf
 from steam.utils.appcache import parse_appinfo
 
 from protondl.core.base_launcher import Game, Launcher
-from protondl.core.models import CompatToolType, InstallMode
+from protondl.core.models import CompatTool, CompatToolType, InstallMode
 from protondl.util.steam import (
     CompatToolInfo,
     CompatToolUsage,
@@ -173,6 +173,34 @@ class SteamLauncher(Launcher):
         path = self.root_path / self.supported_tools_folders[tool_type]
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    def get_installed_tools(
+        self, tool_types: list[CompatToolType] | None = None
+    ) -> list[CompatTool]:
+        """
+        Returns a list of installed compatibility tools for this launcher by checking the
+        compatibility tools directory and installed official Proton versions.
+
+        Args:
+            tool_types (list[CompatToolType] | None):
+                An optional list of tool types to filter by.
+                If None, all supported tool types are checked.
+
+        Returns:
+            list[CompatTool]: A list of installed compatibility tools.
+        """
+        installed_tools = super().get_installed_tools(tool_types)
+
+        if not tool_types or CompatToolType.PROTON in tool_types:
+            installed_tools.extend(
+                [
+                    CompatTool(app.name, CompatToolType.PROTON, app.install_path)
+                    for app in self.get_game_list()
+                    if app.app_type == SteamAppType.COMPAT_TOOL
+                ]
+            )
+
+        return installed_tools
 
     def get_game_list(self, shortcuts: bool = True, cached: bool = True) -> Sequence[SteamGame]:
         """
