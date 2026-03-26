@@ -45,3 +45,6 @@ class HeroicLauncher(Launcher):
 
     def get_game_list(self) -> Sequence[Game]:
         raise NotImplementedError()
+
+    def set_games_tools(self, game_tool_map: dict[Game, str | None]) -> None:
+        raise NotImplementedError()

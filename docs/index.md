@@ -43,7 +43,7 @@ Fetch available tool versions  | ✅       | ✅              | ✅             
 List installed tools           | ✅       | ✅              | ✅             | ⬜
 List installed games           | ✅       | ✅              | ✅             | ⬜
 Get tool used by a game        | ✅       | ✅              | ✅             | ⬜
-Set tool used by a game        | ⬜       | ✅              | ✅             | ⬜
+Set tool used by a game        | ✅       | ✅              | ✅             | ⬜
 Show game SteamDeck rating     | ⬜       | ✅              | ⬜             | ⬜
 Show game AWACY[^4] rating     | ⬜       | ✅              | ✅             | ⬜
 Programming language           | Python   | Python          | Vala           | Rust

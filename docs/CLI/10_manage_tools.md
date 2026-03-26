@@ -37,3 +37,11 @@ protondl install <launcher id> <tool id/name> <tool version name>
 # Example
 protondl install 1 GE-Proton GE-Proton10-10
 ```
+
+## List installed compatibility tools
+
+If you want to see, which compatibility tools are installed for a specific launcher, run the following command:
+
+```bash
+protondl list-installed <launcher id>
+```

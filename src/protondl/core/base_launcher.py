@@ -134,3 +134,17 @@ class Launcher(ABC):
             ValueError: If loading the game list failed
         """
         pass
+
+    @abstractmethod
+    def set_games_tools(self, game_tool_map: dict[Game, str | None]) -> None:
+        """
+        Set which compatibility tools the games should use.
+
+        Args:
+            game_tool_map (dict[Game, str|None]):
+                Maps the game to the compatibility tool name or None to use the global tool.
+
+        Raises:
+            RuntimeError: If setting the compatibility tools failed.
+        """
+        pass

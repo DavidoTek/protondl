@@ -64,7 +64,7 @@ class SteamGame(Game):
         shortcut_user (str): The Steam User ID associated with the shortcut.
     """
 
-    __slots__ = (
+    __slots__ = Game.__slots__ + (
         "appid",
         "libraryfolder_id",
         "libraryfolder_path",
@@ -255,6 +255,30 @@ class SteamLauncher(Launcher):
 
         self._cached_game_list = games
         return games
+
+    def set_games_tools(self, game_tool_map: dict[Game, str | None]) -> None:
+        config_vdf_file: Path = self.root_path / "config" / "config.vdf"
+
+        try:
+            config_data = vdf_safe_load(config_vdf_file)
+            compat_tool_mapping = get_steam_vdf_compat_tool_mapping(config_data)
+
+            for game, compat_tool_name in game_tool_map.items():
+                if game.id in compat_tool_mapping:
+                    if not compat_tool_name:
+                        compat_tool_mapping.pop(game.id)
+                    elif game_entry := compat_tool_mapping.get(game.id):
+                        game_entry["name"] = compat_tool_name
+                elif compat_tool_name:
+                    compat_tool_mapping[game.id] = {
+                        "name": compat_tool_name,
+                        "config": "",
+                        "priority": "250",
+                    }
+
+            vdf.dump(config_data, open(config_vdf_file, "w"), pretty=True)
+        except Exception as e:
+            raise RuntimeError(f"Setting the compatibility tools for games failed: {e}") from e
 
     def _update_steam_game_list_with_app_info(self, games: list[SteamGame]) -> list[SteamGame]:
         """

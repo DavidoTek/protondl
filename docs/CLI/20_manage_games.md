@@ -12,3 +12,12 @@ It displays the launcher's game ID, the name of the game, the install directory,
 ```bash
 protondl list-games <launcher id>
 ```
+
+## Set compatibility tool for a specific game
+
+Run the following command to force that a specific game uses a specific compatibility tool.
+Use the game id from [`list-games`](#list-installed-games) and the tool name from [`list-installed`](./10_manage_tools.md#list-installed-compatibility-tools).
+
+```bash
+protondl list-games <launcher id> <game id> <tool name>
+```

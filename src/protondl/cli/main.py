@@ -12,6 +12,7 @@ from rich.progress import (
 from rich.table import Table
 
 from protondl.cli.helpers import get_launchers, resolve_installer, select_launcher
+from protondl.core.base_launcher import Game
 from protondl.core.models import RequestConfig
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
 
@@ -260,6 +261,44 @@ def list_games(
         table.add_row(game.id, game.name, game.compat_tool_name, str(game.install_path))
 
     console.print(table)
+
+
+@app.command(name="set-tool")
+def set_tool(
+    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    game_id: str = typer.Argument(..., help="ID of the game, e.g., 123456"),
+    compat_tool_name: str = typer.Argument(..., help="Name of the tool, e.g., GE-Proton10-10"),
+) -> None:
+    """
+    Assign a compatibility tool to one or more games in a Steam launcher.
+
+    Example:
+        protondl set-game-tools 1 123456 GE-Proton10-10
+    """
+    target_launcher = select_launcher(launcher_id)
+
+    with console.status(
+        f"[bold blue]Setting compatibility tools for games in {target_launcher.name}...",
+        spinner="bouncingBar",
+    ):
+        games = target_launcher.get_game_list()
+        game_by_id = {game.id: game for game in games}
+
+        if game_id not in game_by_id:
+            console.print(f"[red]Game ID '{game_id}' not found in {target_launcher.name}.[/red]")
+            raise typer.Exit(code=1)
+
+        result_map: dict[Game, str | None] = {
+            game_by_id[game_id]: None if compat_tool_name == "none" else compat_tool_name
+        }
+
+        try:
+            target_launcher.set_games_tools(result_map)
+        except Exception as e:
+            console.print(f"[red]Failed to set game tools: {e}[/red]")
+            raise typer.Exit(code=1) from e
+
+    console.print("[bold green]Game compatibility tool mapping updated successfully.[/bold green]")
 
 
 if __name__ == "__main__":
