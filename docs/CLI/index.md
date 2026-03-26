@@ -4,6 +4,15 @@ This section documents protondl's command-line interface (CLI).
 
 The CLI generates human-readable output. For integration into other tools, use the [Library API (Python)](../Library_API/index.md).
 
+## Install from GitHub
+
+Run the following command to install the latest version of protondl from GitHub.
+This installs protondl, including optional dependencies ([rich](https://github.com/Textualize/rich), [typer](https://github.com/fastapi/typer)) required by the CLI.
+
+```bash
+pip install "protondl[cli] @ git+https://github.com/DavidoTek/protondl@main"
+```
+
 ## Basics
 
 Below is a documentation of basic commands.

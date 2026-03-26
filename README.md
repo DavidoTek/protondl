@@ -42,7 +42,8 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 ### Installation (for users)
 
 ```bash
-uv tool install protondl
+uv tool install "protondl[cli] @ git+https://github.com/DavidoTek/protondl@main"
+uvx run protondl
 ```
 
 ### Basic Usage (CLI)
