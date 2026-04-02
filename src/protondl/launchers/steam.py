@@ -301,7 +301,7 @@ class SteamLauncher(Launcher):
                     compat_tool_mapping[game.id] = {
                         "name": compat_tool_name,
                         "config": "",
-                        "priority": "250",
+                        "priority": "75" if game.id == "0" else "250",
                     }
 
             vdf.dump(config_data, open(config_vdf_file, "w"), pretty=True)
@@ -453,3 +453,31 @@ class SteamLauncher(Launcher):
             raise ValueError(f"Fetching Steam shortcuts failed: {e}") from e
 
         return games
+
+    def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:
+        if tool_type not in self.supported_tools_folders:
+            raise ValueError(
+                "SteamLauncher only supports the following tool types: "
+                + f"{self.supported_tools_folders.keys()}, got {tool_type}"
+            )
+        tools = self.get_installed_tools([tool_type])
+
+        config_vdf_file: Path = self.root_path / "config" / "config.vdf"
+        try:
+            config_data = vdf_safe_load(config_vdf_file)
+            compat_tool_mapping = get_steam_vdf_compat_tool_mapping(config_data)
+            for tool in tools:
+                if tool.full_name in compat_tool_mapping.get("0", {}).get("name", ""):  # type: ignore
+                    return tool
+        except Exception as e:
+            print(f"Warning: Could not load the compatibility tool mapping: {e}")
+
+        return None
+
+    def set_global_tool(self, tool: CompatTool) -> None:
+        if tool.tool_type not in self.supported_tools_folders:
+            raise ValueError(
+                "SteamLauncher only supports the following tool types: "
+                + f"{self.supported_tools_folders.keys()}, got {tool.tool_type}"
+            )
+        self.set_games_tools({SteamGame(0, "", Path("")): tool.full_name})

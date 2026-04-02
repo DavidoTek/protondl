@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from protondl.core.base_launcher import Game, Launcher
-from protondl.core.models import CompatToolType, InstallMode
+from protondl.core.models import CompatTool, CompatToolType, InstallMode
 
 
 class LutrisLauncher(Launcher):
@@ -48,4 +48,10 @@ class LutrisLauncher(Launcher):
         raise NotImplementedError()
 
     def set_games_tools(self, game_tool_map: dict[Game, str | None]) -> None:
+        raise NotImplementedError()
+
+    def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:
+        raise NotImplementedError()
+
+    def set_global_tool(self, tool: CompatTool) -> None:
         raise NotImplementedError()

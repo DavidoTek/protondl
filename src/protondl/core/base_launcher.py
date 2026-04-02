@@ -31,7 +31,7 @@ class Launcher(ABC):
     Abstract base class for game launchers.
 
     Attributes:
-        supported_tool_types (dict[CompatToolType, Path]):
+        supported_tools_folders (dict[CompatToolType, Path]):
             A mapping of supported compatibility tool types to their
             respective installation subdirectories, relative to the launcher's root path.
         name (str): The human-readable name of the launcher (e.g., "Steam", "Lutris (Flatpak)").
@@ -146,5 +146,38 @@ class Launcher(ABC):
 
         Raises:
             RuntimeError: If setting the compatibility tools failed.
+        """
+        pass
+
+    @abstractmethod
+    def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:
+        """
+        Get the global compatibility tool for the launcher.
+
+        Args:
+            tool_type (CompatToolType): The type of compatibility tool to retrieve.
+
+        Returns:
+            CompatTool | None: The global compatibility tool for
+                the specified type, or None if not set.
+
+        Raises:
+            ValueError: If the launcher does not support the specified tool type.
+            RuntimeError: If retrieving the global compatibility tool failed.
+        """
+        pass
+
+    @abstractmethod
+    def set_global_tool(self, tool: CompatTool) -> None:
+        """
+        Set the global compatibility tool for the launcher.
+        If the launcher supports multiple global tools, the type is determined from tool.tool_type.
+
+        Args:
+            tool (CompatTool): The compatibility tool to set as the global default.
+
+        Raises:
+            ValueError: If the launcher does not support the specified tool type.
+            RuntimeError: If setting the global compatibility tool failed.
         """
         pass

@@ -13,7 +13,7 @@ from rich.table import Table
 
 from protondl.cli.helpers import get_launchers, resolve_installer, select_launcher
 from protondl.core.base_launcher import Game
-from protondl.core.models import RequestConfig
+from protondl.core.models import CompatTool, CompatToolType, RequestConfig
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
 
 app = typer.Typer(help="Proton Compatibility Tool Manager")
@@ -221,6 +221,15 @@ def list_installed_tools(
         )
         return
 
+    global_tool_names = []
+    for tool_type in CompatToolType:
+        try:
+            global_tool = target_launcher.get_global_tool(tool_type)
+            if global_tool:
+                global_tool_names.append(global_tool.full_name)
+        except Exception:
+            pass
+
     table = Table(title=f"Installed Tools: [bold cyan]{target_launcher.name}[/bold cyan]")
     table.add_column("Index", justify="right", style="dim")
     table.add_column("Tool Name", style="green")
@@ -228,7 +237,13 @@ def list_installed_tools(
     table.add_column("Path", style="dim", overflow="ellipsis")
 
     for idx, tool in enumerate(sorted(installed_tools, key=lambda x: x.full_name), 1):
-        table.add_row(str(idx), tool.full_name, tool.tool_type.value, str(tool.install_dir))
+        is_global = tool.full_name in global_tool_names
+        table.add_row(
+            str(idx),
+            tool.full_name,
+            tool.tool_type.value + ("*" if is_global else ""),
+            str(tool.install_dir),
+        )
 
     console.print(table)
 
@@ -299,6 +314,73 @@ def set_tool(
             raise typer.Exit(code=1) from e
 
     console.print("[bold green]Game compatibility tool mapping updated successfully.[/bold green]")
+
+
+@app.command(name="set-global-tool")
+def set_global_tool(
+    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    compat_tool_name: str = typer.Argument(
+        ...,
+        help=(
+            "Name or index of the tool from 'list-installed' " + "(e.g., 'GE-Proton10-10' or '1')"
+        ),
+    ),
+) -> None:
+    """
+    Set the global/default compatibility tool for a launcher.
+    """
+    target_launcher = select_launcher(launcher_id)
+
+    try:
+        installed_tools = sorted(target_launcher.get_installed_tools(), key=lambda x: x.full_name)
+    except Exception as e:
+        console.print(f"[red]Failed to read installed tools: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    if not installed_tools:
+        console.print(
+            f"[yellow]No installed compatibility tools found for {target_launcher.name}.[/yellow]"
+        )
+        raise typer.Exit(code=1)
+
+    selected_tool: CompatTool | None = None
+
+    if compat_tool_name.isdigit():
+        tool_idx = int(compat_tool_name) - 1
+        if 0 <= tool_idx < len(installed_tools):
+            selected_tool = installed_tools[tool_idx]
+    else:
+        selected_tool = next(
+            (
+                tool
+                for tool in installed_tools
+                if tool.full_name.lower() == compat_tool_name.lower()
+            ),
+            None,
+        )
+
+    if not selected_tool:
+        console.print(
+            "[red]Tool not found. Use 'list-installed <launcher_id>'"
+            + "to find a valid name/index.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        target_launcher.set_global_tool(selected_tool)
+    except NotImplementedError as e:
+        console.print(
+            f"[red]Global tool configuration is not supported for {target_launcher.name} yet.[/red]"
+        )
+        raise typer.Exit(code=1) from e
+    except Exception as e:
+        console.print(f"[red]Failed to set global tool: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    console.print(
+        f"[bold green]Global compatibility tool set to {selected_tool.full_name} for "
+        + f"{target_launcher.name}.[/bold green]"
+    )
 
 
 if __name__ == "__main__":
