@@ -49,7 +49,7 @@ for tool_installer in compatible_tools:
     print(f"{tool_installer.name}: {tool_installer.description}")
 ```
 
-### Fetch versions for a tool
+### Fetch versions for a tool and install the tool
 
 Once we have decided which tool should be installed, we list available versions of the tool and install a version.
 
