@@ -38,3 +38,9 @@ plugins:
 
 extra_css:
   - stylesheets/launcher_badges.css
+
+plugins:
+  - search
+  - optimize
+  - privacy
+  - tags
