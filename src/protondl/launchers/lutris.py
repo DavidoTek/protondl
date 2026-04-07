@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from protondl.core.base_launcher import Game, Launcher
@@ -47,7 +47,7 @@ class LutrisLauncher(Launcher):
     def get_game_list(self) -> Sequence[Game]:
         raise NotImplementedError()
 
-    def set_games_tools(self, game_tool_map: dict[Game, str | None]) -> None:
+    def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
         raise NotImplementedError()
 
     def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:

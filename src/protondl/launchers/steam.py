@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import Enum
 from pathlib import Path
 
@@ -284,7 +284,7 @@ class SteamLauncher(Launcher):
         self._cached_game_list = games
         return games
 
-    def set_games_tools(self, game_tool_map: dict[Game, str | None]) -> None:
+    def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
         config_vdf_file: Path = self.root_path / "config" / "config.vdf"
 
         try:
