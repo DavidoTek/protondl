@@ -1,0 +1,39 @@
+from protondl.core.base_launcher import Launcher
+from protondl.core.models import CompatTool
+
+
+def batch_update_games_tools(
+    launcher: Launcher, from_tool: CompatTool | str, to_tool: CompatTool
+) -> int:
+    """
+    Updates the compatibility tool for multiple games in batch.
+    The from_tool can be specified as a CompatTool instance (exact version match)
+    or as a string (matches any tool name containing the string).
+
+    Args:
+        launcher: The game launcher instance to operate on.
+        from_tool: The compatibility tool to replace.
+            Can be a CompatTool instance (exact version) or a string (tool name, e.g., "GE-Proton").
+        to_tool: The new compatibility tool to set for the affected games.
+
+    Returns:
+        int: The number of games that were updated.
+
+    Raises:
+        RuntimeError: If updating the games' compatibility tools failed.
+    """
+    games = launcher.get_game_list()
+
+    if isinstance(from_tool, str):
+        games_to_update = [game for game in games if from_tool in game.compat_tool_name]
+    else:
+        games_to_update = [game for game in games if game.compat_tool_name == from_tool.full_name]
+
+    game_tool_map = {game: to_tool.full_name for game in games_to_update}
+
+    try:
+        launcher.set_games_tools(game_tool_map)
+    except RuntimeError as e:
+        raise RuntimeError(f"Batch update of games' compatibility tools failed: {e}") from e
+
+    return len(games_to_update)
