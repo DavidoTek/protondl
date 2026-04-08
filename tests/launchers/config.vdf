@@ -1,0 +1,27 @@
+"InstallConfigStore"
+{
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+				"CompatToolMapping"
+				{
+					"275850"
+					{
+						"name" "GE-Proton10-14"
+						"config" ""
+						"priority" "250"
+					}
+					"0"
+					{
+						"name" "GE-Proton10-12"
+						"config" ""
+						"priority" "75"
+					}
+				}
+			}
+		}
+	}
+}
