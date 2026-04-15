@@ -60,5 +60,6 @@ if available_tools:
 - `SteamLauncher`: game list, per-game tool mapping, global tool management, Steam Deck compatibility metadata.
 - `LutrisLauncher`: launcher discovery and compatibility-tool filesystem management.
 - `HeroicLauncher`: launcher discovery and compatibility-tool filesystem management.
+- `BottlesLauncher`: launcher discovery and compatibility-tool filesystem management.
 
 Game management and global tool APIs are currently implemented for Steam launchers.

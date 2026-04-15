@@ -2,7 +2,7 @@
 
 A core functionality of protondl is management of compatibility tools.
 
-Managing tools is currently supported for the following launchers: <span class="badge steam">Steam</span> <span class="badge lutris">Lutris</span> <span class="badge heroic">Heroic</span>
+Managing tools is currently supported for the following launchers: <span class="badge steam">Steam</span> <span class="badge lutris">Lutris</span> <span class="badge heroic">Heroic</span> <span class="badge bottles">Bottles</span>
 
 
 ## List tools available for a specific launcher

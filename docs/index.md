@@ -1,6 +1,6 @@
 # protondl
 
-Welcome to the documentation of protondl, a modern, headless, and async-first Python library for downloading and managing compatibility tools such as GE-Proton, Proton-Tkg, DXVK, and vkd3d-proton for Steam, Lutris, Heroic, and other Linux game launchers.
+Welcome to the documentation of protondl, a modern, headless, and async-first Python library for downloading and managing compatibility tools such as GE-Proton, Proton-Tkg, DXVK, and vkd3d-proton for Steam, Lutris, Heroic, Bottles, and other Linux game launchers.
 
 ## ✨ Features
 
@@ -12,12 +12,12 @@ Welcome to the documentation of protondl, a modern, headless, and async-first Py
 
 ### Supported Launchers
 
-Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.com/lutris/lutris) | [Heroic Games Launcher](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher)
-----------|-------|--------|--------
-⚛️ Proton | ✅    | ✅     | ✅
-🍷 Wine   | ❌    | ✅     | ✅
-🇽 VKD3D  | ❌    | ✅     | ✅
-9️⃣ DXVK   | ❌    | ✅     | ✅
+Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.com/lutris/lutris) | [Heroic Games Launcher](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | [Bottles](https://usebottles.com/)
+----------|-------|--------|--------|--------
+⚛️ Proton | ✅    | ✅     | ✅     | ✅
+🍷 Wine   | ❌    | ✅     | ✅     | ✅
+🇽 VKD3D  | ❌    | ✅     | ✅     | ❌
+9️⃣ DXVK   | ❌    | ✅     | ✅     | ❌
 
 ### Supported Tools
 
@@ -31,8 +31,8 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 
 ### Current Scope
 
-- Launcher discovery: Steam, Lutris, and Heroic (native/flatpak; Steam also snap).
-- Tool management (install/list tools): Steam, Lutris, and Heroic.
+- Launcher discovery: Steam, Lutris, Heroic, and Bottles (native/flatpak; Steam also snap).
+- Tool management (install/list tools): Steam, Lutris, Heroic, and Bottles.
 - Game management (list games, set game tools, Steam Deck status): Steam only.
 - Global/default compatibility tool management: Steam only.
 

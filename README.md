@@ -20,12 +20,12 @@ This is more of a side project that I will work on here and there. Please use [P
 
 ### Supported Launchers
 
-Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.com/lutris/lutris) | [Heroic Games Launcher](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher)
-----------|-------|--------|--------
-⚛️ Proton | ✅    | ✅     | ✅
-🍷 Wine   | ❌    | ✅     | ✅
-🇽 VKD3D  | ❌    | ✅     | ✅
-9️⃣ DXVK   | ❌    | ✅     | ✅
+Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.com/lutris/lutris) | [Heroic Games Launcher](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher) | [Bottles](https://usebottles.com/)
+----------|-------|--------|--------|--------
+⚛️ Proton | ✅    | ✅     | ✅     | ✅
+🍷 Wine   | ❌    | ✅     | ✅     | ✅
+🇽 VKD3D  | ❌    | ✅     | ✅     | ❌
+9️⃣ DXVK   | ❌    | ✅     | ✅     | ❌
 
 ### Supported Tools
 
