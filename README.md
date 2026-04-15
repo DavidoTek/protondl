@@ -1,6 +1,6 @@
 # protondl 🧬
 
-protondl is a modern, headless Python library for downloading and managing Proton compatibility tools (like GE-Proton, Luxtorpeda, and Boxtron) for Steam, Lutris, and other Linux game launchers.
+protondl is a modern, headless Python library for downloading and managing compatibility tools (like GE-Proton, Proton-Tkg, DXVK, and vkd3d-proton) for Steam, Lutris, and other Linux game launchers.
 
 Inspired by the logic of ProtonUp-Qt, protondl decouples the core management logic from the GUI, providing a modular and developer-friendly API for automation, CLI tools, or custom integrations.
 

@@ -30,4 +30,9 @@ Use the game id from [`list-games`](#list-installed-games) and the tool name fro
 
 ```bash
 protondl set-tool <launcher id> <game id> <tool name>
+
+# Reset game-specific override and use global tool
+protondl set-tool <launcher id> <game id> none
 ```
+
+`set-tool` currently requires a Steam launcher.

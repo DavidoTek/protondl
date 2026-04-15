@@ -16,17 +16,19 @@ pip install "protondl @ git+https://github.com/DavidoTek/protondl@main"
 
 ## Basics
 
-### Fetch launchers and installed tools
+### Discover launchers and list installed tools
 
-The main method for interacting with launchers and installed compatibility tools, is via the Launcher implementations.
-A Launcher object contains the launcher's name, install directory, and install mode (native, Flatpak, ...).
-Each launcher inherits from the base Launcher class to implement the functionality for the specific launcher.
-Below, you find the code for fetching a list of installed launchers and fetching installed compatibility tools for the first launcher.
+The main entrypoint for launcher discovery is `detect_all_launchers()`.
+Each launcher object contains the launcher name, install directory, and install mode (native, flatpak, ...).
+You can then query installed compatibility tools directly from the launcher instance.
 
 ```python
-from protondl.cli.helpers import get_launchers
+from protondl.launchers import detect_all_launchers
 
-launchers = get_launchers()
+launchers = detect_all_launchers()
+
+if not launchers:
+    raise RuntimeError("No supported launcher found")
 
 for launcher in launchers:
     print(f"{launcher.name}: {str(launcher.root_path)}")
@@ -43,29 +45,48 @@ The function `get_tools_for_launcher` returns all compatibility tools supported 
 ```python
 from protondl.installers import get_tools_for_launcher
 
-compatible_tools = get_tools_for_launcher(launcher)
+compatible_tools = get_tools_for_launcher(launchers[0])
 
 for tool_installer in compatible_tools:
     print(f"{tool_installer.name}: {tool_installer.description}")
 ```
 
-### Fetch versions for a tool and install the tool
+### Fetch versions for a tool and install
 
-Once we have decided which tool should be installed, we list available versions of the tool and install a version.
+Once you pick an installer, fetch available versions and install one into a selected launcher.
 
 ```python
-versions = asyncio.run(tool_installer.fetch_releases(count=count, page=page))
+import asyncio
+from protondl.installers import get_tools_for_launcher
+from protondl.launchers import detect_all_launchers
+
+launchers = detect_all_launchers()
+if not launchers:
+    raise RuntimeError("No supported launcher found")
+
+compatible_tools = get_tools_for_launcher(launchers[0])
+if not compatible_tools:
+    raise RuntimeError("No installers available for selected launcher")
+
+tool_installer = compatible_tools[0]
+
+versions = asyncio.run(tool_installer.fetch_releases(count=30, page=1))
 
 print(f"Available versions of {tool_installer.name}: {versions}")
 
-if not installer.supports_launcher(launchers[0]):
-    exit()
+if not versions:
+    raise RuntimeError("No releases returned")
+
+if not tool_installer.supports_launcher(launchers[0]):
+    raise RuntimeError("Selected launcher is not supported by this installer")
 
 asyncio.run(
-    installer.install(
+    tool_installer.install(
         versions[0],
         launchers[0],
         lambda p, t: print(f"Progress: {p} / {t}")  # Optional progress callback (current bytes, total size)
     )
 )
 ```
+
+For a complete workflow with launcher/tool selection, see the CLI implementation in `src/protondl/cli/main.py`.

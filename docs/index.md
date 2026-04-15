@@ -1,6 +1,6 @@
 # protondl
 
-Welcome to the documentation of protondl, a modern, headless, and async-first Python library for downloading and managing Proton compatibility tools such as GE-Proton, Luxtorpeda, and Boxtron for Steam, Lutris, and other Linux game launchers.
+Welcome to the documentation of protondl, a modern, headless, and async-first Python library for downloading and managing compatibility tools such as GE-Proton, Proton-Tkg, DXVK, and vkd3d-proton for Steam, Lutris, Heroic, and other Linux game launchers.
 
 ## ✨ Features
 
@@ -29,6 +29,13 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 - [DXVK (nightly)](https://github.com/doitsujin/dxvk) (DXVK)
 - [vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) (VKD3D)
 
+### Current Scope
+
+- Launcher discovery: Steam, Lutris, and Heroic (native/flatpak; Steam also snap).
+- Tool management (install/list tools): Steam, Lutris, and Heroic.
+- Game management (list games, set game tools, Steam Deck status): Steam only.
+- Global/default compatibility tool management: Steam only.
+
 ### Comparison
 
 Below, you can find a comparison chart of different compatibility tool installer tools.
@@ -44,7 +51,7 @@ List installed tools           | ✅       | ✅              | ✅             
 List installed games           | ✅       | ✅              | ✅             | ⬜
 Get tool used by a game        | ✅       | ✅              | ✅             | ⬜
 Set tool used by a game        | ✅       | ✅              | ✅             | ⬜
-Show game SteamDeck rating     | ⬜       | ✅              | ⬜             | ⬜
+Show game SteamDeck rating     | ✅       | ✅              | ⬜             | ⬜
 Show game AWACY[^4] rating     | ⬜       | ✅              | ✅             | ⬜
 Programming language           | Python   | Python          | Vala           | Rust
 GUI/TUI                        | typer, rich | Qt           | GTK            | clap, indicatif

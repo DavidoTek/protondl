@@ -40,6 +40,21 @@ launcher.set_games_tools({game_to_update: "Proton-8.0"})
 launcher.set_games_tools({game_to_update: None})
 ```
 
+### Read Steam Deck compatibility metadata
+
+`SteamGame` objects expose `get_steamdeck_compatibility()` to return the recommended runtime and compatibility category.
+
+```python
+from protondl.launchers.steam import SteamDeckCompatType, SteamLauncher
+
+launcher = SteamLauncher.discover()[0]
+
+for game in launcher.get_game_list():
+    recommended_runtime, status = game.get_steamdeck_compatibility()
+    if status == SteamDeckCompatType.VERIFIED:
+        print(f"{game.name} is VERIFIED (recommended runtime: {recommended_runtime or 'none'})")
+```
+
 ## Helper functions
 
 ### Batch update games
@@ -51,6 +66,7 @@ You can match games by an exact tool name (using a `CompatTool` instance) or by 
 from protondl.launchers.steam import SteamLauncher
 from protondl.util.helpers import batch_update_games_tools
 from protondl.core.models import CompatTool, CompatToolType
+from pathlib import Path
 
 launcher = SteamLauncher.discover()[0]
 
