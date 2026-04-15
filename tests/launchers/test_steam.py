@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
-from protondl.launchers.steam import SteamGame, SteamLauncher
+from protondl.launchers.steam import SteamDeckCompatType, SteamGame, SteamLauncher
 from protondl.util.steam import get_steam_vdf_compat_tool_mapping, vdf_safe_load
 
 
@@ -83,6 +83,22 @@ def test_get_installed_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     installed_tool_names = {tool.full_name for tool in installed_tools}
     assert installed_tool_names == {"GE-Proton-Test", "Proton Experimental"}
     assert all(tool.tool_type == CompatToolType.PROTON for tool in installed_tools)
+
+
+def test_get_steamdeck_compatibility_returns_recommended_runtime_and_category() -> None:
+    """
+    Test that SteamGame returns the recommended runtime and Steam Deck category.
+    """
+    game = SteamGame(275850, "No Man's Sky", Path("/games/No Man's Sky"))
+    game.deck_compatibility = {
+        "configuration": {"recommended_runtime": "proton_9"},
+        "category": SteamDeckCompatType.VERIFIED.value,
+    }
+
+    recommended_runtime, compat_type = game.get_steamdeck_compatibility()
+
+    assert recommended_runtime == "proton_9"
+    assert compat_type == SteamDeckCompatType.VERIFIED
 
 
 def test_get_game_list_reads_libraryfolders_and_mapping(

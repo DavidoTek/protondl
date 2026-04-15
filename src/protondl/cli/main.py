@@ -15,6 +15,7 @@ from protondl.cli.helpers import get_launchers, resolve_installer, select_launch
 from protondl.core.base_launcher import Game
 from protondl.core.models import CompatTool, CompatToolType, RequestConfig
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
+from protondl.launchers.steam import SteamGame, SteamLauncher
 
 app = typer.Typer(help="Proton Compatibility Tool Manager")
 state = {"request_config": RequestConfig(github_token=None)}
@@ -276,6 +277,43 @@ def list_games(
         table.add_row(game.id, game.name, game.compat_tool_name, str(game.install_path))
 
     console.print(table)
+
+
+@app.command(name="get-steam-deck-status")
+def get_steam_deck_status(
+    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    game_id: str = typer.Argument(..., help="ID of the Steam game, e.g., 123456"),
+) -> None:
+    """
+    Show the Steam Deck compatibility status for a Steam game.
+    """
+    target_launcher = select_launcher(launcher_id)
+
+    if not isinstance(target_launcher, SteamLauncher):
+        console.print(
+            f"[red]{target_launcher.name} does not support Steam Deck status lookups.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    steam_launcher = target_launcher
+    game_by_id: dict[str, SteamGame] = {game.id: game for game in steam_launcher.get_game_list()}
+
+    game = game_by_id.get(game_id)
+    if not game:
+        console.print(f"[red]Game ID '{game_id}' not found in {target_launcher.name}.[/red]")
+        raise typer.Exit(code=1)
+
+    try:
+        recommended_runtime, compat_type = game.get_steamdeck_compatibility()
+    except ValueError as e:
+        console.print(f"[red]Failed to read Steam Deck compatibility for {game.name}: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    recommended_label = recommended_runtime or "none"
+    console.print(
+        f"{game.name}: Steam Deck status {compat_type.name}"
+        f" (recommended runtime: {recommended_label})"
+    )
 
 
 @app.command(name="set-tool")

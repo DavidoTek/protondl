@@ -1,6 +1,7 @@
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from pathlib import Path
+from typing import TypedDict
 
 import vdf
 from steam.utils.appcache import parse_appinfo
@@ -24,18 +25,50 @@ STEAMLINUXRUNTIME_SNIPER_APPID = 1628350
 
 
 class SteamRuntimeType(Enum):
+    """
+    Represents the types of Steam runtimes, primarily used for
+    identifying required Anti-Cheat runtimes for games.
+    """
+
     EAC = PROTON_EAC_RUNTIME_APPID  # ProtonEasyAntiCheatRuntime
     BATTLEYE = PROTON_BATTLEYE_RUNTIME_APPID  # ProtonBattlEyeRuntime
     STEAMLINUXRUNTIME = STEAMLINUXRUNTIME_APPID  # Steam Linux Runtime 1.0 (scout)
 
 
 class SteamAppType(Enum):
+    """
+    Represents the category of a Steam application, which can be
+    a game, a runtime, a compatibility tool, etc.
+    """
+
     GAME = 0
     RUNTIME = 1
     ANTICHEAT_RUNTIME = 2
     STEAMWORKS = 3
     PROTON_NEXT = 4
     COMPAT_TOOL = 5
+
+
+class SteamDeckCompatType(Enum):
+    """
+    Represents the compatibility status of a game on the Steam Deck.
+    """
+
+    UNKNOWN = 0
+    UNSUPPORTED = 1
+    PLAYABLE = 2
+    VERIFIED = 3
+
+
+class SteamDeckCompatInfo(TypedDict):
+    """
+    Represents the Steam Deck compatibility information for a game, including
+    the recommended compatibility tool and the compatibility category as defined
+    in the appinfo.vdf metadata.
+    """
+
+    configuration: dict[str, str]
+    category: int
 
 
 class SteamGame(Game):
@@ -96,7 +129,7 @@ class SteamGame(Game):
         self.anticheat_runtimes: dict[SteamRuntimeType, bool] = {}
         self.compat_tool_name = ""
         self.ctool_from_oslist = ""
-        self.deck_compatibility: dict[str, str] = {}
+        self.deck_compatibility: SteamDeckCompatInfo = {"configuration": {}, "category": 0}
         self.app_type = SteamAppType.GAME
 
         self.shortcut_id = ""
@@ -104,6 +137,21 @@ class SteamGame(Game):
         self.shortcut_exe = ""
         self.shortcut_icon = ""
         self.shortcut_user = ""
+
+    def get_steamdeck_compatibility(self) -> tuple[str, SteamDeckCompatType]:
+        """
+        Returns the Steam Deck compatibility status for this game.
+
+        Returns:
+            tuple[str, SteamDeckCompatType]:
+                A tuple containing the recommended compatibility tool (e.g., "proton_7")
+                and the SteamDeckCompatType enum value representing the compatibility category.
+        """
+        recommended_runtime = self.deck_compatibility.get("configuration", {}).get(
+            "recommended_runtime", ""
+        )
+        compat_type = SteamDeckCompatType(self.deck_compatibility.get("category"))
+        return recommended_runtime, compat_type
 
 
 class SteamLauncher(Launcher):
