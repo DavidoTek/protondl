@@ -52,11 +52,8 @@ warn_return_any = true
 warn_unused_configs = true
 follow_untyped_imports = true
 untyped_calls_exclude = ["vdf", "steam"]
-mypy_path = "src"
-
-[[tool.mypy.overrides]]
-module = "protondl.cli.*"
 disallow_untyped_decorators = false
+mypy_path = "src"
 
 [tool.uv.sources]
 vdf = { git = "https://github.com/solsticegamestudios/vdf", rev = "v4.0" }

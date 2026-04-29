@@ -79,7 +79,7 @@ def test_fetch_awacy_index_raises_value_error_for_non_list_payload(
         asyncio.run(fetch_awacy_index())
 
 
-@pytest.mark.parametrize(  # type: ignore[untyped-decorator]
+@pytest.mark.parametrize(
     ("game_id", "expected_status"),
     [("12345", AWACYStatus.SUPPORTED), ("missing", AWACYStatus.UNKNOWN)],
 )
@@ -95,7 +95,7 @@ def test_get_awacy_status_by_id(
     assert get_awacy_status_by_id(game_id, index) is expected_status
 
 
-@pytest.mark.parametrize(  # type: ignore[untyped-decorator]
+@pytest.mark.parametrize(
     ("slug", "expected_status"),
     [("game-one", AWACYStatus.RUNNING), ("missing", AWACYStatus.UNKNOWN)],
 )
