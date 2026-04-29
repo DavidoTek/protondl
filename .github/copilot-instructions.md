@@ -17,6 +17,7 @@ Use and preserve this project layout when adding or modifying code:
 - `src/protondl/launchers/`: Launcher-specific integrations (for example Steam, Lutris, Heroic).
 - `src/protondl/installers/`: Tool-specific installer implementations (for example GE-Proton, DXVK, VKD3D).
 - `src/protondl/util/`: Cross-cutting helpers (archive, download, Steam parsing helpers, etc.).
+- `src/protondl/services/`: Integrations with optional online services (for example AWACY anti-cheat status).
 - `src/protondl/cli/`: CLI entrypoints and CLI helpers; keep thin and delegate logic to library modules.
 - `tests/`: Unit tests and test fixtures (for example `config.vdf`, `libraryfolders.vdf`).
 - `docs/`: MkDocs source documentation.
@@ -29,6 +30,7 @@ When implementing changes:
 - Add installer behavior to `src/protondl/installers/` and keep each tool focused in its own module.
 - Put reusable helpers in `src/protondl/util/` only when they are genuinely cross-cutting.
 - Keep tests close to observable behavior and use fixture files in `tests/` where realistic parser inputs help.
+    - Do not write tests for the CLI.
 - Update docs in `docs/` when public behavior or APIs change.
 
 ## Development Standards
@@ -49,14 +51,39 @@ All functions should include concise but complete docstrings that describe:
 
 Docstrings should be short, practical, and sufficient for both CLI and library consumers.
 
+Example:
+
+```python
+def example_function(param1: int, param2: str) -> bool:
+    """
+    Determines if the length of param2 is greater than param1.
+
+    Args:
+        param1 (int): The first parameter, which should be an integer.
+        param2 (str): The second parameter, which should be a string.
+
+    Returns:
+        bool: True if the parameters meet the condition, False otherwise.
+
+    Raises:
+        ValueError: If param1 is negative or if param2 is empty.
+    """
+    if param1 < 0:
+        raise ValueError("param1 must be non-negative")
+    if not param2:
+        raise ValueError("param2 must be a non-empty string")
+    
+    return len(param2) > param1
+```
+
 ## Verification Commands
 
 Before considering a change complete, run and fix issues from the following commands:
 
-1. `uv run mypy src tests`
-2. `uv run pytest tests`
-3. `uv run ruff format .`
-4. `uv run ruff check --fix .`
+1. `uv run ruff format .`
+2. `uv run ruff check --fix .`
+3. `uv run mypy src tests --config-file=./pyproject.toml`
+4. `uv run pytest tests`
 
 You may run these commands in a different order, and run them multiple times if needed.
 
