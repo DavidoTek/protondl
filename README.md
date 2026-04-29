@@ -73,10 +73,10 @@ uvx run protondl
     ```
 
 
-5. List installed games and the compatibility tools used by them:
+5. List installed games, the compatibility tools used by them and the areweanticheatyet.com status:
 
     ```bash
-    protondl list-games 1
+    protondl list-games 1 --awacy
     ```
 
 ### Basic Usage (Library API)
@@ -138,6 +138,7 @@ src/protondl/
 ├── core/           # Abstract Base Classes and Enums (The Contract)
 ├── installers/     # Tool-specific logic (GE-Proton, Luxtorpeda)
 ├── launchers/      # Launcher discovery (Steam, Lutris, etc.)
+├── services/       # Online service (AWACY, ProtonDB)
 └── util/           # Utility functions (downloads, etc.)
 ```
 

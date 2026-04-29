@@ -55,6 +55,9 @@ for game in launcher.get_game_list():
         print(f"{game.name} is VERIFIED (recommended runtime: {recommended_runtime or 'none'})")
 ```
 
+Service-based online lookups such as AWACY and ProtonDB are documented in
+`Library_API/40_external_services_api.md`.
+
 ## Helper functions
 
 ### Batch update games

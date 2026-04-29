@@ -52,7 +52,8 @@ List installed games           | ✅       | ✅              | ✅             
 Get tool used by a game        | ✅       | ✅              | ✅             | ⬜
 Set tool used by a game        | ✅       | ✅              | ✅             | ⬜
 Show game SteamDeck rating     | ✅       | ✅              | ⬜             | ⬜
-Show game AWACY[^4] rating     | ⬜       | ✅              | ✅             | ⬜
+Show game AWACY[^4] rating     | ✅       | ✅              | ✅             | ⬜
+Show game ProtonDB [^5] rating | ⬜       | ✅              | ✅             | ⬜
 Programming language           | Python   | Python          | Vala           | Rust
 GUI/TUI                        | typer, rich | Qt           | GTK            | clap, indicatif
 
@@ -62,3 +63,4 @@ The table may be out-of-date. Please create an issue or pull request if that is 
 [^2]: https://github.com/Vysp3r/ProtonPlus
 [^3]: https://github.com/auyer/Protonup-rs
 [^4]: https://areweanticheatyet.com/
+[^5]: https://www.protondb.com/

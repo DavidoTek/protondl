@@ -1,5 +1,6 @@
 import asyncio
 
+import httpx
 import typer
 from rich.console import Console
 from rich.progress import (
@@ -16,6 +17,12 @@ from protondl.core.base_launcher import Game
 from protondl.core.models import CompatTool, CompatToolType, RequestConfig
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
 from protondl.launchers.steam import SteamGame, SteamLauncher
+from protondl.services import (
+    AWACYIndex,
+    fetch_awacy_index,
+    get_awacy_status_by_id,
+    get_awacy_status_by_slug,
+)
 
 app = typer.Typer(help="Proton Compatibility Tool Manager")
 state = {"request_config": RequestConfig(github_token=None)}
@@ -252,11 +259,25 @@ def list_installed_tools(
 @app.command(name="list-games")
 def list_games(
     launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    awacy: bool = typer.Option(
+        False,
+        "--awacy",
+        help="Show AWACY anti-cheat status for each listed game",
+    ),
 ) -> None:
     """
     List all compatibility tools currently installed for a specific launcher.
     """
     target_launcher = select_launcher(launcher_id)
+
+    awacy_index: AWACYIndex | None = None
+    if awacy:
+        try:
+            with console.status("[bold blue]Fetching AWACY data...", spinner="dots"):
+                awacy_index = asyncio.run(fetch_awacy_index())
+        except (httpx.HTTPError, ValueError) as e:
+            console.print(f"[red]Failed to fetch AWACY data: {e}[/red]")
+            raise typer.Exit(code=1) from e
 
     with console.status(
         f"[bold blue]Scanning {target_launcher.name} directories...", spinner="bouncingBar"
@@ -272,9 +293,15 @@ def list_games(
     table.add_column("Game Name", style="green")
     table.add_column("Compatibility Tool", overflow="ellipsis")
     table.add_column("Path", overflow="ellipsis")
+    if awacy:
+        table.add_column("AWACY Status", style="magenta")
 
     for game in sorted(games, key=lambda x: x.name):
-        table.add_row(game.id, game.name, game.compat_tool_name, str(game.install_path))
+        row = [game.id, game.name, game.compat_tool_name, str(game.install_path)]
+        if awacy and awacy_index is not None:
+            row.append(get_awacy_status_by_id(game.id, awacy_index).value)
+
+        table.add_row(*row)
 
     console.print(table)
 
@@ -314,6 +341,33 @@ def get_steam_deck_status(
         f"{game.name}: Steam Deck status {compat_type.name}"
         f" (recommended runtime: {recommended_label})"
     )
+
+
+@app.command(name="get-awacy-status")
+def get_awacy_status(
+    game_identifier: str = typer.Argument(..., help="Steam AppID or AWACY slug to look up"),
+    slug: bool = typer.Option(
+        False,
+        "--slug",
+        help="Treat the identifier as an AWACY slug instead of a Steam AppID",
+    ),
+) -> None:
+    """
+    Show the areweanticheatyet.com status for a game identifier.
+    """
+    try:
+        index = asyncio.run(fetch_awacy_index())
+    except (httpx.HTTPError, ValueError) as e:
+        console.print(f"[red]Failed to fetch AWACY data: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    status = (
+        get_awacy_status_by_slug(game_identifier, index)
+        if slug
+        else get_awacy_status_by_id(game_identifier, index)
+    )
+
+    console.print(f"AWACY status of {game_identifier} is {status.value}")
 
 
 @app.command(name="set-tool")

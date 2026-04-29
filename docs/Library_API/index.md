@@ -90,3 +90,9 @@ asyncio.run(
 ```
 
 For a complete workflow with launcher/tool selection, see the CLI implementation in `src/protondl/cli/main.py`.
+
+## API sections
+
+- [Manage Games](20_manage_games_api.md)
+- [Launchers](30_launcher_api.md)
+- [External Services](40_external_services_api.md)

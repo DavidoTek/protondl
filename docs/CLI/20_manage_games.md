@@ -13,6 +13,12 @@ It displays the launcher's game ID, the name of the game, the install directory,
 protondl list-games <launcher id>
 ```
 
+Add `--awacy` to include the AWACY anti-cheat status for each game.
+
+```bash
+protondl list-games <launcher id> --awacy
+```
+
 ## Show Steam Deck compatibility for a game
 
 For Steam games, you can inspect the Steam Deck compatibility category and the recommended runtime.
