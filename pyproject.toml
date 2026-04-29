@@ -55,7 +55,7 @@ untyped_calls_exclude = ["vdf", "steam"]
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-module = "protondl.cli.main"
+module = "protondl.cli.*"
 disallow_untyped_decorators = false
 
 [tool.uv.sources]
