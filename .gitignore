@@ -11,3 +11,5 @@ wheels/
 
 .cache/
 site/
+
+result
