@@ -41,6 +41,11 @@ protondl install <launcher id> <tool id/name> <tool version name>
 protondl install 1 GE-Proton GE-Proton10-10
 ```
 
+When protondl installs a compatibility tool, it writes a `protondl_version.json` file into the
+tool's folder that stores metadata about the installation, including the compatibility tool's
+name, version, and install timestamp.
+See the [Library API](../Library_API/30_launcher_api.md#protondl_versionjson) docs for details.
+
 ## List installed compatibility tools
 
 If you want to see, which compatibility tools are installed for a specific launcher, run the following command:

@@ -1,4 +1,5 @@
 import tempfile
+import time
 from abc import ABC
 from collections.abc import Callable
 from pathlib import Path
@@ -6,7 +7,7 @@ from pathlib import Path
 import httpx
 
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import CompatToolType, ReleaseData, RequestConfig
+from protondl.core.models import CompatToolType, CompatToolVersionInfo, ReleaseData, RequestConfig
 from protondl.util.archive import extract_tar, extract_tar_zst, extract_zip
 from protondl.util.download import (
     calculate_sha512,
@@ -14,6 +15,7 @@ from protondl.util.download import (
     fetch_project_release_data,
     fetch_project_releases,
 )
+from protondl.util.version_file import write_version_file
 
 
 class CtInstaller(ABC):
@@ -116,7 +118,29 @@ class CtInstaller(ABC):
                     await self._verify_checksum(client, release_data, tmp_path)
 
                     install_dir = self._get_extract_dir(launcher)
+                    before = set(install_dir.iterdir())
                     self._extract_archive(tmp_path, install_dir)
+
+                    installed_dir = self._find_installed_dir(
+                        install_dir, before, release_data.version
+                    )
+                    if installed_dir is None:
+                        print(
+                            f"Warning: Could not determine the installation directory of "
+                            f"{self.name}; skipping version file creation."
+                        )
+                    else:
+                        try:
+                            write_version_file(
+                                installed_dir,
+                                CompatToolVersionInfo(
+                                    compat_tool=self.name,
+                                    version=release_data.version,
+                                    installed_at=int(time.time()),
+                                ),
+                            )
+                        except OSError as e:
+                            print(f"Warning: Could not write the version file for {self.name}: {e}")
                 except Exception as e:
                     if tmp_path.exists():
                         tmp_path.unlink()
@@ -212,3 +236,29 @@ class CtInstaller(ABC):
             extract_zip(archive_path, extract_to)
         else:
             raise ValueError(f"Unsupported archive format: {self.release_format}")
+
+    def _find_installed_dir(
+        self, install_dir: Path, before: set[Path], version: str
+    ) -> Path | None:
+        """
+        Determines the directory of the newly extracted compatibility tool.
+
+        Args:
+            install_dir (Path): The directory into which the archive was extracted.
+            before (set[Path]): The contents of install_dir before extraction.
+            version (str): The installed version, used to disambiguate if multiple
+                directories were created by the extraction.
+
+        Returns:
+            Path | None: The path to the installed tool's directory, or None if
+                no new directory was created.
+        """
+        new_dirs = [d for d in install_dir.iterdir() if d.is_dir() and d not in before]
+        if not new_dirs:
+            return None
+        if len(new_dirs) == 1:
+            return new_dirs[0]
+        for d in new_dirs:
+            if d.name == version:
+                return d
+        return new_dirs[0]

@@ -3,6 +3,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
+from protondl.util.version_file import read_version_file
 
 
 class Game:
@@ -102,21 +103,32 @@ class Launcher(ABC):
         """
         installed_tools = []
         seen_dirs = set()  # Avoid duplicates if multiple tool types share the same folder
-        # TODO: Wine tools are detected as Proton tools since they share the same folder (Lutris)
+        # Tool types of protondl-installed tools are detected via protondl_version.json.
+        # This disambiguates shared folders (e.g. Lutris stores Proton and Wine in
+        # runners/wine). Tools without the file fall back to the folder's tool type.
+
+        from protondl.installers import get_tool_type_by_name
 
         for tool_type, _ in self.supported_tools_folders.items():
             tools_path = self.get_compatibility_tools_path(tool_type)
-            if tools_path.exists():
-                for item in tools_path.iterdir():
-                    if (
-                        item.is_dir()
-                        and item not in seen_dirs
-                        and (tool_types is None or tool_type in tool_types)
-                    ):
-                        installed_tools.append(
-                            CompatTool(full_name=item.name, tool_type=tool_type, install_dir=item)
-                        )
-                        seen_dirs.add(item)
+            if not tools_path.exists():
+                continue
+            for item in tools_path.iterdir():
+                if not item.is_dir() or item in seen_dirs:
+                    continue
+
+                detected_type = tool_type
+                if info := read_version_file(item):
+                    if resolved_type := get_tool_type_by_name(info.compat_tool):
+                        detected_type = resolved_type
+
+                if tool_types is not None and detected_type not in tool_types:
+                    continue
+
+                installed_tools.append(
+                    CompatTool(full_name=item.name, tool_type=detected_type, install_dir=item)
+                )
+                seen_dirs.add(item)
 
         return installed_tools
 

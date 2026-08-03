@@ -1,5 +1,6 @@
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
+from protondl.core.models import CompatToolType
 from protondl.installers.dxvk import DXVKInstaller
 from protondl.installers.dxvk_async import DXVKAsyncInstaller
 from protondl.installers.dxvk_nightly import DXVKNightlyInstaller
@@ -36,3 +37,19 @@ def get_tools_for_launcher(launcher: Launcher, advanced: bool = True) -> list[Ct
         for tool in CT_INSTALLERS
         if tool.supports_launcher(launcher) and (advanced or not tool.advanced)
     ]
+
+
+def get_tool_type_by_name(name: str) -> CompatToolType | None:
+    """
+    Returns the compatibility tool type of the installer with the given name.
+
+    Args:
+        name (str): The name of the compatibility tool installer.
+
+    Returns:
+        CompatToolType | None: The tool type, or None if no matching installer exists.
+    """
+    for installer in CT_INSTALLERS:
+        if installer.name == name:
+            return installer.tool_type
+    return None

@@ -1,0 +1,67 @@
+import asyncio
+import tarfile
+from io import BytesIO
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from protondl.core.models import InstallMode, ReleaseData
+from protondl.installers.ge_proton import GEProtonInstaller
+from protondl.launchers.lutris import LutrisLauncher
+from protondl.util.version_file import read_version_file
+
+
+def _make_tar_gz(tool_folder: str) -> bytes:
+    buffer = BytesIO()
+    content = b"test"
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tf:
+        info = tarfile.TarInfo(f"{tool_folder}/file.txt")
+        info.size = len(content)
+        tf.addfile(info, BytesIO(content))
+    return buffer.getvalue()
+
+
+def test_install_writes_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+
+    version = "GE-Proton11-3"
+    archive_bytes = _make_tar_gz(version)
+
+    async def mock_fetch_release_data(v: str) -> ReleaseData:
+        return ReleaseData(
+            version=v,
+            date="2026-08-03",
+            download="https://example.com/GE-Proton11-3.tar.gz",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    asyncio.run(installer.install(version, launcher))
+
+    installed_dir = tmp_path / "runners" / "wine" / version
+    version_file = installed_dir / "protondl_version.json"
+    assert version_file.is_file()
+
+    info = read_version_file(installed_dir)
+    assert info is not None
+    assert info.compat_tool == "GE-Proton"
+    assert info.version == version
+    assert isinstance(info.installed_at, int)
+    assert info.installed_at > 0

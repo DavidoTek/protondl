@@ -35,6 +35,22 @@ class CompatTool:
 
 
 @dataclass
+class CompatToolVersionInfo:
+    """
+    Metadata stored by protondl inside a compatibility tool's directory.
+
+    Attributes:
+        compat_tool: The name of the compatibility tool installer (CtInstaller.name).
+        version: The installed version as returned by CtInstaller.fetch_releases.
+        installed_at: UNIX timestamp (in seconds) when the tool was installed.
+    """
+
+    compat_tool: str
+    version: str
+    installed_at: int
+
+
+@dataclass
 class RequestConfig:
     github_token: str | None = field(default_factory=lambda: os.getenv("GITHUB_TOKEN"))
 

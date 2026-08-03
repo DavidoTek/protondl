@@ -30,6 +30,28 @@ all_tools = launcher.get_installed_tools()
 proton_tools = launcher.get_installed_tools([CompatToolType.PROTON])
 ```
 
+## protondl_version.json
+
+When a compatibility tool is installed via an installer (see the installers API),
+protondl writes a `protondl_version.json` file into the tool's installation directory:
+
+```json
+{
+    "compat_tool": "GE-Proton",
+    "version": "GE-Proton11-3",
+    "installed_at": 1785769458
+}
+```
+
+- `compat_tool`: The name of the compatibility tool installer (`CtInstaller.name`).
+- `version`: The installed version as returned by `CtInstaller.fetch_releases`.
+- `installed_at`: The UNIX timestamp in seconds when the tool was installed.
+
+The file is read by `get_installed_tools()` to resolve the correct tool type of an
+installed tool. Tools without the file are still detected and fall back to the type of
+their parent folder. This disambiguates launchers that share a folder across tool types
+(e.g., Lutris stores Proton and Wine runners in `runners/wine`).
+
 ## Get and set global compatibility tools
 
 Get the global compatibility tool for a launcher using `get_global_tool()`.
