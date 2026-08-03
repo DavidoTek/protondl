@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
-from protondl.launchers.steam import SteamDeckCompatType, SteamGame, SteamLauncher
+from protondl.launchers.steam import SteamAppType, SteamDeckCompatType, SteamGame, SteamLauncher
 from protondl.util.steam import get_steam_vdf_compat_tool_mapping, vdf_safe_load
 
 
@@ -282,6 +282,28 @@ def test_set_global_tool_unsupported_type_raises(tmp_path: Path) -> None:
                 tmp_path / "compatibilitytools.d" / "wine-tkg",
             )
         )
+
+
+def test_remove_tool_rejects_steam_managed_tool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Test that SteamLauncher.remove_tool rejects tools managed by Steam.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    steam_managed_dir = tmp_path / "steamapps" / "common" / "Proton Experimental"
+    steam_managed_dir.mkdir(parents=True)
+
+    managed_game = SteamGame(1493710, "Proton Experimental", steam_managed_dir)
+    managed_game.app_type = SteamAppType.COMPAT_TOOL
+    monkeypatch.setattr(launcher, "get_game_list", lambda: [managed_game])
+
+    with pytest.raises(ValueError, match="managed by Steam"):
+        launcher.remove_tool(
+            CompatTool("Proton Experimental", CompatToolType.PROTON, steam_managed_dir)
+        )
+
+    assert steam_managed_dir.exists()
 
 
 def test_get_game_list_raises_when_libraryfolders_cannot_be_loaded(tmp_path: Path) -> None:

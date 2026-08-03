@@ -11,7 +11,7 @@ from rich.progress import (
 from rich.table import Table
 
 from protondl.cli import app, console, state
-from protondl.cli.helpers import resolve_installer, select_launcher
+from protondl.cli.helpers import resolve_installed_tool, resolve_installer, select_launcher
 from protondl.core.models import CompatToolType
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
 
@@ -196,3 +196,52 @@ def list_installed_tools(
         )
 
     console.print(table)
+
+
+@app.command(name="remove")
+def remove_tool(
+    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    tool_name: str = typer.Argument(
+        ...,
+        help=(
+            "Name or index of the tool from 'list-installed' " + "(e.g., 'GE-Proton10-12' or '1')"
+        ),
+    ),
+) -> None:
+    """
+    Remove an installed compatibility tool from a launcher.
+    """
+    target_launcher = select_launcher(launcher_id)
+
+    try:
+        installed_tools = sorted(target_launcher.get_installed_tools(), key=lambda x: x.full_name)
+    except Exception as e:
+        console.print(f"[red]Failed to read installed tools: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    if not installed_tools:
+        console.print(
+            f"[yellow]No installed compatibility tools found for {target_launcher.name}.[/yellow]"
+        )
+        raise typer.Exit(code=1)
+
+    selected_tool = resolve_installed_tool(installed_tools, tool_name)
+
+    if not selected_tool:
+        console.print(
+            "[red]Tool not found. Use 'list-installed <launcher_id>'"
+            + "to find a valid name/index.[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        target_launcher.remove_tool(selected_tool)
+    except Exception as e:
+        console.print(f"[red]Failed to remove tool: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    console.print(
+        f"[bold green]Successfully removed {selected_tool.full_name} "
+        + f"from {target_launcher.name}![/bold green]"
+    )
+    console.print(f"Please restart {target_launcher.name} to see the changes.")

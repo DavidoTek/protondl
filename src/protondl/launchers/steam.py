@@ -250,6 +250,34 @@ class SteamLauncher(Launcher):
 
         return installed_tools
 
+    def remove_tool(self, tool: CompatTool) -> None:
+        """
+        Removes an installed compatibility tool from this launcher.
+
+        Tools that are managed by Steam (e.g. Proton installed as a Steam app)
+        cannot be removed and raise a ValueError instead.
+
+        Args:
+            tool (CompatTool): The installed compatibility tool to remove.
+
+        Raises:
+            ValueError: If the tool is managed by Steam or its directory is not
+                inside a supported compatibility tools directory.
+            FileNotFoundError: If the tool's directory does not exist.
+            PermissionError: If the tool's directory cannot be deleted.
+        """
+        steam_managed_paths = {
+            app.install_path.resolve()
+            for app in self.get_game_list()
+            if app.app_type == SteamAppType.COMPAT_TOOL
+        }
+        if tool.install_dir.resolve() in steam_managed_paths:
+            raise ValueError(
+                f"{tool.full_name} is managed by Steam and cannot be removed with protondl. "
+                "Uninstall it in Steam instead."
+            )
+        super().remove_tool(tool)
+
     def get_game_list(self, shortcuts: bool = True, cached: bool = True) -> Sequence[SteamGame]:
         """
         Returns a list of games installed in this launcher.

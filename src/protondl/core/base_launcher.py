@@ -1,3 +1,4 @@
+import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -131,6 +132,46 @@ class Launcher(ABC):
                 seen_dirs.add(item)
 
         return installed_tools
+
+    def remove_tool(self, tool: CompatTool) -> None:
+        """
+        Removes an installed compatibility tool.
+
+        The tool's directory must be located inside one of the launcher's
+        supported compatibility tools directories. If the tool was installed by
+        a protondl installer (detected via its protondl_version.json), removal
+        is delegated to that installer so it can perform additional cleanup.
+        Otherwise, the tool's directory is deleted directly.
+
+        Args:
+            tool (CompatTool): The installed compatibility tool to remove.
+
+        Raises:
+            ValueError: If the tool's directory is not inside a supported
+                compatibility tools directory.
+            FileNotFoundError: If the tool's directory does not exist.
+            PermissionError: If the tool's directory cannot be deleted.
+        """
+        install_dir = tool.install_dir
+        tools_path = self.get_compatibility_tools_path(tool.tool_type).resolve()
+        if not install_dir.resolve().is_relative_to(tools_path):
+            raise ValueError(
+                f"Refusing to remove {install_dir}: not inside the "
+                f"{tool.tool_type.value} compatibility tools directory."
+            )
+        if not install_dir.is_dir():
+            raise FileNotFoundError(f"Compatibility tool directory does not exist: {install_dir}")
+
+        from protondl.installers import get_installer_by_name
+
+        installer = None
+        if info := read_version_file(install_dir):
+            installer = get_installer_by_name(info.compat_tool)
+
+        if installer is not None:
+            installer.remove(tool, self)
+        else:
+            shutil.rmtree(install_dir)
 
     @abstractmethod
     def get_game_list(self) -> Sequence[Game]:

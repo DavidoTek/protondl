@@ -4,6 +4,7 @@ import typer
 
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
+from protondl.core.models import CompatTool
 from protondl.installers import CT_INSTALLERS
 from protondl.launchers import detect_all_launchers
 
@@ -62,3 +63,28 @@ def resolve_installer(tool_name: str) -> CtInstaller | None:
             return CT_INSTALLERS[tool_id]
 
     return None
+
+
+def resolve_installed_tool(installed_tools: list[CompatTool], tool_name: str) -> CompatTool | None:
+    """
+    Resolve an installed compatibility tool from a name or a 1-based index.
+    The index refers to the position in the passed ``installed_tools`` list,
+    matching the order shown by the 'list-installed' command.
+
+    Args:
+        installed_tools (list[CompatTool]): The list of installed tools to search.
+        tool_name (str): The full name or the 1-based index of the tool.
+
+    Returns:
+        CompatTool | None: The matching tool, or ``None`` if no match exists.
+    """
+    if tool_name.isdigit():
+        tool_idx = int(tool_name) - 1
+        if 0 <= tool_idx < len(installed_tools):
+            return installed_tools[tool_idx]
+        return None
+
+    return next(
+        (tool for tool in installed_tools if tool.full_name.lower() == tool_name.lower()),
+        None,
+    )

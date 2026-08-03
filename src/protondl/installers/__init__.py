@@ -53,3 +53,19 @@ def get_tool_type_by_name(name: str) -> CompatToolType | None:
         if installer.name == name:
             return installer.tool_type
     return None
+
+
+def get_installer_by_name(name: str) -> CtInstaller | None:
+    """
+    Returns the compatibility tool installer with the given name.
+
+    Args:
+        name (str): The name of the compatibility tool installer.
+
+    Returns:
+        CtInstaller | None: The matching installer, or None if no installer exists.
+    """
+    for installer in CT_INSTALLERS:
+        if installer.name == name:
+            return installer
+    return None

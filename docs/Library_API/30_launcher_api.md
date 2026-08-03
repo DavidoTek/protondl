@@ -52,6 +52,28 @@ installed tool. Tools without the file are still detected and fall back to the t
 their parent folder. This disambiguates launchers that share a folder across tool types
 (e.g., Lutris stores Proton and Wine runners in `runners/wine`).
 
+## Remove installed compatibility tools
+
+Remove an installed compatibility tool using `remove_tool()`.
+The tool is located by name or index from `list-installed`, then its directory is deleted.
+
+```python
+from protondl.launchers import detect_all_launchers
+
+launcher = detect_all_launchers()[0]
+
+tools = launcher.get_installed_tools()
+if tools:
+    launcher.remove_tool(tools[0])
+```
+
+`Launcher.remove_tool()` refuses to delete directories outside the launcher's compatibility
+tools directories and tools that are managed by the launcher itself (e.g. Proton installed
+as a Steam app). If the tool was installed by a protondl installer, the matching
+`CtInstaller.remove()` is called instead of a plain folder deletion, allowing installers to
+perform additional cleanup. Installers can override the default `remove()` implementation,
+which deletes the tool's installation directory.
+
 ## Get and set global compatibility tools
 
 Get the global compatibility tool for a launcher using `get_global_tool()`.

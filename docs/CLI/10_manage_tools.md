@@ -54,6 +54,23 @@ If you want to see, which compatibility tools are installed for a specific launc
 protondl list-installed <launcher id>
 ```
 
+## Remove an installed compatibility tool
+
+To remove a compatibility tool from a launcher, specify the launcher ID and the tool's index
+from [`list-installed`](#list-installed-compatibility-tools) or its exact name.
+
+```bash
+protondl remove <launcher id> <tool index or name>
+
+# Examples
+protondl remove 1 GE-Proton10-12
+protondl remove 1 2
+```
+
+Removal is immediate and does not ask for confirmation.
+Tools that are managed by the launcher itself (e.g. Proton installed as a Steam app) cannot be
+removed and are rejected with an error message.
+
 ## Set global compatibility tool
 
 Set the launcher's global/default compatibility tool using a tool name or the index from `list-installed`.

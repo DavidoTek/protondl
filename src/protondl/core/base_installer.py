@@ -1,3 +1,4 @@
+import shutil
 import tempfile
 import time
 from abc import ABC
@@ -7,7 +8,13 @@ from pathlib import Path
 import httpx
 
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import CompatToolType, CompatToolVersionInfo, ReleaseData, RequestConfig
+from protondl.core.models import (
+    CompatTool,
+    CompatToolType,
+    CompatToolVersionInfo,
+    ReleaseData,
+    RequestConfig,
+)
 from protondl.util.archive import extract_tar, extract_tar_zst, extract_zip
 from protondl.util.download import (
     calculate_sha512,
@@ -160,6 +167,24 @@ class CtInstaller(ABC):
             bool: True if the tool supports the launcher, False otherwise.
         """
         return self.tool_type in launcher.supported_tools_folders
+
+    def remove(self, tool: CompatTool, launcher: Launcher) -> None:
+        """
+        Removes an installed compatibility tool.
+
+        The default implementation deletes the tool's installation directory.
+        Subclasses may override this method to perform additional cleanup,
+        e.g. removing launcher configuration that references the tool.
+
+        Args:
+            tool (CompatTool): The installed compatibility tool to remove.
+            launcher (Launcher): The launcher instance the tool is installed for.
+
+        Raises:
+            FileNotFoundError: If the tool's installation directory does not exist.
+            PermissionError: If the tool's installation directory cannot be deleted.
+        """
+        shutil.rmtree(tool.install_dir)
 
     def _get_extract_dir(self, launcher: Launcher) -> Path:
         """

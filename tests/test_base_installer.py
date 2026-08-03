@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from protondl.core.models import InstallMode, ReleaseData
+from protondl.core.models import CompatTool, CompatToolType, InstallMode, ReleaseData
 from protondl.installers.ge_proton import GEProtonInstaller
 from protondl.launchers.lutris import LutrisLauncher
 from protondl.util.version_file import read_version_file
@@ -65,3 +65,33 @@ def test_install_writes_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert info.version == version
     assert isinstance(info.installed_at, int)
     assert info.installed_at > 0
+
+
+def test_remove_deletes_install_dir(tmp_path: Path) -> None:
+    """
+    Test that the default CtInstaller.remove deletes the tool's directory.
+    """
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    tool_dir = launcher.get_compatibility_tools_path(CompatToolType.PROTON) / "GE-Proton11-3"
+    tool_dir.mkdir(parents=True)
+    (tool_dir / "file.txt").write_text("test", encoding="utf-8")
+
+    installer = GEProtonInstaller()
+    tool = CompatTool("GE-Proton11-3", CompatToolType.PROTON, tool_dir)
+
+    installer.remove(tool, launcher)
+
+    assert not tool_dir.exists()
+
+
+def test_remove_missing_install_dir_raises(tmp_path: Path) -> None:
+    """
+    Test that CtInstaller.remove raises FileNotFoundError for a missing directory.
+    """
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    tool_dir = launcher.get_compatibility_tools_path(CompatToolType.PROTON) / "Not-There"
+    installer = GEProtonInstaller()
+    tool = CompatTool("Not-There", CompatToolType.PROTON, tool_dir)
+
+    with pytest.raises(FileNotFoundError):
+        installer.remove(tool, launcher)

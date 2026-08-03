@@ -5,9 +5,8 @@ import typer
 from rich.table import Table
 
 from protondl.cli import app, console
-from protondl.cli.helpers import select_launcher
+from protondl.cli.helpers import resolve_installed_tool, select_launcher
 from protondl.core.base_launcher import Game
-from protondl.core.models import CompatTool
 from protondl.launchers.steam import SteamGame, SteamLauncher
 from protondl.services import (
     AWACYIndex,
@@ -168,21 +167,7 @@ def set_global_tool(
         )
         raise typer.Exit(code=1)
 
-    selected_tool: CompatTool | None = None
-
-    if compat_tool_name.isdigit():
-        tool_idx = int(compat_tool_name) - 1
-        if 0 <= tool_idx < len(installed_tools):
-            selected_tool = installed_tools[tool_idx]
-    else:
-        selected_tool = next(
-            (
-                tool
-                for tool in installed_tools
-                if tool.full_name.lower() == compat_tool_name.lower()
-            ),
-            None,
-        )
+    selected_tool = resolve_installed_tool(installed_tools, compat_tool_name)
 
     if not selected_tool:
         console.print(
