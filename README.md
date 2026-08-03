@@ -16,6 +16,7 @@ This is more of a side project that I will work on here and there. Please use [P
 - **Modular Architecture**: Easily extendable for new compatibility tools or launchers.
 - **Async-First**: Built with httpx and asyncio for non-blocking downloads.
 - **Headless by Design**: No Qt/GUI dependencies in the core library.
+- **CLI & TUI**: A rich-powered command line interface and an optional [Textual](https://github.com/Textualize/textual)-based terminal UI.
 - **Modern Tooling**: Powered by uv, ruff, and mypy for a rock-solid developer experience.
 
 ### Supported Launchers
@@ -79,6 +80,15 @@ uvx run protondl
     protondl list-games 1 --awacy
     ```
 
+### Basic Usage (TUI)
+
+For an interactive, mouse- and keyboard-driven interface, install the TUI extra and launch it:
+
+```bash
+uv tool install "protondl[tui] @ git+https://github.com/DavidoTek/protondl@main"
+protondl-tui
+```
+
 ### Basic Usage (Library API)
 
 ```python
@@ -139,6 +149,7 @@ src/protondl/
 ├── installers/     # Tool-specific logic (GE-Proton, Luxtorpeda)
 ├── launchers/      # Launcher discovery (Steam, Lutris, etc.)
 ├── services/       # Online service (AWACY, ProtonDB)
+├── tui/            # Textual terminal user interface
 └── util/           # Utility functions (downloads, etc.)
 ```
 

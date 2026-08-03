@@ -1,0 +1,113 @@
+Screen {
+    layout: vertical;
+}
+
+#main-container {
+    padding: 1 2;
+    height: 1fr;
+}
+
+#main-container Label {
+    margin-top: 1;
+    text-style: bold;
+}
+
+#launcher-select {
+    margin-top: 1;
+}
+
+.section-title {
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
+#empty-hint {
+    color: $text-muted;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+#installed-tools {
+    height: 1fr;
+    border: round $primary;
+    margin-bottom: 1;
+}
+
+#actions {
+    height: 3;
+    align: center middle;
+}
+
+#actions Button {
+    margin-left: 1;
+}
+
+ModalScreen {
+    align: center middle;
+}
+
+#confirm-dialog {
+    width: 70;
+    height: auto;
+    border: thick $error;
+    background: $surface;
+    padding: 1 2;
+}
+
+#confirm-label {
+    content-align: center middle;
+    text-style: bold;
+}
+
+#confirm-subtitle {
+    color: $text-muted;
+    content-align: center top;
+    margin-top: 1;
+}
+
+#confirm-actions {
+    align: center middle;
+    height: 3;
+    margin-top: 1;
+}
+
+#confirm-actions Button {
+    margin: 0 1;
+}
+
+#install-dialog {
+    width: 80;
+    height: auto;
+    border: thick $primary;
+    background: $surface;
+    padding: 1 2;
+}
+
+#install-dialog Label {
+    margin-top: 1;
+}
+
+#install-title {
+    text-style: bold;
+}
+
+#install-progress {
+    margin-top: 1;
+    display: none;
+}
+
+#install-status {
+    color: $text-muted;
+    margin-top: 1;
+    display: none;
+}
+
+#install-actions {
+    align: center middle;
+    height: 3;
+    margin-top: 1;
+}
+
+#install-actions Button {
+    margin: 0 1;
+}
