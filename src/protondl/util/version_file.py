@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from protondl.core.models import CompatToolVersionInfo
+from protondl.util.helpers import json_safe_load
 
 FILENAME = "protondl_version.json"
 
@@ -42,7 +43,7 @@ def read_version_file(install_dir: Path) -> CompatToolVersionInfo | None:
         return None
 
     try:
-        data = json.loads(version_file.read_text(encoding="utf-8"))
+        data = json_safe_load(version_file)
         return CompatToolVersionInfo(
             compat_tool=str(data["compat_tool"]),
             version=str(data["version"]),

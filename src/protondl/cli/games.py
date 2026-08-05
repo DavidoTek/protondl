@@ -109,7 +109,7 @@ def set_tool(
     compat_tool_name: str = typer.Argument(..., help="Name of the tool, e.g., GE-Proton10-10"),
 ) -> None:
     """
-    Assign a compatibility tool to one or more games in a Steam launcher.
+    Assign a compatibility tool to one or more games in a launcher.
 
     Example:
         protondl set-game-tools 1 123456 GE-Proton10-10
