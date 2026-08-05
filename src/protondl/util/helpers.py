@@ -1,5 +1,37 @@
-from protondl.core.base_launcher import Launcher
-from protondl.core.models import CompatTool
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from protondl.core.base_launcher import Launcher
+    from protondl.core.models import CompatTool
+
+
+def json_safe_load(json_file: Path) -> dict[str, Any]:
+    """
+    Loads a JSON file and returns its contents as a dict.
+
+    Args:
+        json_file (Path): Path to the JSON file.
+
+    Returns:
+        dict: Content of the JSON file.
+
+    Raises:
+        ValueError: In case loading the JSON file fails.
+    """
+    try:
+        with open(json_file, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
+        raise ValueError(f"Loading {json_file} failed: {e}") from e
+
+    if not isinstance(data, dict):
+        raise ValueError(f"Loading {json_file} did not return a dict, but {type(data)}: {data}")
+
+    return cast(dict[str, Any], data)
 
 
 def batch_update_games_tools(

@@ -2,7 +2,7 @@
 
 protondl allows listing and managing installed games.
 
-Managing games is currently supported for the following launchers: <span class="badge steam">Steam</span>
+Managing games is currently supported for the following launchers: <span class="badge steam">Steam</span> <span class="badge heroic">Heroic</span>
 
 ## List installed games
 
@@ -41,4 +41,4 @@ protondl set-tool <launcher id> <game id> <tool name>
 protondl set-tool <launcher id> <game id> none
 ```
 
-`set-tool` currently requires a Steam launcher.
+`set-tool` currently requires a Steam or Heroic launcher. For Heroic, only Proton and Wine tools are supported, and listing includes installed DLC.

@@ -1,6 +1,6 @@
 # Manage Games (Library)
 
-Managing games is currently supported for the following launchers: <span class="badge steam">Steam</span>
+Managing games is currently supported for the following launchers: <span class="badge steam">Steam</span> <span class="badge heroic">Heroic</span>
 
 ## Basics
 
@@ -54,6 +54,34 @@ for game in launcher.get_game_list():
     if status == SteamDeckCompatType.VERIFIED:
         print(f"{game.name} is VERIFIED (recommended runtime: {recommended_runtime or 'none'})")
 ```
+
+### Heroic
+
+`HeroicLauncher` lists installed games across all Heroic stores (GOG, Epic via legendary, Amazon via nile, and sideloaded apps). Only games that are installed are returned; DLC entries are included.
+
+```python
+from protondl.launchers.heroic import HeroicLauncher
+
+launcher = HeroicLauncher.discover()[0]
+games = launcher.get_game_list()
+
+for game in games:
+    print(f"{game.id}: {game.name} (store: {game.runner}, tool: {game.compat_tool_name or 'default'})")
+```
+
+`HeroicGame` objects expose additional attributes: `runner`, `is_dlc`, `is_installed`, `install_path`, `wine_type`, and `platform`. Assign a tool the same way as with Steam via `set_games_tools()`; pass `None` to reset a game to the global tool.
+
+```python
+from protondl.launchers.heroic import HeroicLauncher
+
+launcher = HeroicLauncher.discover()[0]
+game = launcher.get_game_list()[0]
+
+launcher.set_games_tools({game: "GE-Proton10-14"})  # set a specific tool
+launcher.set_games_tools({game: None})               # reset to the global tool
+```
+
+The per-game and global tools in Heroic correspond to Proton and Wine installers only (DXVK and vkd3d-proton do not have a matching Heroic `wineVersion` entry). `set_global_tool()` raises a `ValueError` for unsupported tool types; `set_games_tools()` raises a `RuntimeError`.
 
 Service-based online lookups such as AWACY and ProtonDB are documented in
 `Library_API/40_external_services_api.md`.
