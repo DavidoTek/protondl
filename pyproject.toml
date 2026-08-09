@@ -17,8 +17,8 @@ dependencies = [
 
 [project.optional-dependencies]
 cli = [
-    "rich>=14.3.3",
-    "typer>=0.24.1",
+    "rich>=15.0.0",
+    "typer>=0.27.1",
 ]
 
 [project.scripts]
@@ -30,10 +30,10 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "mypy>=1.19.1",
-    "pre-commit>=4.5.1",
-    "pytest>=9.0.3",
-    "ruff>=0.15.5",
+    "mypy>=2.3.0",
+    "pre-commit>=4.6.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.2",
 ]
 
 [tool.ruff]
@@ -58,4 +58,4 @@ mypy_path = "src"
 
 [tool.uv.sources]
 vdf = { git = "https://github.com/solsticegamestudios/vdf", rev = "v4.0" }
-steam = { git = "https://github.com/solsticegamestudios/steam.git", rev = "v1.6.1" }
+steam = { git = "https://github.com/solsticegamestudios/steam.git", rev = "v2.0.0-alpha1" }
