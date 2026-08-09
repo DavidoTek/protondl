@@ -66,7 +66,9 @@ launcher = HeroicLauncher.discover()[0]
 games = launcher.get_game_list()
 
 for game in games:
-    print(f"{game.id}: {game.name} (store: {game.runner}, tool: {game.compat_tool_name or 'default'})")
+    print(
+        f"{game.id}: {game.name} (store: {game.runner}, tool: {game.compat_tool_name or 'default'})"
+    )
 ```
 
 `HeroicGame` objects expose additional attributes: `runner`, `is_dlc`, `is_installed`, `install_path`, `wine_type`, and `platform`. Assign a tool the same way as with Steam via `set_games_tools()`; pass `None` to reset a game to the global tool.
@@ -78,7 +80,7 @@ launcher = HeroicLauncher.discover()[0]
 game = launcher.get_game_list()[0]
 
 launcher.set_games_tools({game: "GE-Proton10-14"})  # set a specific tool
-launcher.set_games_tools({game: None})               # reset to the global tool
+launcher.set_games_tools({game: None})  # reset to the global tool
 ```
 
 The per-game and global tools in Heroic correspond to Proton and Wine installers only (DXVK and vkd3d-proton do not have a matching Heroic `wineVersion` entry). `set_global_tool()` raises a `ValueError` for unsupported tool types; `set_games_tools()` raises a `RuntimeError`.
@@ -94,7 +96,9 @@ launcher = LutrisLauncher.discover()[0]
 games = launcher.get_game_list()
 
 for game in games:
-    print(f"{game.id}: {game.name} (runner: {game.runner}, tool: {game.compat_tool_name or 'default'})")
+    print(
+        f"{game.id}: {game.name} (runner: {game.runner}, tool: {game.compat_tool_name or 'default'})"
+    )
 ```
 
 `LutrisGame` objects expose additional attributes: `slug`, `runner` (e.g. `wine` or `steam`), `installer_slug`, and `installed_at`. `install_path` is set to the game's install directory or `?` if it cannot be determined. Setting per-game tools via `set_games_tools()` is not implemented yet for Lutris.
