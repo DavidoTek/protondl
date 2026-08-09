@@ -3,6 +3,7 @@ from typing import Any
 import pytest
 
 from protondl.core.models import Arch, ReleaseData, ReleaseVersion, RequestConfig
+from protondl.installers.dxvk import DXVKInstaller
 from protondl.installers.ge_proton import GEProtonInstaller
 from protondl.util.download import fetch_project_release_data, fetch_project_releases
 
@@ -248,6 +249,18 @@ def test_fetch_project_release_data_last_match_wins_when_priorities_equal(
     )
 
     assert release_data.download == ("https://example.com/dxvk-native-3.0.2-steamrt-sniper.tar.gz")
+
+
+def test_dxvk_fetch_release_data_selects_non_native(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_async_client(monkeypatch, DXVK_RELEASE)
+
+    installer = DXVKInstaller()
+    release_data = asyncio_run(installer._fetch_release_data("v3.0.2", Arch.X86_64))
+
+    assert release_data.download == "https://example.com/dxvk-3.0.2.tar.gz"
+    assert release_data.original_filename == "dxvk-3.0.2.tar.gz"
 
 
 def test_fetch_project_release_data_missing_arch(monkeypatch: pytest.MonkeyPatch) -> None:

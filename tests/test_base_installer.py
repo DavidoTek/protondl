@@ -177,6 +177,13 @@ def test_release_archs_from_assets() -> None:
     ]
 
 
+def test_dxvk_asset_priority_prefers_non_native() -> None:
+    installer = DXVKInstaller()
+
+    assert installer._asset_priority({"name": "dxvk-3.0.2.tar.gz"}) == 1
+    assert installer._asset_priority({"name": "dxvk-native-3.0.2-steamrt-sniper.tar.gz"}) == 0
+
+
 def test_remove_deletes_install_dir(tmp_path: Path) -> None:
     """
     Test that the default CtInstaller.remove deletes the tool's directory.
