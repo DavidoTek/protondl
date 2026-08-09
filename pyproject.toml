@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.28.1",
+    "pyyaml",
     "steam",
     "vdf",
     "zstandard>=0.25.0",
@@ -51,7 +52,7 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 follow_untyped_imports = true
-untyped_calls_exclude = ["vdf", "steam"]
+untyped_calls_exclude = ["vdf", "steam", "yaml"]
 disallow_untyped_decorators = false
 mypy_path = "src"
 

@@ -500,6 +500,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
+    { name = "pyyaml" },
     { name = "steam" },
     { name = "vdf" },
     { name = "zstandard" },
@@ -522,6 +523,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pyyaml" },
     { name = "rich", marker = "extra == 'cli'", specifier = ">=14.3.3" },
     { name = "steam", git = "https://github.com/solsticegamestudios/steam.git?rev=v1.6.1" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.24.1" },

@@ -33,8 +33,8 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 
 - Launcher discovery: Steam, Lutris, Heroic, and Bottles (native/flatpak; Steam also snap).
 - Tool management (install/list tools): Steam, Lutris, Heroic, and Bottles.
-- Game management (list games, set game tools, Steam Deck status): Steam only.
-- Global/default compatibility tool management: Steam only.
+- Game management (list games, set game tools, Steam Deck status): Steam, Heroic (list and set tools), and Lutris (list games).
+- Global/default compatibility tool management: Steam and Heroic.
 
 ### Comparison
 

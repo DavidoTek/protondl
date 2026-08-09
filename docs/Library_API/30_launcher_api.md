@@ -102,8 +102,9 @@ if available_tools:
 ## Current implementation status
 
 - `SteamLauncher`: game list, per-game tool mapping, global tool management, Steam Deck compatibility metadata.
-- `LutrisLauncher`: launcher discovery and compatibility-tool filesystem management.
+- `LutrisLauncher`: launcher discovery, compatibility-tool filesystem management, and game list.
 - `HeroicLauncher`: launcher discovery, game list, per-game tool mapping, and global tool management.
 - `BottlesLauncher`: launcher discovery and compatibility-tool filesystem management.
 
-Game management and global tool APIs are currently implemented for Steam and Heroic launchers.
+Game management APIs are currently implemented for Steam and Heroic launchers, and listing
+games is implemented for Lutris.

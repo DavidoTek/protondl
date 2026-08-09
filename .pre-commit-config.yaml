@@ -11,3 +11,5 @@ repos:
     hooks:
       - id: mypy
         args: [--config-file=./pyproject.toml, --ignore-missing-imports]
+        additional_dependencies:
+          - types-PyYAML

@@ -1,6 +1,6 @@
 # Manage Games (Library)
 
-Managing games is currently supported for the following launchers: <span class="badge steam">Steam</span> <span class="badge heroic">Heroic</span>
+Managing games is currently supported for the following launchers: <span class="badge steam">Steam</span> <span class="badge lutris">Lutris</span> <span class="badge heroic">Heroic</span>
 
 ## Basics
 
@@ -82,6 +82,22 @@ launcher.set_games_tools({game: None})               # reset to the global tool
 ```
 
 The per-game and global tools in Heroic correspond to Proton and Wine installers only (DXVK and vkd3d-proton do not have a matching Heroic `wineVersion` entry). `set_global_tool()` raises a `ValueError` for unsupported tool types; `set_games_tools()` raises a `RuntimeError`.
+
+### Lutris
+
+`LutrisLauncher` lists installed games read from Lutris' `pga.db` database, enriched with the assigned compatibility tool and install directory from each game's YAML configuration file. Games added manually to Lutris (without an install directory in the database) get their install directory resolved from the game's configuration.
+
+```python
+from protondl.launchers.lutris import LutrisLauncher
+
+launcher = LutrisLauncher.discover()[0]
+games = launcher.get_game_list()
+
+for game in games:
+    print(f"{game.id}: {game.name} (runner: {game.runner}, tool: {game.compat_tool_name or 'default'})")
+```
+
+`LutrisGame` objects expose additional attributes: `slug`, `runner` (e.g. `wine` or `steam`), `installer_slug`, and `installed_at`. `install_path` is set to the game's install directory or `?` if it cannot be determined. Setting per-game tools via `set_games_tools()` is not implemented yet for Lutris.
 
 Service-based online lookups such as AWACY and ProtonDB are documented in
 `Library_API/40_external_services_api.md`.
