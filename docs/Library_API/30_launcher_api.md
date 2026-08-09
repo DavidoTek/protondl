@@ -39,13 +39,31 @@ protondl writes a `protondl_version.json` file into the tool's installation dire
 {
     "compat_tool": "GE-Proton",
     "version": "GE-Proton11-3",
-    "installed_at": 1785769458
+    "installed_at": 1785769458,
+    "arch": "aarch64",
+    "translation_details": {
+        "from_os": "windows",
+        "from_arch": "x86_64",
+        "to_os": "linux",
+        "to_arch": "aarch64"
+    }
 }
 ```
 
 - `compat_tool`: The name of the compatibility tool installer (`CtInstaller.name`).
 - `version`: The installed version as returned by `CtInstaller.fetch_releases`.
 - `installed_at`: The UNIX timestamp in seconds when the tool was installed.
+- `arch`: The architecture of the installed build (e.g. `x86_64` or `aarch64`).
+- `translation_details`: Describes the game/host translation the build performs.
+  - `from_os`/`from_arch`: The guest side, i.e. the games the tool runs
+    (e.g. Windows `x86_64` games).
+  - `to_os`/`to_arch`: The host side the tool runs on (e.g. Linux `aarch64`).
+
+For example, the `aarch64` build of GE-Proton runs x86_64 Windows games on
+ARM Linux (via Fex), hence `from_arch: "x86_64"` and `to_arch: "aarch64"`.
+
+`arch` and `translation_details` may be absent for tools installed by older
+versions of protondl; the file is read accordingly.
 
 The file is read by `get_installed_tools()` to resolve the correct tool type of an
 installed tool. Tools without the file are still detected and fall back to the type of

@@ -1,5 +1,5 @@
 from protondl.core.base_installer import CtInstaller
-from protondl.core.models import CompatToolType
+from protondl.core.models import Arch, CompatToolType
 
 
 class GEProtonInstaller(CtInstaller):
@@ -12,3 +12,6 @@ class GEProtonInstaller(CtInstaller):
     api_url = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases"
     release_format = ".tar.gz"
     checksum_suffix = ".sha512sum"
+
+    supported_archs = (Arch.X86_64, Arch.AARCH64)
+    arch_release_suffixes = {Arch.X86_64: "", Arch.AARCH64: "-aarch64"}

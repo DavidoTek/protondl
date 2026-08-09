@@ -18,6 +18,11 @@ class CompatToolType(Enum):
     VKD3D = "vkd3d"
 
 
+class Arch(Enum):
+    X86_64 = "x86_64"
+    AARCH64 = "aarch64"
+
+
 @dataclass
 class CompatTool:
     """
@@ -35,6 +40,27 @@ class CompatTool:
 
 
 @dataclass
+class TranslationDetails:
+    """
+    Describes the game/host translation performed by a compatibility tool build.
+
+    The "from" side is the guest software (e.g. Windows games) the tool runs,
+    the "to" side is the host platform the tool runs on.
+
+    Attributes:
+        from_os: The guest operating system (e.g. "windows").
+        from_arch: The guest architecture (e.g. "x86_64").
+        to_os: The host operating system (e.g. "linux").
+        to_arch: The host architecture (e.g. "aarch64").
+    """
+
+    from_os: str
+    from_arch: str
+    to_os: str
+    to_arch: str
+
+
+@dataclass
 class CompatToolVersionInfo:
     """
     Metadata stored by protondl inside a compatibility tool's directory.
@@ -43,11 +69,30 @@ class CompatToolVersionInfo:
         compat_tool: The name of the compatibility tool installer (CtInstaller.name).
         version: The installed version as returned by CtInstaller.fetch_releases.
         installed_at: UNIX timestamp (in seconds) when the tool was installed.
+        arch: The architecture of the installed build, if known.
+        translation_details: Details about the game/host translation performed
+            by the installed build, if known.
     """
 
     compat_tool: str
     version: str
     installed_at: int
+    arch: Arch | None = None
+    translation_details: TranslationDetails | None = None
+
+
+@dataclass
+class ReleaseVersion:
+    """
+    A single release version and the architectures it ships.
+
+    Attributes:
+        version: The release version string (e.g. "GE-Proton11-3").
+        archs: The architectures for which this release provides a build.
+    """
+
+    version: str
+    archs: tuple[Arch, ...] = (Arch.X86_64,)
 
 
 @dataclass

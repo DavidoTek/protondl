@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from protondl.core.base_installer import CtInstaller
-from protondl.core.models import CompatToolType, ReleaseData
+from protondl.core.models import Arch, CompatToolType, ReleaseData, ReleaseVersion
 from protondl.util.archive import extract_zip_with_tar
 from protondl.util.download import fetch_github_artifact_data, fetch_github_project_workflows
 
@@ -29,12 +29,13 @@ class DXVKNightlyInstaller(CtInstaller):
     )
     package_name = "artifacts"
 
-    async def fetch_releases(self, count: int = 30, page: int = 1) -> list[str]:
-        return await fetch_github_project_workflows(
+    async def fetch_releases(self, count: int = 30, page: int = 1) -> list[ReleaseVersion]:
+        workflow_ids = await fetch_github_project_workflows(
             self.ct_workflow_url, self.package_name, self.request_config, count, page
         )
+        return [ReleaseVersion(version=workflow_id) for workflow_id in workflow_ids]
 
-    async def _fetch_release_data(self, version: str) -> ReleaseData:
+    async def _fetch_release_data(self, version: str, arch: Arch) -> ReleaseData:
         return await fetch_github_artifact_data(
             self.api_url, self.ct_artifact_url, self.ct_nightly_link, version, self.request_config
         )

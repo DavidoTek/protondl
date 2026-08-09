@@ -29,6 +29,19 @@ protondl list-versions <tool id or name>
 protondl list-versions GE-Proton --count 30 --page 1
 ```
 
+Tools that provide builds for multiple architectures (e.g. GE-Proton ships `x86_64`
+and `aarch64` builds) show an additional `Architectures` column with a comma-separated
+list of the architectures each version provides.
+
+You can restrict the output to versions shipping a specific architecture:
+
+```bash
+protondl list-versions GE-Proton --arch aarch64
+```
+
+Passing an architecture that the tool does not support at all (e.g. `--arch aarch64`
+for an x86_64-only tool) results in an error.
+
 ## Installing a compatibility tool
 
 To install a compatibility tool for a launcher, run the following command.
@@ -41,9 +54,21 @@ protondl install <launcher id> <tool id/name> <tool version name>
 protondl install 1 GE-Proton GE-Proton10-10
 ```
 
+By default protondl installs a build matching the architecture of the current host,
+falling back to `x86_64` if the tool does not provide a build for the host architecture.
+Use `--arch` to select a specific architecture:
+
+```bash
+protondl install 1 GE-Proton GE-Proton11-3 --arch aarch64
+```
+
+If the requested architecture is not available for the tool, the installation fails
+with an error. After a successful installation, the CLI prints the installed
+architecture (e.g. `Successfully installed GE-Proton (aarch64)!`).
+
 When protondl installs a compatibility tool, it writes a `protondl_version.json` file into the
 tool's folder that stores metadata about the installation, including the compatibility tool's
-name, version, and install timestamp.
+name, version, install timestamp, and the installed architecture with translation details.
 See the [Library API](../Library_API/30_launcher_api.md#protondl_versionjson) docs for details.
 
 ## List installed compatibility tools

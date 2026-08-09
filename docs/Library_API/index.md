@@ -72,7 +72,10 @@ tool_installer = compatible_tools[0]
 
 versions = asyncio.run(tool_installer.fetch_releases(count=30, page=1))
 
-print(f"Available versions of {tool_installer.name}: {versions}")
+print(f"Available versions of {tool_installer.name}:")
+
+for release in versions:
+    print(f"  {release.version} ({', '.join(arch.value for arch in release.archs)})")
 
 if not versions:
     raise RuntimeError("No releases returned")
@@ -80,16 +83,23 @@ if not versions:
 if not tool_installer.supports_launcher(launchers[0]):
     raise RuntimeError("Selected launcher is not supported by this installer")
 
+# Install the newest release for the given architecture.
+# Omitting `arch` selects the host architecture if supported, else x86_64.
+from protondl.core.models import Arch
+
 asyncio.run(
     tool_installer.install(
-        versions[0],
+        versions[0].version,
         launchers[0],
-        lambda p, t: print(
-            f"Progress: {p} / {t}"
-        ),  # Optional progress callback (current bytes, total size)
+        arch=Arch.AARCH64,  # Optional
+        progress_callback=lambda p, t: print(f"Progress: {p} / {t}"),  # Optional
     )
 )
 ```
+
+`fetch_releases()` returns a list of `ReleaseVersion` objects with a `version` string and an
+`archs` tuple of `Arch` values. `install()` returns the `CompatToolVersionInfo` written to the
+tool's `protondl_version.json`, which includes the installed architecture.
 
 For a complete workflow with launcher/tool selection, see the CLI implementation in `src/protondl/cli/main.py`.
 

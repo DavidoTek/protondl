@@ -4,7 +4,7 @@ import typer
 
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import CompatTool
+from protondl.core.models import Arch, CompatTool
 from protondl.installers import CT_INSTALLERS
 from protondl.launchers import detect_all_launchers
 
@@ -63,6 +63,27 @@ def resolve_installer(tool_name: str) -> CtInstaller | None:
             return CT_INSTALLERS[tool_id]
 
     return None
+
+
+def parse_arch(arch_str: str) -> Arch:
+    """
+    Parse an architecture string into an Arch enum value.
+
+    Args:
+        arch_str (str): The architecture string (e.g. "x86_64" or "aarch64").
+
+    Returns:
+        Arch: The matching Arch enum value.
+
+    Raises:
+        typer.Exit: If the architecture string is unknown.
+    """
+    try:
+        return Arch(arch_str)
+    except ValueError:
+        supported = ", ".join(a.value for a in Arch)
+        typer.secho(f"Error: Unknown architecture '{arch_str}'. Supported: {supported}.", fg="red")
+        raise typer.Exit(code=1) from None
 
 
 def resolve_installed_tool(installed_tools: list[CompatTool], tool_name: str) -> CompatTool | None:

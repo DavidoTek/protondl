@@ -1,12 +1,30 @@
 from __future__ import annotations
 
 import json
+import platform
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+
+from protondl.core.models import Arch
 
 if TYPE_CHECKING:
     from protondl.core.base_launcher import Launcher
     from protondl.core.models import CompatTool
+
+
+def detect_host_arch() -> Arch:
+    """
+    Detects the CPU architecture of the current host.
+
+    Returns:
+        Arch: The detected host architecture. Unknown architectures default to Arch.X86_64.
+    """
+    machine = platform.machine().lower()
+    if machine in ("x86_64", "amd64"):
+        return Arch.X86_64
+    if machine in ("aarch64", "arm64"):
+        return Arch.AARCH64
+    return Arch.X86_64
 
 
 def json_safe_load(json_file: Path) -> dict[str, Any]:

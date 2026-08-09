@@ -1,11 +1,17 @@
 import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
 import httpx
 
-from protondl.core.models import GitHubArtifactResponse, ReleaseData, RequestConfig
+from protondl.core.models import (
+    Arch,
+    GitHubArtifactResponse,
+    ReleaseData,
+    ReleaseVersion,
+    RequestConfig,
+)
 
 GITHUB_API = "https://api.github.com/"
 GITLAB_APIS = ["https://gitlab.com/api/"]
@@ -87,6 +93,8 @@ async def fetch_project_release_data(
     tag: str,
     checksum_suffix: str = "",
     asset_condition: Callable[[dict[str, Any]], bool] | None = None,
+    checksum_condition: Callable[[dict[str, Any]], bool] | None = None,
+    asset_priority: Callable[[dict[str, Any]], int] | None = None,
 ) -> ReleaseData:
     """
     Unified fetch for release metadata across GitHub and GitLab.
@@ -98,6 +106,12 @@ async def fetch_project_release_data(
         tag (str): Specific tag to fetch. If empty, fetches the latest release.
         checksum_suffix (str): Suffix to identify checksum assets (e.g., ".sha512").
         asset_condition (Callable[[dict], bool], optional): Additional filter for assets.
+        checksum_condition (Callable[[dict], bool], optional):
+            Additional filter for checksum assets.
+        asset_priority (Callable[[dict], int], optional):
+            Returns a priority for a matching asset. When a release provides
+            multiple matching assets, the one with the highest priority is
+            selected. Assets of equal priority keep the last one seen.
 
     Returns:
         ReleaseData: A dataclass containing release metadata and asset URLs.
@@ -127,18 +141,23 @@ async def fetch_project_release_data(
         else:
             raise ValueError("Unsupported release URL format.")
 
+        selected_priority = 0
         for asset in assets:
             name = asset.get("name", "")
             download_url = asset.get("browser_download_url") if not is_gl else asset.get("url")
 
             if name.endswith(release_format):
                 if not asset_condition or asset_condition(asset):
-                    release_data.download = download_url
-                    release_data.size = int(asset.get("size", -1))
-                    release_data.original_filename = name
+                    priority = asset_priority(asset) if asset_priority else 0
+                    if priority >= selected_priority:
+                        selected_priority = priority
+                        release_data.download = download_url
+                        release_data.size = int(asset.get("size", -1))
+                        release_data.original_filename = name
 
             if checksum_suffix and name.endswith(checksum_suffix):
-                release_data.checksum = download_url
+                if not checksum_condition or checksum_condition(asset):
+                    release_data.checksum = download_url
 
     return release_data
 
@@ -148,8 +167,8 @@ async def fetch_project_releases(
     config: RequestConfig,
     count: int = 100,
     page: int = 1,
-    include_extra_asset: Callable[[dict[str, Any]], list[str]] | None = None,
-) -> list[str]:
+    release_archs: Callable[[list[dict[str, Any]]], Sequence[Arch]] | None = None,
+) -> list[ReleaseVersion]:
     """
     Lists available release tags/names for a given project URL (GitHub or GitLab).
 
@@ -158,11 +177,13 @@ async def fetch_project_releases(
         config (RequestConfig): Configuration for API requests, including auth tokens.
         count (int): Number of releases to fetch per page.
         page (int): Page number for paginated APIs.
-        include_extra_asset (Callable[[dict], list[str]], optional):
-            A function to extract additional version strings from a release dict.
+        release_archs (Callable[[list[dict]], Sequence[Arch]], optional):
+            A function that receives the release's asset list and returns the
+            architectures for which the release provides a build.
 
     Returns:
-        list[str]: A list of release tags/names sorted by newest first.
+        list[ReleaseVersion]: A list of release versions with their supported
+            architectures, sorted by newest first.
     """
     is_gl = is_gitlab_instance(releases_url)
     tag_key = "name" if is_gl else "tag_name"
@@ -177,14 +198,19 @@ async def fetch_project_releases(
         if not isinstance(data, list):
             return []
 
-        releases_list: list[str] = []
+        releases_list: list[ReleaseVersion] = []
         for release in data:
-            if tag_name := release.get(tag_key):
-                releases_list.append(tag_name)
+            tag_name = release.get(tag_key)
+            if not tag_name:
+                continue
 
-            assets = release.get("assets", [])
-            if assets and include_extra_asset:
-                releases_list.extend(include_extra_asset(release))
+            if is_gl:
+                assets = release.get("assets", {}).get("links", [])
+            else:
+                assets = release.get("assets", [])
+
+            archs = tuple(release_archs(assets)) if release_archs else (Arch.X86_64,)
+            releases_list.append(ReleaseVersion(version=tag_name, archs=archs))
 
         return releases_list
 

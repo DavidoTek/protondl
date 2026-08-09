@@ -11,9 +11,15 @@ from rich.progress import (
 from rich.table import Table
 
 from protondl.cli import app, console, state
-from protondl.cli.helpers import resolve_installed_tool, resolve_installer, select_launcher
+from protondl.cli.helpers import (
+    parse_arch,
+    resolve_installed_tool,
+    resolve_installer,
+    select_launcher,
+)
 from protondl.core.models import CompatToolType
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
+from protondl.util.helpers import detect_host_arch
 
 
 @app.command(name="list-tools")
@@ -58,6 +64,14 @@ def list_versions(
         30, "--count", "-c", help="Number of versions to show", min=1, max=100
     ),
     page: int = typer.Option(1, "--page", "-p", help="Page number of the release list", min=1),
+    arch: str | None = typer.Option(
+        None,
+        "--arch",
+        help=(
+            "Filter versions by architecture (e.g., 'x86_64' or 'aarch64'). "
+            "If omitted, all architectures are listed."
+        ),
+    ),
 ) -> None:
     """
     Fetch and list all available remote versions for a specific tool.
@@ -66,6 +80,15 @@ def list_versions(
 
     if not installer:
         console.print(f"[red]Error: Tool '{tool_name}' not found in registry.[/red]")
+        raise typer.Exit(1)
+
+    requested_arch = parse_arch(arch) if arch else None
+    if requested_arch is not None and requested_arch not in installer.supported_archs:
+        supported = ", ".join(a.value for a in installer.supported_archs)
+        console.print(
+            f"[red]Error: Architecture '{requested_arch.value}' is not supported by "
+            f"{installer.name}. Supported: {supported}.[/red]"
+        )
         raise typer.Exit(1)
 
     installer.request_config = state["request_config"]
@@ -79,6 +102,9 @@ def list_versions(
         console.print(f"[red]Failed to fetch versions: {e}[/red]")
         raise typer.Exit(1) from e
 
+    if requested_arch is not None:
+        versions = [release for release in versions if requested_arch in release.archs]
+
     if not versions:
         console.print(f"[yellow]No versions found for {installer.name}.[/yellow]")
         return
@@ -86,8 +112,15 @@ def list_versions(
     table = Table(title=f"Available Versions: [bold cyan]{installer.name}[/bold cyan]")
     table.add_column("Version String", style="green")
 
-    for version in versions:
-        table.add_row(version)
+    show_archs = len(installer.supported_archs) > 1
+    if show_archs:
+        table.add_column("Architectures", style="dim")
+
+    for release in versions:
+        row = [release.version]
+        if show_archs:
+            row.append(", ".join(a.value for a in release.archs))
+        table.add_row(*row)
 
     console.print(table)
 
@@ -101,6 +134,14 @@ def install_tool(
     version: str = typer.Argument(
         ..., help="Version to install (e.g., 'latest' or 'GE-Proton9-2')"
     ),
+    arch: str | None = typer.Option(
+        None,
+        "--arch",
+        help=(
+            "Architecture to install (e.g., 'x86_64' or 'aarch64'). "
+            "Defaults to the host architecture if supported by the tool, otherwise x86_64."
+        ),
+    ),
 ) -> None:
     """
     Download and install a compatibility tool for a specific launcher.
@@ -112,6 +153,15 @@ def install_tool(
         console.print(f"[red]Error: Tool '{tool_name}' is not supported.[/red]")
         raise typer.Exit(1)
 
+    requested_arch = parse_arch(arch) if arch else None
+    if requested_arch is not None and requested_arch not in installer.supported_archs:
+        supported = ", ".join(a.value for a in installer.supported_archs)
+        console.print(
+            f"[red]Error: Architecture '{requested_arch.value}' is not supported by "
+            f"{installer.name}. Supported: {supported}.[/red]"
+        )
+        raise typer.Exit(1)
+
     installer.request_config = state["request_config"]
 
     if not installer.supports_launcher(target_launcher):
@@ -119,6 +169,14 @@ def install_tool(
             f"[red]Error: {installer.name} does not support {target_launcher.name}.[/red]"
         )
         raise typer.Exit(1)
+
+    if requested_arch is None:
+        host_arch = detect_host_arch()
+        if host_arch not in installer.supported_archs:
+            console.print(
+                f"[yellow]Note: {installer.name} does not provide a {host_arch.value} build; "
+                "installing the x86_64 build.[/yellow]"
+            )
 
     console.print(
         f"Preparing to install [bold cyan]{installer.name}[/bold cyan] "
@@ -141,10 +199,18 @@ def install_tool(
                     progress.update(download_task, total=total_size)
                 progress.update(download_task, advance=chunk_size)
 
-            asyncio.run(
-                installer.install(version, target_launcher, progress_callback=update_spinner)
+            info = asyncio.run(
+                installer.install(
+                    version,
+                    target_launcher,
+                    arch=requested_arch,
+                    progress_callback=update_spinner,
+                )
             )
-        console.print(f"[bold green]Successfully installed {installer.name}![/bold green]")
+        arch_name = info.arch.value if info.arch else "unknown"
+        console.print(
+            f"[bold green]Successfully installed {installer.name} ({arch_name})![/bold green]"
+        )
         console.print(f"Please restart {target_launcher.name} to see the changes.")
     except Exception as e:
         console.print(f"[red]Installation failed: {e}[/red]")

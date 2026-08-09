@@ -2,18 +2,22 @@ import shutil
 import tempfile
 import time
 from abc import ABC
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 import httpx
 
 from protondl.core.base_launcher import Launcher
 from protondl.core.models import (
+    Arch,
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
     ReleaseData,
+    ReleaseVersion,
     RequestConfig,
+    TranslationDetails,
 )
 from protondl.util.archive import extract_tar, extract_tar_zst, extract_zip
 from protondl.util.download import (
@@ -22,6 +26,7 @@ from protondl.util.download import (
     fetch_project_release_data,
     fetch_project_releases,
 )
+from protondl.util.helpers import detect_host_arch
 from protondl.util.version_file import write_version_file
 
 
@@ -45,6 +50,15 @@ class CtInstaller(ABC):
         api_url (str): The API endpoint URL to fetch release data (e.g., GitHub or GitLab).
         release_format (str): The expected file format of the release asset (e.g., ".tar.gz").
         checksum_suffix (str): The suffix used to identify checksum assets (e.g., ".sha512sum").
+        supported_archs (tuple[Arch, ...]): The architectures the tool can provide
+            builds for. Defaults to x86_64 only.
+        arch_release_suffixes (Mapping[Arch, str]): Maps an architecture to the filename
+            suffix identifying its release asset (e.g. {"aarch64": "-aarch64"}).
+            x86_64 assets default to no suffix. An empty mapping means every
+            architecture uses the same (arch-agnostic) release asset.
+        from_os (str): The guest operating system the tool runs games from (e.g. "windows").
+        from_arch (str): The guest architecture of the games (e.g. "x86_64").
+        to_os (str): The host operating system the tool runs on (e.g. "linux").
     """
 
     name: str
@@ -57,17 +71,25 @@ class CtInstaller(ABC):
     release_format: str
     checksum_suffix: str
 
+    supported_archs: tuple[Arch, ...] = (Arch.X86_64,)
+    arch_release_suffixes: Mapping[Arch, str] = {}
+
+    from_os: str = "windows"
+    from_arch: str = "x86_64"
+    to_os: str = "linux"
+
     def __init__(self) -> None:
         self.request_config: RequestConfig = RequestConfig()
         self.buffer_size = 65536
 
-    async def fetch_releases(self, count: int = 30, page: int = 1) -> list[str]:
+    async def fetch_releases(self, count: int = 30, page: int = 1) -> list[ReleaseVersion]:
         """
         Fetches a list of available versions/releases from the remote source.
 
         Returns:
-            list[str]: A list of version strings (e.g., ["GE-Proton9-1", "GE-Proton9-2"])
-                sorted by newest first.
+            list[ReleaseVersion]: A list of release versions (e.g.,
+                ReleaseVersion("GE-Proton9-1", (Arch.X86_64,))) with the architectures
+                each release provides, sorted by newest first.
             count (int): The maximum number of versions to fetch.
             page (int): The page number for paginated APIs.
 
@@ -79,32 +101,50 @@ class CtInstaller(ABC):
             config=self.request_config,
             count=count,
             page=page,
+            release_archs=self._release_archs_from_assets,
         )
 
     async def install(
         self,
         version: str,
         launcher: Launcher,
+        arch: Arch | None = None,
         progress_callback: Callable[[int, int], None] | None = None,
-    ) -> None:
+    ) -> CompatToolVersionInfo:
         """
         Downloads and extracts a specific version of the tool into the launcher's directory.
 
         Args:
             version (str): The specific version string to install.
             launcher (Launcher): The Launcher instance where the tool should be installed.
+            arch (Arch | None): The architecture to install. Defaults to the host
+                architecture if supported by the tool, otherwise to x86_64.
             progress_callback (Callable[[int, int], None], optional):
                 A callback function to report download/extraction progress.
 
+        Returns:
+            CompatToolVersionInfo: The metadata written to the tool's version file,
+                including the installed architecture.
+
         Raises:
-            ValueError: If the version string is invalid.
+            ValueError: If the version string is invalid or no build exists for the
+                requested architecture.
             PermissionError: If the library lacks write access to the launcher's
                 compatibility tools directory.
         """
-        release_data = await self._fetch_release_data(version)
+        arch = self.resolve_arch(arch)
+        release_data = await self._fetch_release_data(version, arch)
 
         if not release_data.download:
-            raise ValueError(f"No downloadable asset found for version '{version}'")
+            raise ValueError(f"No {arch.value} asset found for version '{version}' of {self.name}.")
+
+        info = CompatToolVersionInfo(
+            compat_tool=self.name,
+            version=release_data.version,
+            installed_at=int(time.time()),
+            arch=arch,
+            translation_details=self.get_translation_details(arch),
+        )
 
         async with httpx.AsyncClient(
             headers=self.request_config.get_headers(), follow_redirects=True
@@ -138,14 +178,7 @@ class CtInstaller(ABC):
                         )
                     else:
                         try:
-                            write_version_file(
-                                installed_dir,
-                                CompatToolVersionInfo(
-                                    compat_tool=self.name,
-                                    version=release_data.version,
-                                    installed_at=int(time.time()),
-                                ),
-                            )
+                            write_version_file(installed_dir, info)
                         except OSError as e:
                             print(f"Warning: Could not write the version file for {self.name}: {e}")
                 except Exception as e:
@@ -155,6 +188,8 @@ class CtInstaller(ABC):
                 finally:
                     if tmp_path.exists():
                         tmp_path.unlink()
+
+        return info
 
     def supports_launcher(self, launcher: Launcher) -> bool:
         """
@@ -198,12 +233,13 @@ class CtInstaller(ABC):
         """
         return launcher.get_compatibility_tools_path(self.tool_type)
 
-    async def _fetch_release_data(self, version: str) -> ReleaseData:
+    async def _fetch_release_data(self, version: str, arch: Arch) -> ReleaseData:
         """
-        Fetches detailed release data for a specific version.
+        Fetches detailed release data for a specific version and architecture.
 
         Args:
             version (str): The version string for which to fetch release data.
+            arch (Arch): The architecture whose build should be selected.
 
         Returns:
             ReleaseData: The fetched release data.
@@ -214,7 +250,126 @@ class CtInstaller(ABC):
             config=self.request_config,
             tag=version,
             checksum_suffix=self.checksum_suffix,
+            asset_condition=lambda asset: self._asset_matches_arch(
+                asset.get("name", ""), arch, self.release_format
+            ),
+            checksum_condition=lambda asset: self._asset_matches_arch(
+                asset.get("name", ""), arch, self.checksum_suffix
+            ),
+            asset_priority=self._asset_priority,
         )
+
+    def resolve_arch(self, arch: Arch | None) -> Arch:
+        """
+        Resolves the architecture to install.
+
+        An explicitly requested architecture must be supported by the tool.
+        Otherwise, the host architecture is used if supported by the tool,
+        falling back to x86_64.
+
+        Args:
+            arch (Arch | None): The requested architecture, or None to auto-detect.
+
+        Returns:
+            Arch: The resolved architecture.
+
+        Raises:
+            ValueError: If the requested architecture is not supported by the tool.
+        """
+        if arch is not None:
+            if arch not in self.supported_archs:
+                supported = ", ".join(a.value for a in self.supported_archs)
+                raise ValueError(
+                    f"{self.name} does not support architecture '{arch.value}'. "
+                    f"Supported: {supported}."
+                )
+            return arch
+
+        host_arch = detect_host_arch()
+        if host_arch in self.supported_archs:
+            return host_arch
+        return Arch.X86_64
+
+    def get_translation_details(self, arch: Arch) -> TranslationDetails:
+        """
+        Returns the translation details for a build of the given architecture.
+
+        Args:
+            arch (Arch): The architecture of the installed build.
+
+        Returns:
+            TranslationDetails: The game/host translation performed by the build.
+        """
+        return TranslationDetails(
+            from_os=self.from_os,
+            from_arch=self.from_arch,
+            to_os=self.to_os,
+            to_arch=arch.value,
+        )
+
+    def _asset_matches_arch(self, name: str, arch: Arch, file_suffix: str) -> bool:
+        """
+        Determines whether an asset filename belongs to a build of the given architecture.
+
+        An asset matches if its name ends with the architecture's release suffix
+        followed by the file suffix, and it does not end with a *different*
+        other-architecture suffix (e.g. "GE-Proton11-3-aarch64.tar.gz" is not
+        considered an x86_64 asset).
+
+        Args:
+            name (str): The asset filename.
+            arch (Arch): The architecture to check against.
+            file_suffix (str): The expected file suffix (e.g. ".tar.gz" or a checksum suffix).
+
+        Returns:
+            bool: True if the asset belongs to the given architecture, False otherwise.
+        """
+        arch_suffix = self.arch_release_suffixes.get(arch, "")
+        if not name.endswith(arch_suffix + file_suffix):
+            return False
+
+        for other_arch, other_suffix in self.arch_release_suffixes.items():
+            if other_arch == arch or not other_suffix or other_suffix == arch_suffix:
+                continue
+            if name.endswith(other_suffix + file_suffix):
+                return False
+
+        return True
+
+    def _asset_priority(self, asset: Mapping[str, Any]) -> int:
+        """
+        Returns the priority of an asset matching the release format.
+
+        When a release provides multiple matching assets, the asset with the
+        highest priority is selected. Subclasses may override this to prefer
+        specific builds (e.g. ignoring "native" variant builds).
+
+        Args:
+            asset (Mapping): The release asset (from the API response).
+
+        Returns:
+            int: The priority of the asset (higher is preferred).
+        """
+        return 0
+
+    def _release_archs_from_assets(self, assets: Sequence[dict[str, Any]]) -> list[Arch]:
+        """
+        Determines which architectures a release's assets provide builds for.
+
+        Args:
+            assets (Sequence[dict]): The release's asset list (from the API response).
+
+        Returns:
+            list[Arch]: The architectures supported by the release's assets.
+        """
+        return [
+            arch
+            for arch in self.supported_archs
+            if any(
+                self._asset_matches_arch(asset.get("name", ""), arch, self.release_format)
+                for asset in assets
+            )
+        ]
 
     async def _verify_checksum(
         self, client: httpx.AsyncClient, release_data: ReleaseData, file_path: Path
