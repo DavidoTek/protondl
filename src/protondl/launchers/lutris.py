@@ -19,9 +19,11 @@ class LutrisGame(Game):
         runner (str): The runner that manages the game (e.g. "wine", "steam").
         installer_slug (str): The slug of the installer used to install the game.
         installed_at (int): UNIX timestamp when the game was installed.
+        appid (int | None): The Steam AppID, if the game runs via Steam.
     """
 
     __slots__ = Game.__slots__ + (
+        "appid",
         "slug",
         "runner",
         "installer_slug",
@@ -36,6 +38,7 @@ class LutrisGame(Game):
         runner: str,
         installer_slug: str = "",
         installed_at: int = 0,
+        appid: int | None = None,
     ) -> None:
         """
         Initializes a new LutrisGame instance.
@@ -47,8 +50,10 @@ class LutrisGame(Game):
             runner (str): The runner that manages the game.
             installer_slug (str): The slug of the installer used to install the game.
             installed_at (int): UNIX timestamp when the game was installed.
+            appid (int | None): The Steam AppID, if the game runs via Steam.
         """
         super().__init__(slug, name, "", install_path)
+        self.appid = appid
         self.slug = slug
         self.runner = runner
         self.installer_slug = installer_slug
@@ -212,6 +217,10 @@ class LutrisLauncher(Launcher):
         # assume the runner is Steam.
         if isinstance(game_config, dict) and game_config.get("appid") is not None:
             game.runner = "steam"
+            try:
+                game.appid = int(game_config["appid"])
+            except (TypeError, ValueError):
+                pass
 
         if isinstance(config.get("wine"), dict):
             wine_version = config.get("wine", {}).get("version")

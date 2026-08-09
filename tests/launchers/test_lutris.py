@@ -327,6 +327,32 @@ def test_get_game_list_detects_steam_runner_from_appid(tmp_path: Path) -> None:
 
     assert len(games) == 1
     assert games[0].runner == "steam"
+    assert games[0].appid == 123456
+
+
+def test_get_game_list_does_not_set_appid_without_steam_appid(tmp_path: Path) -> None:
+    launcher = _create_launcher(tmp_path)
+    _create_pga_db(
+        tmp_path,
+        [
+            {"slug": "wine-game", "name": "Wine Game", "runner": "wine", "directory": ""},
+            {"slug": "steam-game", "name": "Steam Game", "runner": "", "directory": ""},
+        ],
+    )
+    _write_game_config(
+        tmp_path, "wine-game.yml", {"game": {"exe": "game.exe", "working_dir": "/games/wine"}}
+    )
+    _write_game_config(
+        tmp_path,
+        "steam-game.yml",
+        {"game": {"working_dir": "/games/steam"}},
+    )
+
+    games = launcher.get_game_list()
+
+    assert len(games) == 2
+    assert games[0].appid is None
+    assert games[1].appid is None
 
 
 def test_get_game_list_returns_empty_without_pga_db(tmp_path: Path) -> None:
