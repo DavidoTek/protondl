@@ -73,10 +73,10 @@ uvx run protondl
     ```
 
 
-5. List installed games, the compatibility tools used by them and the areweanticheatyet.com status:
+5. List installed games, the compatibility tools used by them, the areweanticheatyet.com and ProtonDB status:
 
     ```bash
-    protondl list-games 1 --awacy
+    protondl list-games 1 --awacy --protondb
     ```
 
 ### Basic Usage (Library API)

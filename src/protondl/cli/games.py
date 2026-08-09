@@ -10,9 +10,15 @@ from protondl.core.base_launcher import Game
 from protondl.launchers.steam import SteamGame, SteamLauncher
 from protondl.services import (
     AWACYIndex,
+    ProtonDBTier,
     fetch_awacy_index,
+    fetch_protondb_tiers,
     get_awacy_status_by_id,
+    resolve_steam_appid,
 )
+
+EXIT_CODE_GAME_LIST_ERROR = 2
+EXIT_CODE_STATUS_ERROR = 3
 
 
 @app.command(name="list-games")
@@ -23,6 +29,11 @@ def list_games(
         "--awacy",
         help="Show AWACY anti-cheat status for each listed game",
     ),
+    protondb: bool = typer.Option(
+        False,
+        "--protondb",
+        help="Show ProtonDB status for each listed game",
+    ),
 ) -> None:
     """
     List all compatibility tools currently installed for a specific launcher.
@@ -30,22 +41,38 @@ def list_games(
     target_launcher = select_launcher(launcher_id)
 
     awacy_index: AWACYIndex | None = None
+    awacy_network_error = False
     if awacy:
         try:
             with console.status("[bold blue]Fetching AWACY data...", spinner="dots"):
                 awacy_index = asyncio.run(fetch_awacy_index())
         except (httpx.HTTPError, ValueError) as e:
             console.print(f"[red]Failed to fetch AWACY data: {e}[/red]")
-            raise typer.Exit(code=1) from e
+            awacy_network_error = True
 
-    with console.status(
-        f"[bold blue]Scanning {target_launcher.name} directories...", spinner="bouncingBar"
-    ):
-        games = target_launcher.get_game_list()
+    try:
+        with console.status(
+            f"[bold blue]Scanning {target_launcher.name} directories...", spinner="bouncingBar"
+        ):
+            games = target_launcher.get_game_list()
+    except Exception as e:
+        console.print(f"[red]Failed to fetch the game list: {e}[/red]")
+        raise typer.Exit(code=EXIT_CODE_GAME_LIST_ERROR) from e
 
     if not games:
         console.print(f"[yellow]No games found for {target_launcher.name}.[/yellow]")
+        if awacy_network_error:
+            raise typer.Exit(code=EXIT_CODE_STATUS_ERROR)
         return
+
+    protondb_tiers: dict[str, ProtonDBTier | None] = {}
+    protondb_network_error = False
+    if protondb:
+        lookup_games = [game for game in games if not getattr(game, "shortcut_id", "")]
+        if lookup_games:
+            with console.status("[bold blue]Fetching ProtonDB data...", spinner="dots"):
+                protondb_tiers = asyncio.run(fetch_protondb_tiers(lookup_games))
+        protondb_network_error = any(tier is None for tier in protondb_tiers.values())
 
     table = Table(title=f"Installed Games: [bold cyan]{target_launcher.name}[/bold cyan]")
     table.add_column("ID", justify="right", style="dim")
@@ -54,15 +81,64 @@ def list_games(
     table.add_column("Path", overflow="ellipsis")
     if awacy:
         table.add_column("AWACY Status", style="magenta")
+    if protondb:
+        table.add_column("ProtonDB Status", style="cyan")
 
     for game in sorted(games, key=lambda x: x.name):
         row = [game.id, game.name, game.compat_tool_name, str(game.install_path)]
-        if awacy and awacy_index is not None:
-            row.append(get_awacy_status_by_id(game.id, awacy_index).value)
+        if awacy:
+            row.append(_awacy_status_cell(game, awacy_index, awacy_network_error))
+        if protondb:
+            row.append(_protondb_status_cell(game, protondb_tiers))
 
         table.add_row(*row)
 
     console.print(table)
+
+    if awacy_network_error or protondb_network_error:
+        raise typer.Exit(code=EXIT_CODE_STATUS_ERROR)
+
+
+def _awacy_status_cell(
+    game: Game,
+    index: AWACYIndex | None,
+    network_error: bool,
+) -> str:
+    """
+    Build the AWACY status table cell for a game.
+
+    Shortcut games (which have no real Steam AppID) are skipped. Games that
+    could not be fetched due to a network error show `Network Error`.
+    """
+    if getattr(game, "shortcut_id", ""):
+        return ""
+    if network_error or index is None:
+        return "Network Error"
+    return get_awacy_status_by_id(game.id, index).value
+
+
+def _protondb_status_cell(
+    game: Game,
+    tiers: dict[str, ProtonDBTier | None],
+) -> str:
+    """
+    Build the ProtonDB status table cell for a game.
+
+    Shortcut games (which have no real Steam AppID) are skipped. Games without
+    a report are shown as `Unknown`, and games whose lookup failed are shown
+    as `Network Error`.
+    """
+    if getattr(game, "shortcut_id", ""):
+        return ""
+    try:
+        appid = str(resolve_steam_appid(game))
+    except ValueError:
+        return "Unknown"
+
+    tier = tiers.get(appid)
+    if tier is None:
+        return "Network Error"
+    return tier.value.title()
 
 
 @app.command(name="get-steam-deck-status")

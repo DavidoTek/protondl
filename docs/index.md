@@ -53,7 +53,7 @@ Get tool used by a game        | ✅       | ✅              | ✅             
 Set tool used by a game        | ✅       | ✅              | ✅             | ⬜
 Show game SteamDeck rating     | ✅       | ✅              | ⬜             | ⬜
 Show game AWACY[^4] rating     | ✅       | ✅              | ✅             | ⬜
-Show game ProtonDB [^5] rating | ⬜       | ✅              | ✅             | ⬜
+Show game ProtonDB [^5] rating | ✅       | ✅              | ✅             | ⬜
 Programming language           | Python   | Python          | Vala           | Rust
 GUI/TUI                        | typer, rich | Qt           | GTK            | clap, indicatif
 

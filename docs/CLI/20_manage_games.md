@@ -14,10 +14,20 @@ protondl list-games <launcher id>
 ```
 
 Add `--awacy` to include the AWACY anti-cheat status for each game.
+Add `--protondb` to include the ProtonDB compatibility rating for each game.
+Both flags can be combined.
 
 ```bash
 protondl list-games <launcher id> --awacy
+protondl list-games <launcher id> --protondb
+protondl list-games <launcher id> --awacy --protondb
 ```
+
+Games without a Steam AppID or without a ProtonDB report are shown as `Unknown`.
+Steam shortcuts (non-Steam games) are skipped in both status columns. If the status data
+could not be fetched (for example, the service is unreachable), the affected column
+shows `Network Error` instead; the table is still printed and the command exits with
+code 3. If the installed game list cannot be read, the command exits with code 2.
 
 ## Show Steam Deck compatibility for a game
 
