@@ -95,6 +95,15 @@ def test_get_awacy_status_by_id(
     assert get_awacy_status_by_id(game_id, index) is expected_status
 
 
+def test_get_awacy_status_by_id_falls_back_to_slug() -> None:
+    index = AWACYIndex(
+        by_slug={"grand-theft-auto-v": {"status": AWACYStatus.DENIED}},  # type: ignore
+        by_store_id={},
+    )
+
+    assert get_awacy_status_by_id("grand-theft-auto-v", index) is AWACYStatus.DENIED
+
+
 @pytest.mark.parametrize(
     ("slug", "expected_status"),
     [("game-one", AWACYStatus.RUNNING), ("missing", AWACYStatus.UNKNOWN)],

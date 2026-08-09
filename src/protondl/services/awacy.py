@@ -134,6 +134,10 @@ def get_awacy_status_by_id(
     """
     Get AWACY status for a game by its ID.
 
+    The ID is first looked up in the store ID map (Steam AppID or Epic
+    namespace). Launchers such as Lutris use the AWACY slug as game ID, so the
+    slug map is consulted as a fallback.
+
     Args:
         game_id (str): Game ID.
         index (AWACYIndex): Pre-built AWACY lookup index.
@@ -142,6 +146,10 @@ def get_awacy_status_by_id(
         AWACYStatus: The anti-cheat support status for the game, or UNKNOWN if not found.
     """
     entry = index.by_store_id.get(game_id)
+    if entry:
+        return entry["status"]
+
+    entry = index.by_slug.get(game_id)
     if entry:
         return entry["status"]
 
