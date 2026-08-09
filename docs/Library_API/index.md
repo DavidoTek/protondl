@@ -84,7 +84,9 @@ asyncio.run(
     tool_installer.install(
         versions[0],
         launchers[0],
-        lambda p, t: print(f"Progress: {p} / {t}")  # Optional progress callback (current bytes, total size)
+        lambda p, t: print(
+            f"Progress: {p} / {t}"
+        ),  # Optional progress callback (current bytes, total size)
     )
 )
 ```

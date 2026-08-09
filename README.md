@@ -86,16 +86,18 @@ import asyncio
 from protondl.launchers import detect_all_launchers
 from protondl.installers.ge_proton import GEProtonInstaller
 
+
 async def main():
     # Detect Steam -> add more checks here since there can be multiple launchers
     launchers = detect_all_launchers()
-    steam = launchers[0] 
+    steam = launchers[0]
 
     # Initialize Installer
     ge = GEProtonInstaller()
-    
+
     # Install latest GE-Proton
     await ge.install(version="latest", launcher=steam)
+
 
 asyncio.run(main())
 ```
