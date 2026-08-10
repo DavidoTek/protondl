@@ -66,10 +66,10 @@ uvx run protondl
     protondl list-versions GE-Proton
     ```
 
-4. Install it:
+4. Install it. Provide the launcher id, tool, version, and optionally the architecture:
 
     ```bash
-    protondl install 1 GE-Proton GE-Proton10-10
+    protondl install 1 GE-Proton GE-Proton11-3 --arch x86_64
     ```
 
 
@@ -77,6 +77,12 @@ uvx run protondl
 
     ```bash
     protondl list-games 1 --awacy --protondb
+    ```
+
+6. Automatically update all compatibility tools to the newest version:
+
+    ```bash
+    protondl update-all 1 --yes-install --yes-batch-update
     ```
 
 ### Basic Usage (Library API)
