@@ -1,11 +1,12 @@
 import asyncio
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import pytest
 
 from protondl.core.base_launcher import Game, Launcher
 from protondl.core.models import (
+    Arch,
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
@@ -53,9 +54,17 @@ class _FakeLauncher(Launcher):
 
 
 class _FakeInstaller:
-    def __init__(self, name: str, releases: list[ReleaseVersion] | None = None) -> None:
+    def __init__(
+        self,
+        name: str,
+        releases: list[ReleaseVersion] | None = None,
+        new_tool: CompatTool | None = None,
+        new_info: CompatToolVersionInfo | None = None,
+    ) -> None:
         self.name = name
         self._releases = releases or []
+        self.new_tool = new_tool
+        self.new_info = new_info
         self.fetch_count = 0
         self.install_calls: list[str] = []
         self.request_config = None
@@ -64,8 +73,19 @@ class _FakeInstaller:
         self.fetch_count += 1
         return self._releases
 
-    async def install(self, version: str, launcher: _FakeLauncher) -> None:
+    async def install(
+        self,
+        version: str,
+        launcher: _FakeLauncher,
+        arch: Arch | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> CompatToolVersionInfo:
         self.install_calls.append(version)
+        if self.new_tool is not None:
+            launcher._installed_tools.append(self.new_tool)
+        if self.new_info is not None:
+            return self.new_info
+        return CompatToolVersionInfo(compat_tool=self.name, version=version, installed_at=1)
 
 
 class _FailingInstaller(_FakeInstaller):
@@ -301,3 +321,90 @@ def test_update_compatibility_tools_reports_progress_for_all_updates(
 
     assert installer.install_calls == ["GE-Proton11-3", "dxvk-2.3"]
     assert progress == [(1, 2), (2, 2)]
+
+
+def test_update_compatibility_tools_returns_newly_installed_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old = _tool("GE-Proton10-5")
+    new = _tool("GE-Proton11-3")
+    new_info = CompatToolVersionInfo(
+        compat_tool="GE-Proton", version="GE-Proton11-3", installed_at=7
+    )
+    launcher = _FakeLauncher([old])
+    _mock_version_files(monkeypatch, {"GE-Proton11-3": new_info})
+    update = ToolUpdate(
+        compat_tool_name="GE-Proton",
+        latest_version="GE-Proton11-3",
+        installed_versions=["GE-Proton10-5"],
+        installed_tools=[old],
+    )
+    installer = _FakeInstaller("GE-Proton", new_tool=new, new_info=new_info)
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(update_compatibility_tools(launcher, [update]))
+
+    assert result == {"GE-Proton": new}
+
+
+def test_update_compatibility_tools_matches_tool_when_dir_name_differs_from_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old = _tool("dxvk-2.2")
+    new = _tool("dxvk-2.3")
+    new_info = CompatToolVersionInfo(compat_tool="DXVK", version="v2.3", installed_at=8)
+    launcher = _FakeLauncher([old])
+    _mock_version_files(monkeypatch, {"dxvk-2.3": new_info})
+    update = ToolUpdate(
+        compat_tool_name="DXVK",
+        latest_version="v2.3",
+        installed_versions=["dxvk-2.2"],
+        installed_tools=[old],
+    )
+    installer = _FakeInstaller("DXVK", new_tool=new, new_info=new_info)
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(update_compatibility_tools(launcher, [update]))
+
+    assert result == {"DXVK": new}
+
+
+def test_update_compatibility_tools_matches_workflow_run_id_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old = _tool("proton-valvexbe-123")
+    new = _tool("proton-valvexbe-456")
+    new_info = CompatToolVersionInfo(compat_tool="Proton-Tkg", version="456", installed_at=9)
+    launcher = _FakeLauncher([old])
+    _mock_version_files(monkeypatch, {"proton-valvexbe-456": new_info})
+    update = ToolUpdate(
+        compat_tool_name="Proton-Tkg",
+        latest_version="456",
+        installed_versions=["123"],
+        installed_tools=[old],
+    )
+    installer = _FakeInstaller("Proton-Tkg", new_tool=new, new_info=new_info)
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(update_compatibility_tools(launcher, [update]))
+
+    assert result == {"Proton-Tkg": new}
+
+
+def test_update_compatibility_tools_skips_update_when_new_tool_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old = _tool("GE-Proton10-5")
+    launcher = _FakeLauncher([old])
+    update = ToolUpdate(
+        compat_tool_name="GE-Proton",
+        latest_version="GE-Proton11-3",
+        installed_versions=["GE-Proton10-5"],
+        installed_tools=[old],
+    )
+    installer = _FakeInstaller("GE-Proton")
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(update_compatibility_tools(launcher, [update]))
+
+    assert result == {}

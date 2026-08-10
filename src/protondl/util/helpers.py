@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 from protondl.core.models import (
     Arch,
     CompatTool,
+    CompatToolVersionInfo,
     RequestConfig,
     ToolUpdate,
     UpdateCheckResult,
@@ -178,7 +179,7 @@ async def update_compatibility_tools(
     keep_old: bool = False,
     progress_callback: Callable[[int, int], None] | None = None,
     request_config: RequestConfig | None = None,
-) -> None:
+) -> dict[str, CompatTool]:
     """
     Installs the newest version of all given compatibility tools.
 
@@ -193,11 +194,17 @@ async def update_compatibility_tools(
             tools and the total number of tools to update.
         request_config: Optional configuration for API requests, including auth tokens.
 
+    Returns:
+        dict[str, CompatTool]: A mapping of compatibility tool name to the
+            newly installed tool for every update whose installation directory
+            could be determined.
+
     Raises:
         ValueError: If no CtInstaller exists for one of the compatibility tools.
     """
     from protondl.installers import get_installer_by_name
 
+    installed_new_tools: dict[str, CompatTool] = {}
     total = len(updates)
     for index, update in enumerate(updates):
         installer = get_installer_by_name(update.compat_tool_name)
@@ -209,11 +216,48 @@ async def update_compatibility_tools(
         if request_config is not None:
             installer.request_config = request_config
 
-        await installer.install(update.latest_version, launcher)
+        info = await installer.install(update.latest_version, launcher)
 
         if not keep_old:
             for tool in update.installed_tools:
                 launcher.remove_tool(tool)
 
+        new_tool = _find_installed_tool(launcher, info)
+        if new_tool is not None:
+            installed_new_tools[update.compat_tool_name] = new_tool
+
         if progress_callback is not None:
             progress_callback(index + 1, total)
+
+    return installed_new_tools
+
+
+def _find_installed_tool(launcher: Launcher, info: CompatToolVersionInfo) -> CompatTool | None:
+    """
+    Finds the installed tool matching the given version file metadata.
+
+    The tool's installation directory is identified by the metadata written to
+    its protondl_version.json (compat tool name, version and installed_at),
+    which is independent of the directory name.
+
+    Args:
+        launcher: The game launcher instance to search.
+        info: The metadata of the installed tool to find.
+
+    Returns:
+        CompatTool | None: The matching installed tool, or None if no installed
+            tool carries the given metadata.
+    """
+    from protondl.util.version_file import read_version_file
+
+    for tool in launcher.get_installed_tools():
+        installed_info = read_version_file(tool.install_dir)
+        if installed_info is None:
+            continue
+        if (
+            installed_info.compat_tool == info.compat_tool
+            and installed_info.version == info.version
+            and installed_info.installed_at == info.installed_at
+        ):
+            return tool
+    return None

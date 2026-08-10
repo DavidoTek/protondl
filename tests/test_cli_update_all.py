@@ -60,11 +60,17 @@ def _patch_cli(
         keep_old: bool = False,
         progress_callback: Callable[[int, int], None] | None = None,
         request_config: RequestConfig | None = None,
-    ) -> None:
+    ) -> dict[str, CompatTool]:
         for update in updates:
             installed.append(update.latest_version)
         if progress_callback:
             progress_callback(len(updates), len(updates))
+        return {
+            update.compat_tool_name: CompatTool(
+                update.latest_version, CompatToolType.PROTON, Path("/tools") / update.latest_version
+            )
+            for update in updates
+        }
 
     monkeypatch.setattr(
         "protondl.cli.tools.update_compatibility_tools", fake_update_compatibility_tools

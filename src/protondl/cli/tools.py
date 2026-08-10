@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Mapping
 
 import typer
 from rich.progress import (
@@ -18,7 +19,7 @@ from protondl.cli.helpers import (
     select_launcher,
 )
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import CompatToolType, ToolUpdate
+from protondl.core.models import CompatTool, CompatToolType, ToolUpdate
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
 from protondl.util.helpers import (
     batch_update_games_tools,
@@ -390,7 +391,7 @@ def update_all(
             def update_progress(completed: int, total: int) -> None:
                 progress.update(task, completed=completed)
 
-            asyncio.run(
+            new_tools = asyncio.run(
                 update_compatibility_tools(
                     target_launcher,
                     result.updates,
@@ -412,37 +413,32 @@ def update_all(
         )
 
     if run_batch_update:
-        _batch_update_all_games(target_launcher, result.updates)
+        _batch_update_all_games(target_launcher, result.updates, new_tools)
 
 
-def _batch_update_all_games(target_launcher: Launcher, updates: list[ToolUpdate]) -> None:
+def _batch_update_all_games(
+    target_launcher: Launcher, updates: list[ToolUpdate], new_tools: Mapping[str, CompatTool]
+) -> None:
     """
     Updates the compatibility tool of all games to the newest version for each update.
     """
-    try:
-        installed_tools = target_launcher.get_installed_tools()
-    except Exception as e:
-        console.print(f"[red]Failed to read installed tools: {e}[/red]")
-        raise typer.Exit(code=1) from e
-
     for update in updates:
-        to_tool = next(
-            (tool for tool in installed_tools if tool.full_name == update.latest_version),
-            None,
-        )
+        to_tool = new_tools.get(update.compat_tool_name)
         if to_tool is None:
             console.print(
-                f"[yellow]Could not find the newly installed {update.compat_tool_name} "
-                f"{update.latest_version}; skipping batch update for this tool.[/yellow]"
+                f"[yellow]Could not find the newly installed {update.compat_tool_name}; "
+                "skipping batch update for this tool.[/yellow]"
             )
             continue
 
-        try:
-            updated = batch_update_games_tools(target_launcher, update.compat_tool_name, to_tool)
-        except RuntimeError as e:
-            console.print(
-                f"[red]Batch update of games to {update.latest_version} failed: {e}[/red]"
-            )
-            continue
+        for old_tool in update.installed_tools:
+            try:
+                updated = batch_update_games_tools(target_launcher, old_tool, to_tool)
+            except RuntimeError as e:
+                console.print(
+                    f"[red]Batch update of games to {to_tool.full_name} failed: {e}[/red]"
+                )
+                continue
 
-        console.print(f"[green]Updated {updated} games to {update.latest_version}.[/green]")
+            if updated:
+                console.print(f"[green]Updated {updated} games to {to_tool.full_name}.[/green]")

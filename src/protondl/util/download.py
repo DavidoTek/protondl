@@ -293,7 +293,7 @@ async def fetch_github_artifact_data(
 
         if artifact:
             return ReleaseData(
-                version=artifact["workflow_run"]["head_sha"],
+                version=version,
                 date=artifact["updated_at"].split("T")[0],
                 download=ct_nightly_link.format(version=version, artifact_name=artifact["name"]),
                 size=artifact["size_in_bytes"],
