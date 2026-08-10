@@ -40,6 +40,44 @@ class CompatTool:
 
 
 @dataclass
+class ToolUpdate:
+    """
+    A compatibility tool that can be updated to a newer version.
+
+    Attributes:
+        compat_tool_name: The name of the compatibility tool (CtInstaller.name).
+        latest_version: The newest available version string.
+        installed_versions: The versions of the tool currently installed,
+            as recorded in the tools' version files.
+        installed_tools: The installed compatibility tools to be replaced.
+    """
+
+    compat_tool_name: str
+    latest_version: str
+    installed_versions: list[str]
+    installed_tools: list[CompatTool]
+
+
+@dataclass
+class UpdateCheckResult:
+    """
+    Result of checking a launcher for available compatibility tool updates.
+
+    Attributes:
+        updates: Compatibility tools for which an update is available,
+            including the latest available version.
+        up_to_date: Names of compatibility tools that are already at the
+            newest available version.
+        unchecked: Names of installed tools for which no update check was
+            possible (e.g. because no matching CtInstaller was found).
+    """
+
+    updates: list[ToolUpdate]
+    up_to_date: list[str]
+    unchecked: list[str]
+
+
+@dataclass
 class TranslationDetails:
     """
     Describes the game/host translation performed by a compatibility tool build.

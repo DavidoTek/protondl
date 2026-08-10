@@ -112,6 +112,8 @@ Service-based online lookups such as AWACY and ProtonDB are documented in
 
 Update the compatibility tool for multiple games at once using `batch_update_games_tools()`.
 You can match games by an exact tool name (using a `CompatTool` instance) or by a partial string match.
+This helper is also an essential part of the update workflow, see
+[Manage Compatibility Tools](10_manage_tools_api.md#end-to-end-example).
 
 ```python
 from protondl.launchers.steam import SteamLauncher

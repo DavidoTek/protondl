@@ -17,9 +17,15 @@ from protondl.cli.helpers import (
     resolve_installer,
     select_launcher,
 )
-from protondl.core.models import CompatToolType
+from protondl.core.base_launcher import Launcher
+from protondl.core.models import CompatToolType, ToolUpdate
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
-from protondl.util.helpers import detect_host_arch
+from protondl.util.helpers import (
+    batch_update_games_tools,
+    check_for_updates,
+    detect_host_arch,
+    update_compatibility_tools,
+)
 
 
 @app.command(name="list-tools")
@@ -311,3 +317,132 @@ def remove_tool(
         + f"from {target_launcher.name}![/bold green]"
     )
     console.print(f"Please restart {target_launcher.name} to see the changes.")
+
+
+@app.command(name="update-all")
+def update_all(
+    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    keep_old: bool = typer.Option(
+        False,
+        "--keep-old",
+        help="Keep older versions of the compatibility tools",
+    ),
+    yes_install: bool = typer.Option(
+        False,
+        "--yes-install",
+        help="Install all available updates without prompting",
+    ),
+    yes_batch_update: bool = typer.Option(
+        False,
+        "--yes-batch-update",
+        help="Update the compatibility tool of all games without prompting",
+    ),
+) -> None:
+    """
+    Check for and install available updates for all compatibility tools of a launcher.
+    """
+    target_launcher = select_launcher(launcher_id)
+
+    try:
+        with console.status(
+            f"[bold blue]Checking {target_launcher.name} for updates...", spinner="dots"
+        ):
+            result = asyncio.run(
+                check_for_updates(target_launcher, request_config=state["request_config"])
+            )
+    except Exception as e:
+        console.print(f"[red]Failed to check for updates: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    for tool_name in result.unchecked:
+        console.print(f"[yellow]Could not check for updates for: {tool_name}[/yellow]")
+
+    if result.up_to_date:
+        console.print(f"[green]Up to date: {', '.join(result.up_to_date)}[/green]")
+
+    if not result.updates:
+        console.print("[bold green]No updates available.[/bold green]")
+        return
+
+    table = Table(title=f"Available Updates: [bold cyan]{target_launcher.name}[/bold cyan]")
+    table.add_column("Compatibility tool", style="cyan")
+    table.add_column("Installed versions", style="white")
+    table.add_column("Latest version", style="green")
+    for update in result.updates:
+        table.add_row(
+            update.compat_tool_name,
+            ", ".join(update.installed_versions),
+            update.latest_version,
+        )
+    console.print(table)
+
+    if not yes_install and not typer.confirm("Do you want to install the updates?"):
+        return
+
+    try:
+        with Progress(
+            "[progress.description]{task.description}",
+            BarColumn(),
+            "[progress.percentage]{task.percentage:>3.0f}%",
+        ) as progress:
+            task = progress.add_task("Updating compatibility tools...", total=len(result.updates))
+
+            def update_progress(completed: int, total: int) -> None:
+                progress.update(task, completed=completed)
+
+            asyncio.run(
+                update_compatibility_tools(
+                    target_launcher,
+                    result.updates,
+                    keep_old=keep_old,
+                    progress_callback=update_progress,
+                    request_config=state["request_config"],
+                )
+            )
+    except Exception as e:
+        console.print(f"[red]Updating compatibility tools failed: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    console.print("[bold green]Compatibility tools updated successfully![/bold green]")
+
+    run_batch_update = not keep_old
+    if not run_batch_update and not yes_batch_update:
+        run_batch_update = typer.confirm(
+            "Update the compatibility tool of all games to the newest version?"
+        )
+
+    if run_batch_update:
+        _batch_update_all_games(target_launcher, result.updates)
+
+
+def _batch_update_all_games(target_launcher: Launcher, updates: list[ToolUpdate]) -> None:
+    """
+    Updates the compatibility tool of all games to the newest version for each update.
+    """
+    try:
+        installed_tools = target_launcher.get_installed_tools()
+    except Exception as e:
+        console.print(f"[red]Failed to read installed tools: {e}[/red]")
+        raise typer.Exit(code=1) from e
+
+    for update in updates:
+        to_tool = next(
+            (tool for tool in installed_tools if tool.full_name == update.latest_version),
+            None,
+        )
+        if to_tool is None:
+            console.print(
+                f"[yellow]Could not find the newly installed {update.compat_tool_name} "
+                f"{update.latest_version}; skipping batch update for this tool.[/yellow]"
+            )
+            continue
+
+        try:
+            updated = batch_update_games_tools(target_launcher, update.compat_tool_name, to_tool)
+        except RuntimeError as e:
+            console.print(
+                f"[red]Batch update of games to {update.latest_version} failed: {e}[/red]"
+            )
+            continue
+
+        console.print(f"[green]Updated {updated} games to {update.latest_version}.[/green]")

@@ -105,6 +105,7 @@ For a complete workflow with launcher/tool selection, see the CLI implementation
 
 ## API sections
 
+- [Manage Compatibility Tools](10_manage_tools_api.md)
 - [Manage Games](20_manage_games_api.md)
 - [Launchers](30_launcher_api.md)
 - [External Services](40_external_services_api.md)

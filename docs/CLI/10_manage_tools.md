@@ -109,3 +109,41 @@ protondl set-global-tool 1 2
 ```
 
 Global tool configuration is currently implemented for Steam launchers.
+
+## Update all compatibility tools
+
+Check all installed compatibility tools of a launcher for updates and install them:
+
+```bash
+protondl update-all <launcher id>
+```
+
+The command lists the available updates in a table with the installed versions and the
+latest version of each compatibility tool, then asks for confirmation before installing.
+Compatibility tools that are already at the newest version are shown as up to date.
+After a successful update it asks whether the compatibility tool of all games should be
+switched to the newest version.
+
+By default, older versions of a compatibility tool are deleted after the new version was
+installed successfully and the batch update of all games runs without asking.
+The behavior can be adjusted with the following options:
+
+```bash
+# Keep older versions of the compatibility tools and ask before the batch update
+protondl update-all 1 --keep-old
+
+# Run the whole update without any prompts
+protondl update-all 1 --yes-install --yes-batch-update
+
+# Skip only the install confirmation
+protondl update-all 1 --yes-install
+```
+
+Options:
+
+- `--keep-old`: Keep older versions of the compatibility tools instead of deleting them.
+- `--yes-install`: Install all available updates without prompting.
+- `--yes-batch-update`: Update the compatibility tool of all games without prompting.
+
+Note: Tools that could not be mapped to an installer (e.g. tools not installed by protondl)
+are reported but skipped.
