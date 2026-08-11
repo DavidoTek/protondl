@@ -34,6 +34,11 @@ def list_games(
         "--protondb",
         help="Show ProtonDB status for each listed game",
     ),
+    deck_status: bool = typer.Option(
+        False,
+        "--deck-status",
+        help="Show Steam Deck status for each listed game",
+    ),
 ) -> None:
     """
     List all compatibility tools currently installed for a specific launcher.
@@ -83,6 +88,8 @@ def list_games(
         table.add_column("AWACY Status", style="magenta")
     if protondb:
         table.add_column("ProtonDB Status", style="cyan")
+    if deck_status:
+        table.add_column("Steam Deck Status", style="green")
 
     for game in sorted(games, key=lambda x: x.name):
         row = [game.id, game.name, game.compat_tool_name, str(game.install_path)]
@@ -90,6 +97,8 @@ def list_games(
             row.append(_awacy_status_cell(game, awacy_index, awacy_network_error))
         if protondb:
             row.append(_protondb_status_cell(game, protondb_tiers))
+        if deck_status:
+            row.append(_deck_status_cell(game))
 
         table.add_row(*row)
 
@@ -139,6 +148,24 @@ def _protondb_status_cell(
     if tier is None:
         return "Network Error"
     return tier.value.title()
+
+
+def _deck_status_cell(game: Game) -> str:
+    """
+    Build the Steam Deck status table cell for a game.
+
+    Steam Deck status is read from local Steam metadata, so it is only
+    available for Steam games. Shortcut games (which have no real Steam
+    AppID) are skipped. Non-Steam games have no Steam Deck status.
+    """
+    if getattr(game, "shortcut_id", ""):
+        return ""
+    if not isinstance(game, SteamGame):
+        return ""
+    recommended_runtime, compat_type = game.get_steamdeck_compatibility()
+    if recommended_runtime:
+        return f"{compat_type.name} ({recommended_runtime})"
+    return compat_type.name
 
 
 @app.command(name="get-steam-deck-status")

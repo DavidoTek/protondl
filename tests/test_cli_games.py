@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 from protondl.cli import app
 from protondl.cli.games import EXIT_CODE_GAME_LIST_ERROR, EXIT_CODE_STATUS_ERROR
 from protondl.core.base_launcher import Game
+from protondl.launchers.steam import SteamDeckCompatType, SteamGame
 from protondl.services import AWACYIndex, AWACYStatus
 from protondl.services.protondb import ProtonDBTier
 
@@ -21,6 +22,15 @@ class _ShortcutGame(Game):
     def __init__(self, id: str, name: str, install_path: Path, shortcut_id: str = "") -> None:
         super().__init__(id, name, "GE-Proton10-10", install_path)
         self.shortcut_id = shortcut_id
+
+
+class _FakeSteamGame(SteamGame):
+    def __init__(self, appid: int, name: str, install_path: Path, category: int = 0) -> None:
+        super().__init__(appid, name, install_path)
+        self.deck_compatibility = {
+            "configuration": {"recommended_runtime": "proton_9"},
+            "category": category,
+        }
 
 
 class _FakeLauncher:
@@ -193,3 +203,60 @@ def test_list_games_awacy_network_error_skips_shortcuts(
 
     assert result.exit_code == EXIT_CODE_STATUS_ERROR
     assert result.stdout.count("Network Error") == 1
+
+
+def test_list_games_with_deck_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _DeckLauncher:
+        name = "Steam"
+
+        def get_game_list(self) -> list[Game]:
+            return [
+                _FakeSteamGame(
+                    123456,
+                    "Portal 2",
+                    Path("/games/portal2"),
+                    category=SteamDeckCompatType.VERIFIED.value,
+                ),
+                _FakeSteamGame(
+                    620,
+                    "Portal",
+                    Path("/games/portal"),
+                    category=SteamDeckCompatType.PLAYABLE.value,
+                ),
+            ]
+
+    monkeypatch.setattr("protondl.cli.games.select_launcher", lambda launcher_id: _DeckLauncher())
+
+    result = runner.invoke(app, ["list-games", "1", "--deck-status"])
+
+    assert result.exit_code == 0
+    assert "Deck" in result.stdout
+    assert "VERIFIED" in result.stdout
+    assert "proton_9" in result.stdout
+    assert "PLAYABLE" in result.stdout
+
+
+def test_list_games_deck_status_skips_shortcuts_and_non_steam(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _DeckLauncher:
+        name = "Steam"
+
+        def get_game_list(self) -> list[Game]:
+            shortcut = _FakeSteamGame(1234567890, "Custom Shortcut", Path("/games/shortcut"))
+            shortcut.shortcut_id = "42"
+            return [
+                _FakeGame("not-an-appid", "Custom Game", "GE-Proton10-10", Path("/games/custom")),
+                shortcut,
+            ]
+
+    monkeypatch.setattr("protondl.cli.games.select_launcher", lambda launcher_id: _DeckLauncher())
+
+    result = runner.invoke(app, ["list-games", "1", "--deck-status"])
+
+    assert result.exit_code == 0
+    assert "Deck" in result.stdout
+    assert "Custom Game" in result.stdout
+    assert "Shortcut" in result.stdout
+    assert "VERIFIED" not in result.stdout
+    assert "proton_9" not in result.stdout

@@ -73,10 +73,10 @@ uvx run protondl
     ```
 
 
-5. List installed games, the compatibility tools used by them, the areweanticheatyet.com and ProtonDB status:
+5. List installed games, the compatibility tools used by them, and the areweanticheatyet.com, ProtonDB and Steam Deck status:
 
     ```bash
-    protondl list-games 1 --awacy --protondb
+    protondl list-games 1 --awacy --protondb --deck-status
     ```
 
 6. Automatically update all compatibility tools to the newest version:
