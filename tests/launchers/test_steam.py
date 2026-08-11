@@ -101,6 +101,20 @@ def test_get_steamdeck_compatibility_returns_recommended_runtime_and_category() 
     assert compat_type == SteamDeckCompatType.VERIFIED
 
 
+def test_get_steamdeck_compatibility_returns_unknown_for_missing_category() -> None:
+    """
+    Test that SteamGame returns UNKNOWN when the Steam Deck category is missing.
+    """
+    game = SteamGame(275850, "No Man's Sky", Path("/games/No Man's Sky"))
+    missing_category: Any = {"configuration": {"recommended_runtime": "proton_9"}}
+    game.deck_compatibility = missing_category
+
+    recommended_runtime, compat_type = game.get_steamdeck_compatibility()
+
+    assert recommended_runtime == "proton_9"
+    assert compat_type == SteamDeckCompatType.UNKNOWN
+
+
 def test_get_game_list_reads_libraryfolders_and_mapping(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

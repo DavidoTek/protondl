@@ -150,7 +150,10 @@ class SteamGame(Game):
         recommended_runtime = self.deck_compatibility.get("configuration", {}).get(
             "recommended_runtime", ""
         )
-        compat_type = SteamDeckCompatType(self.deck_compatibility.get("category"))
+        try:
+            compat_type = SteamDeckCompatType(self.deck_compatibility.get("category"))
+        except (TypeError, ValueError):
+            compat_type = SteamDeckCompatType.UNKNOWN
         return recommended_runtime, compat_type
 
 
