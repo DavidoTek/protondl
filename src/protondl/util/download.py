@@ -8,6 +8,9 @@ import httpx
 from protondl.core.models import (
     Arch,
     GitHubArtifactResponse,
+    InstallProgress,
+    InstallStep,
+    ProgressCallback,
     ReleaseData,
     ReleaseVersion,
     RequestConfig,
@@ -348,7 +351,7 @@ async def download_file(
     url: str,
     destination: Path,
     client: httpx.AsyncClient,
-    progress_callback: Callable[[int, int], None] | None = None,
+    progress_callback: ProgressCallback | None = None,
     known_size: int = 0,
     buffer_size: int = 65536,
 ) -> None:
@@ -359,8 +362,9 @@ async def download_file(
         url (str): The URL of the file to download.
         destination (Path): The destination path where the file should be saved.
         client (httpx.AsyncClient): An instance of httpx.AsyncClient to use for the download.
-        progress_callback (Callable[[int, int], None], optional): An optional callback function
-            that receives the number of bytes downloaded and total size.
+        progress_callback (ProgressCallback | None, optional): An optional callback function
+            that receives InstallProgress events with the cumulative number of bytes
+            downloaded and the total size.
         known_size (int): The known size of the file, if available.
             If 0, it will attempt to determine the size from the response headers.
         buffer_size (int): The size of the buffer to use when reading the file in bytes.
@@ -375,8 +379,16 @@ async def download_file(
             total_size = int(response.headers.get("Content-Length", 0))
 
         with open(destination, "wb") as f:
+            downloaded = 0
             async for chunk in response.aiter_bytes(chunk_size=buffer_size):
                 f.write(chunk)
+                downloaded += len(chunk)
                 if progress_callback:
-                    progress_callback(len(chunk), total_size)
+                    progress_callback(
+                        InstallProgress(
+                            step=InstallStep.DOWNLOADING,
+                            current=downloaded,
+                            total=total_size,
+                        )
+                    )
             f.flush()

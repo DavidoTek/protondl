@@ -2,7 +2,7 @@ import shutil
 import tempfile
 import time
 from abc import ABC
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +14,9 @@ from protondl.core.models import (
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
+    InstallProgress,
+    InstallStep,
+    ProgressCallback,
     ReleaseData,
     ReleaseVersion,
     RequestConfig,
@@ -109,7 +112,7 @@ class CtInstaller(ABC):
         version: str,
         launcher: Launcher,
         arch: Arch | None = None,
-        progress_callback: Callable[[int, int], None] | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> CompatToolVersionInfo:
         """
         Downloads and extracts a specific version of the tool into the launcher's directory.
@@ -119,8 +122,10 @@ class CtInstaller(ABC):
             launcher (Launcher): The Launcher instance where the tool should be installed.
             arch (Arch | None): The architecture to install. Defaults to the host
                 architecture if supported by the tool, otherwise to x86_64.
-            progress_callback (Callable[[int, int], None], optional):
-                A callback function to report download/extraction progress.
+            progress_callback (ProgressCallback | None, optional):
+                A callback function to report progress as InstallProgress events,
+                covering the fetch, download, verification, extraction and
+                finalization steps.
 
         Returns:
             CompatToolVersionInfo: The metadata written to the tool's version file,
@@ -133,6 +138,12 @@ class CtInstaller(ABC):
                 compatibility tools directory.
         """
         arch = self.resolve_arch(arch)
+
+        def report(step: InstallStep, current: int = 0, total: int = 0) -> None:
+            if progress_callback is not None:
+                progress_callback(InstallProgress(step=step, current=current, total=total))
+
+        report(InstallStep.FETCHING_RELEASE)
         release_data = await self._fetch_release_data(version, arch)
 
         if not release_data.download:
@@ -162,15 +173,20 @@ class CtInstaller(ABC):
                         known_size=release_data.size or 0,
                     )
 
+                    report(InstallStep.VERIFYING)
                     await self._verify_checksum(client, release_data, tmp_path)
 
                     install_dir = self._get_extract_dir(launcher)
                     before = set(install_dir.iterdir())
-                    self._extract_archive(tmp_path, install_dir)
+                    report(InstallStep.EXTRACTING)
+                    self._extract_archive(
+                        tmp_path, install_dir, progress_callback=progress_callback
+                    )
 
                     installed_dir = self._find_installed_dir(
                         install_dir, before, release_data.version
                     )
+                    report(InstallStep.FINISHING)
                     if installed_dir is None:
                         print(
                             f"Warning: Could not determine the installation directory of "
@@ -395,25 +411,35 @@ class CtInstaller(ABC):
             if actual_sha != expected_sha:
                 raise ValueError("Checksum verification failed! File corrupted.")
 
-    def _extract_archive(self, archive_path: Path, extract_to: Path) -> None:
+    def _extract_archive(
+        self,
+        archive_path: Path,
+        extract_to: Path,
+        progress_callback: ProgressCallback | None = None,
+    ) -> None:
         """
         Helper method to extract an archive file to the specified directory.
 
         Args:
             archive_path (Path): The path to the archive file.
             extract_to (Path): The directory where the contents should be extracted.
+            progress_callback (ProgressCallback | None, optional): A callback to
+                receive EXTRACTING progress events with per-file progress.
 
         Raises:
             ValueError: If the archive format is unsupported.
         """
         if self.release_format.endswith(".tar.zst"):
-            extract_tar_zst(archive_path, extract_to)
+            extract_tar_zst(archive_path, extract_to, progress_callback=progress_callback)
         elif ".tar." in self.release_format:
             extract_tar(
-                archive_path, extract_to, compression=self.release_format.split(".tar.")[-1]
+                archive_path,
+                extract_to,
+                compression=self.release_format.split(".tar.")[-1],
+                progress_callback=progress_callback,
             )
         elif self.release_format.endswith(".zip"):
-            extract_zip(archive_path, extract_to)
+            extract_zip(archive_path, extract_to, progress_callback=progress_callback)
         else:
             raise ValueError(f"Unsupported archive format: {self.release_format}")
 

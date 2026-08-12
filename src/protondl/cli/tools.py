@@ -17,9 +17,16 @@ from protondl.cli.helpers import (
     resolve_installed_tool,
     resolve_installer,
     select_launcher,
+    update_install_progress,
 )
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import CompatTool, CompatToolType, ToolUpdate
+from protondl.core.models import (
+    CompatTool,
+    CompatToolType,
+    InstallProgress,
+    InstallStep,
+    ToolUpdate,
+)
 from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
 from protondl.util.helpers import (
     batch_update_games_tools,
@@ -199,12 +206,10 @@ def install_tool(
             TransferSpeedColumn(),
             TimeRemainingColumn(),
         ) as progress:
-            download_task = progress.add_task(f"Downloading {installer.name}...", total=None)
+            task_id = progress.add_task(f"Installing {installer.name}...", total=None)
 
-            def update_spinner(chunk_size: int, total_size: int) -> None:
-                if progress.tasks[download_task].total is None and total_size > 0:
-                    progress.update(download_task, total=total_size)
-                progress.update(download_task, advance=chunk_size)
+            def update_spinner(event: InstallProgress) -> None:
+                update_install_progress(progress, task_id, event)
 
             info = asyncio.run(
                 installer.install(
@@ -385,11 +390,23 @@ def update_all(
             "[progress.description]{task.description}",
             BarColumn(),
             "[progress.percentage]{task.percentage:>3.0f}%",
+            TimeRemainingColumn(),
         ) as progress:
-            task = progress.add_task("Updating compatibility tools...", total=len(result.updates))
+            outer_task = progress.add_task(
+                "Updating compatibility tools...", total=len(result.updates)
+            )
+            inner_task = progress.add_task("", total=None)
 
-            def update_progress(completed: int, total: int) -> None:
-                progress.update(task, completed=completed)
+            def update_progress(event: InstallProgress) -> None:
+                progress.update(
+                    outer_task,
+                    description=(
+                        f"Updating compatibility tools ({event.tool_index}/{event.tool_total})"
+                    ),
+                )
+                if event.step is InstallStep.COMPLETED:
+                    progress.update(outer_task, completed=event.tool_index)
+                update_install_progress(progress, inner_task, event)
 
             new_tools = asyncio.run(
                 update_compatibility_tools(
@@ -400,6 +417,7 @@ def update_all(
                     request_config=state["request_config"],
                 )
             )
+            progress.remove_task(inner_task)
     except Exception as e:
         console.print(f"[red]Updating compatibility tools failed: {e}[/red]")
         raise typer.Exit(code=1) from e

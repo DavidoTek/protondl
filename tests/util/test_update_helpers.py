@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
@@ -11,6 +11,9 @@ from protondl.core.models import (
     CompatToolType,
     CompatToolVersionInfo,
     InstallMode,
+    InstallProgress,
+    InstallStep,
+    ProgressCallback,
     ReleaseVersion,
     ToolUpdate,
 )
@@ -78,9 +81,11 @@ class _FakeInstaller:
         version: str,
         launcher: _FakeLauncher,
         arch: Arch | None = None,
-        progress_callback: Callable[[int, int], None] | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> CompatToolVersionInfo:
         self.install_calls.append(version)
+        if progress_callback is not None:
+            progress_callback(InstallProgress(step=InstallStep.FINISHING, current=1, total=1))
         if self.new_tool is not None:
             launcher._installed_tools.append(self.new_tool)
         if self.new_info is not None:
@@ -265,16 +270,16 @@ def test_update_compatibility_tools_installs_latest_and_removes_old(
     installer = _FakeInstaller("GE-Proton")
     _mock_installer_lookup(monkeypatch, installer)
 
-    progress: list[tuple[int, int]] = []
-    asyncio.run(
-        update_compatibility_tools(
-            launcher, [update], progress_callback=lambda done, total: progress.append((done, total))
-        )
-    )
+    progress: list[InstallProgress] = []
+    asyncio.run(update_compatibility_tools(launcher, [update], progress_callback=progress.append))
 
     assert installer.install_calls == ["GE-Proton11-3"]
     assert launcher.removed == ["GE-Proton10-5", "GE-Proton11-2"]
-    assert progress == [(1, 1)]
+    assert [p.step for p in progress] == [InstallStep.FINISHING, InstallStep.COMPLETED]
+    assert [(p.tool, p.tool_index, p.tool_total) for p in progress] == [
+        ("GE-Proton", 1, 1),
+        ("GE-Proton", 1, 1),
+    ]
 
 
 def test_update_compatibility_tools_keeps_old_versions(
@@ -309,18 +314,29 @@ def test_update_compatibility_tools_reports_progress_for_all_updates(
     installer = _FakeInstaller("GE-Proton")
     monkeypatch.setattr("protondl.installers.get_installer_by_name", lambda name: installer)
 
-    progress: list[tuple[int, int]] = []
+    progress: list[InstallProgress] = []
     asyncio.run(
         update_compatibility_tools(
             launcher,
             updates,
             keep_old=True,
-            progress_callback=lambda done, total: progress.append((done, total)),
+            progress_callback=progress.append,
         )
     )
 
     assert installer.install_calls == ["GE-Proton11-3", "dxvk-2.3"]
-    assert progress == [(1, 2), (2, 2)]
+    assert [p.step for p in progress] == [
+        InstallStep.FINISHING,
+        InstallStep.COMPLETED,
+        InstallStep.FINISHING,
+        InstallStep.COMPLETED,
+    ]
+    assert [(p.tool, p.tool_index, p.tool_total) for p in progress] == [
+        ("GE-Proton", 1, 2),
+        ("GE-Proton", 1, 2),
+        ("DXVK", 2, 2),
+        ("DXVK", 2, 2),
+    ]
 
 
 def test_update_compatibility_tools_returns_newly_installed_tool(

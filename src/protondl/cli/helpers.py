@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import typer
+from rich.progress import Progress, TaskID
 
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import Arch, CompatTool
+from protondl.core.models import Arch, CompatTool, InstallProgress
 from protondl.installers import CT_INSTALLERS
 from protondl.launchers import detect_all_launchers
 
@@ -109,3 +110,25 @@ def resolve_installed_tool(installed_tools: list[CompatTool], tool_name: str) ->
         (tool for tool in installed_tools if tool.full_name.lower() == tool_name.lower()),
         None,
     )
+
+
+def update_install_progress(progress: Progress, task_id: TaskID, event: InstallProgress) -> None:
+    """
+    Applies an InstallProgress event to a rich progress task.
+
+    The task description is set to the current step, prefixed with the tool name
+    when the event is part of an update run. Steps with a known total render a
+    progress bar, steps without one show an indeterminate (pulsing) bar.
+
+    Args:
+        progress: The rich Progress instance to update.
+        task_id: The task within the Progress instance to update.
+        event: The InstallProgress event to apply.
+    """
+    label = event.step.value
+    if event.tool:
+        label = f"{event.tool}: {label}"
+    if event.total > 0:
+        progress.update(task_id, description=label, total=event.total, completed=event.current)
+    else:
+        progress.update(task_id, description=label, total=None)

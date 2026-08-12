@@ -1,4 +1,5 @@
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -175,3 +176,42 @@ class GitHubArtifactResponse(TypedDict):
 
     total_count: int
     artifacts: list[GitHubArtifact]
+
+
+class InstallStep(Enum):
+    """The current step of a compatibility tool install or update."""
+
+    FETCHING_RELEASE = "fetching release info"
+    DOWNLOADING = "downloading"
+    VERIFYING = "verifying checksum"
+    EXTRACTING = "extracting"
+    FINISHING = "finalizing"
+    COMPLETED = "installed"
+
+
+@dataclass(frozen=True)
+class InstallProgress:
+    """
+    A progress event reported during a compatibility tool install or update.
+
+    Attributes:
+        step: The current step of the operation.
+        current: The progress within the step. For DOWNLOADING this is the number
+            of bytes downloaded, for EXTRACTING the number of files extracted.
+            0 for steps without measurable progress.
+        total: The total of the step. 0 if the step's total is unknown.
+        tool: The name of the tool being installed, set when the event is part
+            of a multi-tool update run.
+        tool_index: The 1-based index of the tool within an update run.
+        tool_total: The total number of tools in the update run.
+    """
+
+    step: InstallStep
+    current: int = 0
+    total: int = 0
+    tool: str | None = None
+    tool_index: int = 0
+    tool_total: int = 0
+
+
+ProgressCallback = Callable[[InstallProgress], None]

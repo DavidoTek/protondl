@@ -11,6 +11,8 @@ from protondl.core.models import (
     CompatTool,
     CompatToolType,
     InstallMode,
+    InstallProgress,
+    InstallStep,
     ReleaseData,
 )
 from protondl.installers.dxvk import DXVKInstaller
@@ -125,6 +127,68 @@ def test_install_unsupported_arch_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="does not support architecture 'aarch64'"):
         asyncio.run(installer.install("dxvk-2.3", launcher, arch=Arch.AARCH64))
+
+
+def test_install_reports_progress_steps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+
+    version = "GE-Proton11-3"
+    archive_bytes = _make_tar_gz(version)
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version=v,
+            date="2026-08-03",
+            download="https://example.com/GE-Proton11-3.tar.gz",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+        if progress_callback is not None:
+            progress_callback(
+                InstallProgress(
+                    step=InstallStep.DOWNLOADING,
+                    current=len(archive_bytes),
+                    total=len(archive_bytes),
+                )
+            )
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    events: list[InstallProgress] = []
+    asyncio.run(
+        installer.install(version, launcher, arch=Arch.AARCH64, progress_callback=events.append)
+    )
+
+    distinct_steps = list(dict.fromkeys(event.step for event in events))
+    assert distinct_steps == [
+        InstallStep.FETCHING_RELEASE,
+        InstallStep.DOWNLOADING,
+        InstallStep.VERIFYING,
+        InstallStep.EXTRACTING,
+        InstallStep.FINISHING,
+    ]
+
+    download_events = [e for e in events if e.step == InstallStep.DOWNLOADING]
+    assert download_events[-1].current == len(archive_bytes)
+    assert download_events[-1].total == len(archive_bytes)
+
+    extract_events = [e for e in events if e.step == InstallStep.EXTRACTING]
+    assert extract_events[-1].current == 1
+    assert extract_events[-1].total == 1
 
 
 def test_resolve_arch_uses_host_if_supported(monkeypatch: pytest.MonkeyPatch) -> None:

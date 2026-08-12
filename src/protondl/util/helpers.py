@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import platform
-from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -10,6 +9,9 @@ from protondl.core.models import (
     Arch,
     CompatTool,
     CompatToolVersionInfo,
+    InstallProgress,
+    InstallStep,
+    ProgressCallback,
     RequestConfig,
     ToolUpdate,
     UpdateCheckResult,
@@ -177,7 +179,7 @@ async def update_compatibility_tools(
     launcher: Launcher,
     updates: list[ToolUpdate],
     keep_old: bool = False,
-    progress_callback: Callable[[int, int], None] | None = None,
+    progress_callback: ProgressCallback | None = None,
     request_config: RequestConfig | None = None,
 ) -> dict[str, CompatTool]:
     """
@@ -190,8 +192,9 @@ async def update_compatibility_tools(
         launcher: The game launcher instance to operate on.
         updates: The compatibility tools to update, including the latest version.
         keep_old: Whether to keep older versions of the compatibility tools.
-        progress_callback: Optional callback receiving the number of completed
-            tools and the total number of tools to update.
+        progress_callback: Optional callback receiving InstallProgress events of the
+            currently installed tool, enriched with the tool's name and its index
+            within the update run (tool, tool_index, tool_total).
         request_config: Optional configuration for API requests, including auth tokens.
 
     Returns:
@@ -216,7 +219,26 @@ async def update_compatibility_tools(
         if request_config is not None:
             installer.request_config = request_config
 
-        info = await installer.install(update.latest_version, launcher)
+        def report_progress(
+            event: InstallProgress,
+            tool_name: str = update.compat_tool_name,
+            tool_index: int = index + 1,
+        ) -> None:
+            if progress_callback is not None:
+                progress_callback(
+                    InstallProgress(
+                        step=event.step,
+                        current=event.current,
+                        total=event.total,
+                        tool=tool_name,
+                        tool_index=tool_index,
+                        tool_total=total,
+                    )
+                )
+
+        info = await installer.install(
+            update.latest_version, launcher, progress_callback=report_progress
+        )
 
         if not keep_old:
             for tool in update.installed_tools:
@@ -226,8 +248,7 @@ async def update_compatibility_tools(
         if new_tool is not None:
             installed_new_tools[update.compat_tool_name] = new_tool
 
-        if progress_callback is not None:
-            progress_callback(index + 1, total)
+        report_progress(InstallProgress(step=InstallStep.COMPLETED))
 
     return installed_new_tools
 

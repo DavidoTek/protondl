@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -9,6 +8,9 @@ from protondl.core.base_launcher import Launcher
 from protondl.core.models import (
     CompatTool,
     CompatToolType,
+    InstallProgress,
+    InstallStep,
+    ProgressCallback,
     RequestConfig,
     ToolUpdate,
     UpdateCheckResult,
@@ -58,13 +60,22 @@ def _patch_cli(
         launcher: Launcher,
         updates: list[ToolUpdate],
         keep_old: bool = False,
-        progress_callback: Callable[[int, int], None] | None = None,
+        progress_callback: ProgressCallback | None = None,
         request_config: RequestConfig | None = None,
     ) -> dict[str, CompatTool]:
         for update in updates:
             installed.append(update.latest_version)
         if progress_callback:
-            progress_callback(len(updates), len(updates))
+            progress_callback(
+                InstallProgress(
+                    step=InstallStep.COMPLETED,
+                    current=1,
+                    total=1,
+                    tool="GE-Proton",
+                    tool_index=1,
+                    tool_total=len(updates),
+                )
+            )
         return {
             update.compat_tool_name: CompatTool(
                 update.latest_version, CompatToolType.PROTON, Path("/tools") / update.latest_version

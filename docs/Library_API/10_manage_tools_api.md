@@ -76,7 +76,10 @@ asyncio.run(
         launcher,
         result.updates,
         keep_old=False,
-        progress_callback=lambda completed, total: print(f"{completed} of {total}"),
+        progress_callback=lambda event: print(
+            f"[{event.tool_index}/{event.tool_total}] {event.tool}: "
+            f"{event.step.value} {event.current}/{event.total}"
+        ),
     )
 )
 ```
@@ -87,8 +90,13 @@ The function is async and accepts the following arguments:
 - `updates`: The `ToolUpdate` list from `check_for_updates()`.
 - `keep_old`: Whether to keep older versions of the tools. If `False` (the default),
   all older versions are deleted after the new version was installed successfully.
-- `progress_callback`: An optional callback receiving the number of completed tools and
-  the total number of tools to update.
+- `progress_callback`: An optional callback receiving `InstallProgress` events for the
+  currently installed tool. Each event carries the current `step` (`InstallStep`: fetching
+  release info, downloading, verifying checksum, extracting, finalizing, installed) with
+  the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted
+  files), plus the tool's name and its index within the update run (`tool`, `tool_index`,
+  `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully
+  processed (after old versions were removed).
 - `request_config`: An optional `RequestConfig` for authenticated API requests.
 
 Things to consider:
@@ -164,8 +172,11 @@ async def main() -> None:
         return
 
     # 2. Install the newest versions and delete the old ones
-    def on_progress(completed: int, total: int) -> None:
-        print(f"Updated {completed} of {total} compatibility tools")
+    def on_progress(event) -> None:
+        print(
+            f"[{event.tool_index}/{event.tool_total}] {event.tool}: "
+            f"{event.step.value} {event.current}/{event.total}"
+        )
 
     await update_compatibility_tools(
         launcher, result.updates, keep_old=False, progress_callback=on_progress
