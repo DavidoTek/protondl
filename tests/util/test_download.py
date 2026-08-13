@@ -2,7 +2,8 @@ from typing import Any
 
 import pytest
 
-from protondl.core.models import Arch, ReleaseData, ReleaseVersion, RequestConfig
+from protondl.core.config import RequestConfig
+from protondl.core.models import Arch, ReleaseData, ReleaseVersion
 from protondl.installers.dxvk import DXVKInstaller
 from protondl.installers.ge_proton import GEProtonInstaller
 from protondl.util.download import fetch_project_release_data, fetch_project_releases

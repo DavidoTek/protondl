@@ -5,13 +5,13 @@ from typer.testing import CliRunner
 
 from protondl.cli import app
 from protondl.core.base_launcher import Launcher
+from protondl.core.config import RequestConfig
 from protondl.core.models import (
     CompatTool,
     CompatToolType,
     InstallProgress,
     InstallStep,
     ProgressCallback,
-    RequestConfig,
     ToolUpdate,
     UpdateCheckResult,
 )

@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from protondl.core.base_launcher import Launcher
+from protondl.core.config import RequestConfig
 from protondl.core.models import (
     Arch,
     CompatTool,
@@ -19,7 +20,6 @@ from protondl.core.models import (
     ProgressCallback,
     ReleaseData,
     ReleaseVersion,
-    RequestConfig,
     TranslationDetails,
 )
 from protondl.util.archive import extract_tar, extract_tar_zst, extract_zip
@@ -158,7 +158,7 @@ class CtInstaller(ABC):
         )
 
         async with httpx.AsyncClient(
-            headers=self.request_config.get_headers(), follow_redirects=True
+            headers=self.request_config.get_headers(release_data.download), follow_redirects=True
         ) as client:
             suffix = release_data.original_filename or self.release_format
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:

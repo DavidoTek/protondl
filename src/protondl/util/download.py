@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 
+from protondl.core.config import RequestConfig
 from protondl.core.models import (
     Arch,
     GitHubArtifactResponse,
@@ -13,7 +14,6 @@ from protondl.core.models import (
     ProgressCallback,
     ReleaseData,
     ReleaseVersion,
-    RequestConfig,
 )
 
 GITHUB_API = "https://api.github.com/"
@@ -129,7 +129,8 @@ async def fetch_project_release_data(
         fetch_url = f"{release_url}/tags/{api_tag}" if tag else f"{release_url}/latest"
         date_key, tag_key = "published_at", "tag_name"
 
-    async with httpx.AsyncClient(headers=config.get_headers(), follow_redirects=True) as client:
+    headers = config.get_headers(fetch_url)
+    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
         resp = await client.get(fetch_url)
         data = check_rate_limits(resp.json())
 
@@ -193,7 +194,8 @@ async def fetch_project_releases(
 
     params = {"per_page": count, "page": page}
 
-    async with httpx.AsyncClient(headers=config.get_headers(), follow_redirects=True) as client:
+    headers = config.get_headers(releases_url)
+    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
         response = await client.get(releases_url, params=params)
 
         data = check_rate_limits(response.json())
@@ -240,7 +242,8 @@ async def fetch_github_project_workflows(
         list[str]: A list of workflow run IDs that match
             the specified package name, sorted by newest first.
     """
-    async with httpx.AsyncClient(headers=config.get_headers(), follow_redirects=True) as client:
+    headers = config.get_headers(ct_workflow_url)
+    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
         tags = []
         wf_resp = await client.get(f"{ct_workflow_url}?per_page={str(count)}&page={str(page)}")
         for wf in wf_resp.json().get("workflows", []):
@@ -286,7 +289,7 @@ async def fetch_github_artifact_data(
     Returns:
         A ReleaseData object containing the release information.
     """
-    async with httpx.AsyncClient(headers=config.get_headers()) as client:
+    async with httpx.AsyncClient(headers=config.get_headers(api_url)) as client:
         resp = await client.get(f"{ct_artifact_url.format(version)}?per_page=100")
         artifact_info: GitHubArtifactResponse = resp.json()
         if artifact_info.get("total_count") != 1:

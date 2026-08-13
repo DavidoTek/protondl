@@ -123,10 +123,10 @@ Things to consider:
   is fetched only once per tool class.
 - If fetching the newest version fails (e.g. the remote API is unreachable), the affected
   tools are reported in `unchecked` instead of raising.
-- Pass an optional `RequestConfig` (e.g. configured with a GitHub token) as
-  `request_config` to authenticate API requests and raise the rate limits. A
-  `RequestConfig()` created without arguments picks up the `GITHUB_TOKEN` environment
-  variable automatically.
+- Pass an optional `RequestConfig` as `request_config` to authenticate API requests and
+  raise the rate limits (see [API tokens](#api-tokens)). A `RequestConfig()` created
+  without arguments picks up the `GITHUB_TOKEN` and `GITLAB_TOKEN` environment variables
+  automatically; an explicitly passed config takes precedence.
 - TODO: Improve handling of multiple architectures.
 
 ### Install updates
@@ -165,7 +165,7 @@ Argument | Type | Description
 `updates` | `list[ToolUpdate]` |  The `ToolUpdate` list from `check_for_updates()`.
 `keep_old` | `bool` |  Whether to keep older versions of the tools. If `False` (the default), all older versions are deleted after the new version was installed successfully.
 `progress_callback` | `ProgressCallback \| None` |  An optional callback receiving `InstallProgress` events for the currently installed tool. Each event carries the current `step` (`InstallStep`: fetching release info, downloading, verifying checksum, extracting, finalizing, installed) with the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted files), plus the tool's name and its index within the update run (`tool`, `tool_index`, `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully processed (after old versions were removed).
-`request_config` | `RequestConfig \| None` |  An optional `RequestConfig` for authenticated API requests.
+`request_config` | `RequestConfig \| None` |  An optional `RequestConfig` for authenticated API requests. Takes precedence over the `GITHUB_TOKEN`/`GITLAB_TOKEN` environment variables; see [API tokens](#api-tokens).
 
 Things to consider:
 
@@ -273,3 +273,37 @@ The user should be presented with a list of available updates and for which comp
 updates could be fetched. The user should optionally be able to select which of the compatibility
 tools should be updated. Furthermore, the user should have the choice whether old compatibility
 tools are deleted and whether a batch update for the installed games should be performed.
+
+## API tokens
+
+protondl queries GitHub's API to fetch releases and artifacts.
+Unauthenticated requests are subject to API rate limits; a token raises them.
+
+API requests are configured via a `RequestConfig`:
+
+- `RequestConfig()` reads the `GITHUB_TOKEN` and `GITLAB_TOKEN` environment variables automatically.
+- `RequestConfig(github_token="...", gitlab_token="...")` sets the tokens explicitly.
+
+The token is only sent to the matching host, as an `Authorization` header (`token ...` for GitHub,
+`Bearer ...` for GitLab). Set it via an environment variable:
+
+```bash
+export GITHUB_TOKEN=<your GitHub token>
+export GITLAB_TOKEN=<your GitLab token>
+```
+
+or directly in code:
+
+```python
+import asyncio
+
+from protondl.core.config import RequestConfig
+
+config = RequestConfig(github_token="<your GitHub token>")
+
+# For tool installers:
+installer.request_config = config  # used by fetch_releases()/install()
+
+# For the update helpers:
+result = asyncio.run(check_for_updates(launcher, request_config=config))
+```

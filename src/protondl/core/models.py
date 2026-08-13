@@ -1,6 +1,5 @@
-import os
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import TypedDict
@@ -132,17 +131,6 @@ class ReleaseVersion:
 
     version: str
     archs: tuple[Arch, ...] = (Arch.X86_64,)
-
-
-@dataclass
-class RequestConfig:
-    github_token: str | None = field(default_factory=lambda: os.getenv("GITHUB_TOKEN"))
-
-    def get_headers(self) -> dict[str, str]:
-        headers = {"Accept": "application/vnd.github.v3+json"}
-        if self.github_token:
-            headers["Authorization"] = f"token {self.github_token}"
-        return headers
 
 
 @dataclass

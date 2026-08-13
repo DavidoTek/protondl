@@ -5,6 +5,7 @@ import platform
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+from protondl.core.config import RequestConfig
 from protondl.core.models import (
     Arch,
     CompatTool,
@@ -12,7 +13,6 @@ from protondl.core.models import (
     InstallProgress,
     InstallStep,
     ProgressCallback,
-    RequestConfig,
     ToolUpdate,
     UpdateCheckResult,
 )
