@@ -4,11 +4,85 @@ Managing compatibility tools is currently supported for the following launchers:
 <span class="badge steam">Steam</span> <span class="badge lutris">Lutris</span>
 <span class="badge heroic">Heroic</span> <span class="badge bottles">Bottles</span>
 
-This page documents the high-level helpers for updating compatibility tools:
-`check_for_updates()`, `update_compatibility_tools()`, and `batch_update_games_tools()`.
-All three live in `protondl.util.helpers`.
+This page documents the API for fetching compatibility tools releases, installing tools, and updating tools.
 
-## Check for updates
+## List available compatibility tools
+
+After determining the available launchers, the next step is to determine which compatibility tools
+can be installed for a specific launcher.
+The function `get_tools_for_launcher` returns all compatibility tools supported by the launcher.
+
+```python
+from protondl.installers import get_tools_for_launcher
+
+compatible_tools = get_tools_for_launcher(launchers[0])
+
+for tool_installer in compatible_tools:
+    print(f"{tool_installer.name}: {tool_installer.description}")
+```
+
+## Fetch versions for a tool and install
+
+Once you pick an installer, fetch available versions and install one into a selected launcher.
+
+```python
+import asyncio
+from protondl.installers import get_tools_for_launcher
+from protondl.launchers import detect_all_launchers
+
+launchers = detect_all_launchers()
+if not launchers:
+    raise RuntimeError("No supported launcher found")
+
+compatible_tools = get_tools_for_launcher(launchers[0])
+if not compatible_tools:
+    raise RuntimeError("No installers available for selected launcher")
+
+tool_installer = compatible_tools[0]
+
+versions = asyncio.run(tool_installer.fetch_releases(count=30, page=1))
+
+print(f"Available versions of {tool_installer.name}:")
+
+for release in versions:
+    print(f"  {release.version} ({', '.join(arch.value for arch in release.archs)})")
+
+if not versions:
+    raise RuntimeError("No releases returned")
+
+if not tool_installer.supports_launcher(launchers[0]):
+    raise RuntimeError("Selected launcher is not supported by this installer")
+
+# Install the newest release for the given architecture.
+# Omitting `arch` selects the host architecture if supported, else x86_64.
+from protondl.core.models import Arch
+
+asyncio.run(
+    tool_installer.install(
+        versions[0].version,
+        launchers[0],
+        arch=Arch.AARCH64,  # Optional
+        # Optional: receive step-based progress (fetch, download, verify, extract)
+        progress_callback=lambda event: print(
+            f"{event.step.value}: {event.current} / {event.total}"
+        ),
+    )
+)
+```
+
+`fetch_releases()` returns a list of `ReleaseVersion` objects with a `version` string and an
+`archs` tuple of `Arch` values. `install()` returns the `CompatToolVersionInfo` written to the
+tool's `protondl_version.json`, which includes the installed architecture.
+
+For a complete workflow with launcher/tool selection, see the CLI implementation in `src/protondl/cli/main.py`.
+
+## Automatic tool updates
+
+protondl provides helper functions that check whether updates are available for currently installed
+tools, installing the newest version of the tools and optionally removing old versions, and finally,
+changing the compatibility tool a game uses to the latest installed version.
+
+### Check for updates
 
 `check_for_updates(launcher)` scans all compatibility tools installed for a launcher,
 determines the corresponding `CtInstaller` for each of them, and fetches the newest
@@ -35,13 +109,11 @@ print(f"Could not check: {', '.join(result.unchecked)}")
 
 The function is async and returns an `UpdateCheckResult` with three fields:
 
-- `updates`: A list of `ToolUpdate` objects, one per compatibility tool class that has
-  an available update. Each entry contains the tool name (`compat_tool_name`), the newest
-  available version (`latest_version`), the currently installed versions
-  (`installed_versions`), and the installed `CompatTool` objects (`installed_tools`).
-- `up_to_date`: A list of names of compatibility tools that are already at the newest
-  available version.
-- `unchecked`: A list of names of installed tools for which no update check was possible.
+Field | Type | Description
+------|------|------------
+`updates` | `list[ToolUpdate]` | A list of `ToolUpdate` objects, one per compatibility tool class that has an available update. Each entry contains the tool name (`compat_tool_name`), the newest available version (`latest_version`), the currently installed versions (`installed_versions`), and the installed `CompatTool` objects (`installed_tools`).
+`up_to_date` | `list[str]` | A list of names of compatibility tools that are already at the newest available version.
+`unchecked` | `list[str]` | A list of names of installed tools for which no update check was possible.
 
 Things to consider:
 
@@ -55,8 +127,9 @@ Things to consider:
   `request_config` to authenticate API requests and raise the rate limits. A
   `RequestConfig()` created without arguments picks up the `GITHUB_TOKEN` environment
   variable automatically.
+- TODO: Improve handling of multiple architectures.
 
-## Install updates
+### Install updates
 
 `update_compatibility_tools(launcher, updates)` installs the newest version of each
 compatibility tool in the given list of updates. The list returned by
@@ -86,18 +159,13 @@ asyncio.run(
 
 The function is async and accepts the following arguments:
 
-- `launcher`: The launcher the tools are installed for.
-- `updates`: The `ToolUpdate` list from `check_for_updates()`.
-- `keep_old`: Whether to keep older versions of the tools. If `False` (the default),
-  all older versions are deleted after the new version was installed successfully.
-- `progress_callback`: An optional callback receiving `InstallProgress` events for the
-  currently installed tool. Each event carries the current `step` (`InstallStep`: fetching
-  release info, downloading, verifying checksum, extracting, finalizing, installed) with
-  the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted
-  files), plus the tool's name and its index within the update run (`tool`, `tool_index`,
-  `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully
-  processed (after old versions were removed).
-- `request_config`: An optional `RequestConfig` for authenticated API requests.
+Argument | Type | Description
+---------|------|------------
+`launcher` | `Launcher` |  The launcher the tools are installed for.
+`updates` | `list[ToolUpdate]` |  The `ToolUpdate` list from `check_for_updates()`.
+`keep_old` | `bool` |  Whether to keep older versions of the tools. If `False` (the default), all older versions are deleted after the new version was installed successfully.
+`progress_callback` | `ProgressCallback \| None` |  An optional callback receiving `InstallProgress` events for the currently installed tool. Each event carries the current `step` (`InstallStep`: fetching release info, downloading, verifying checksum, extracting, finalizing, installed) with the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted files), plus the tool's name and its index within the update run (`tool`, `tool_index`, `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully processed (after old versions were removed).
+`request_config` | `RequestConfig \| None` |  An optional `RequestConfig` for authenticated API requests.
 
 Things to consider:
 
@@ -109,7 +177,7 @@ Things to consider:
   optional because the old versions remain usable.
 - A `ValueError` is raised if no `CtInstaller` exists for one of the tools.
 
-## Batch update games
+### Batch update games
 
 `batch_update_games_tools(launcher, from_tool, to_tool)` changes the compatibility tool
 of all games that currently use `from_tool` to `to_tool`.
@@ -139,7 +207,7 @@ The function returns the number of games that were updated. It raises a `Runtime
 if updating the games' compatibility tools failed (e.g. for launchers that do not
 implement `set_games_tools()`, such as Lutris).
 
-## End-to-end example
+### End-to-end example
 
 The following example combines all three functions to update every compatibility tool of
 a launcher and move all games to the newest versions:
@@ -200,3 +268,8 @@ installs those updates, and optionally removes the old versions. `batch_update_g
 then reconciles the games with the new state. When old versions are deleted
 (`keep_old=False`), running the batch update is strongly recommended so that no game
 references a deleted tool.
+
+The user should be presented with a list of available updates and for which compatibility tools no
+updates could be fetched. The user should optionally be able to select which of the compatibility
+tools should be updated. Furthermore, the user should have the choice whether old compatibility
+tools are deleted and whether a batch update for the installed games should be performed.

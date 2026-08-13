@@ -113,25 +113,4 @@ Service-based online lookups such as AWACY and ProtonDB are documented in
 Update the compatibility tool for multiple games at once using `batch_update_games_tools()`.
 You can match games by an exact tool name (using a `CompatTool` instance) or by a partial string match.
 This helper is also an essential part of the update workflow, see
-[Manage Compatibility Tools](10_manage_tools_api.md#end-to-end-example).
-
-```python
-from protondl.launchers.steam import SteamLauncher
-from protondl.util.helpers import batch_update_games_tools
-from protondl.core.models import CompatTool, CompatToolType
-from pathlib import Path
-
-launcher = SteamLauncher.discover()[0]
-
-# Get the new tool to assign
-new_tool = CompatTool("Proton-9.0", CompatToolType.PROTON, Path("/path/to/tool"))
-
-# Update all games using tools with "GE-Proton" in the name
-count = batch_update_games_tools(launcher, "GE-Proton", new_tool)
-print(f"Updated {count} games")
-
-# Or update games using an exact tool
-old_tool = CompatTool("Proton-8.0", CompatToolType.PROTON, Path("/path/to/tool"))
-count = batch_update_games_tools(launcher, old_tool, new_tool)
-print(f"Updated {count} games")
-```
+[Manage Compatibility Tools](20_manage_tools_api.md#automatic-tool-updates) for more details.

@@ -47,7 +47,7 @@ The command prints the Steam Deck status as one of `UNKNOWN`, `UNSUPPORTED`, `PL
 ## Set compatibility tool for a specific game
 
 Run the following command to force that a specific game uses a specific compatibility tool.
-Use the game id from [`list-games`](#list-installed-games) and the tool name from [`list-installed`](./10_manage_tools.md#list-installed-compatibility-tools).
+Use the game id from [`list-games`](#list-installed-games) and the tool name from [`list-installed`](./20_manage_tools.md#list-installed-compatibility-tools).
 
 ```bash
 protondl set-tool <launcher id> <game id> <tool name>
