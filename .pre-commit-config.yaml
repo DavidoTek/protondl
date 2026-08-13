@@ -4,7 +4,9 @@ repos:
     hooks:
       - id: ruff-check
         args: [ --fix ]
+        types_or: [python, pyi, jupyter, markdown]
       - id: ruff-format
+        types_or: [python, pyi, jupyter, markdown]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v2.3.0

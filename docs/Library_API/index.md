@@ -93,7 +93,9 @@ asyncio.run(
         launchers[0],
         arch=Arch.AARCH64,  # Optional
         # Optional: receive step-based progress (fetch, download, verify, extract)
-        progress_callback=lambda event: print(f"{event.step.value}: {event.current} / {event.total}"),
+        progress_callback=lambda event: print(
+            f"{event.step.value}: {event.current} / {event.total}"
+        ),
     )
 )
 ```
