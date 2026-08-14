@@ -1,7 +1,7 @@
 from rich.table import Table
 
 # Import submodules so they register their commands on `app`
-from protondl.cli import app, console, games, services, tools  # noqa: F401
+from protondl.cli import app, console, games, services, shortcuts, tools  # noqa: F401
 from protondl.cli.helpers import get_launchers
 
 if __name__ == "__main__":

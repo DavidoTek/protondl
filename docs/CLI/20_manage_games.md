@@ -61,3 +61,47 @@ protondl set-tool <launcher> <game id> none
 ```
 
 `set-tool` currently requires a Steam or Heroic launcher. For Heroic, only Proton and Wine tools are supported, and listing includes installed DLC.
+
+## Manage Steam shortcuts
+
+Non-Steam games and applications can be added to the Steam library as shortcuts. Shortcut
+management is only supported for Steam launchers.
+
+### List shortcuts
+
+List all Steam shortcuts of a launcher, including their AppID, executable, start directory,
+and the Steam user (userdata folder name) they belong to:
+
+```bash
+protondl list-shortcuts <launcher>
+```
+
+### Add a shortcut
+
+Add a new shortcut. The shortcut is added to the Steam user with the most existing shortcuts,
+or to the most recently logged in user if there are none. Use `--user` to target a specific
+user (the userdata folder name).
+
+```bash
+protondl add-shortcut <launcher> <name> <executable> [--startdir <path>] [--icon <icon>] [--user <user>]
+
+# Example
+protondl add-shortcut 1 "My Game" "/opt/games/MyGame.sh" --startdir /opt/games
+```
+
+The command fails if `name` or `executable` is empty or no Steam user can be determined.
+
+### Remove shortcuts
+
+Remove one or more shortcuts by AppID or name (as shown by `list-shortcuts`). Name matching
+is case-insensitive.
+
+```bash
+protondl remove-shortcuts <launcher> <appid-or-name>...
+
+# Examples
+protondl remove-shortcuts 1 3722544834
+protondl remove-shortcuts 1 "My Game" 1234567890
+```
+
+Note that Steam needs to be restarted to pick up changes to the shortcuts.
