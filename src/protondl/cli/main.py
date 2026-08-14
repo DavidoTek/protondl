@@ -21,7 +21,10 @@ def list_launchers() -> None:
 
     table = Table(
         title="Detected Launchers",
-        caption="Use the [bold cyan]ID[/bold cyan] to target a specific launcher in other commands",
+        caption=(
+            "Use the [bold cyan]ID[/bold cyan] to target a specific launcher in other commands, "
+            "or a '<type>:<path>' spec for custom installations (e.g. 'steam:~/mySteam')"
+        ),
         title_style="bold magenta",
     )
 

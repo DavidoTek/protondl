@@ -13,6 +13,35 @@ for launcher in launchers:
     print(launcher.name, launcher.install_mode.value, launcher.root_path)
 ```
 
+## Custom launcher paths
+
+Launchers installed at non-standard locations (e.g. a Steam installation in `~/mySteam` instead of
+`~/.steam/root`) are not picked up by `detect_all_launchers()`, since discovery only scans the default
+installation paths. Use `create_launcher_from_path()` to construct a launcher instance directly from a
+custom root path.
+
+```python
+from pathlib import Path
+from protondl.launchers import create_launcher_from_path
+
+launcher = create_launcher_from_path("steam", Path("~/mySteam").expanduser())
+```
+
+The supported types are `steam`, `lutris`, `heroic` and `bottles`. The returned launcher behaves exactly
+like a discovered one: the compatibility tools directory, game list, and global tool configuration are all
+resolved relative to the given root path. The path may not exist yet; installers create the required
+directories on demand. An unknown launcher type raises a `ValueError`.
+
+Equivalent to calling the launcher class constructor directly:
+
+```python
+from pathlib import Path
+from protondl.launchers.steam import SteamLauncher
+from protondl.core.models import InstallMode
+
+launcher = SteamLauncher("Steam", Path("~/mySteam").expanduser(), InstallMode.NATIVE)
+```
+
 ## List installed compatibility tools
 
 Query all installed tools or restrict by tool type.

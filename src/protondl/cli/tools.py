@@ -38,12 +38,18 @@ from protondl.util.helpers import (
 
 @app.command(name="list-tools")
 def list_supported_tools(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
 ) -> None:
     """
     List all compatibility tools supported by a specific launcher instance.
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher)
     compatible_tools = get_tools_for_launcher(target_launcher)
     compatible_tools.sort(key=lambda t: CT_INSTALLERS.index(t))
 
@@ -141,7 +147,13 @@ def list_versions(
 
 @app.command(name="install")
 def install_tool(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
     tool_name: str = typer.Argument(
         ..., help="Name or ID of the tool to install (e.g., 'GE-Proton' or '1')"
     ),
@@ -160,7 +172,7 @@ def install_tool(
     """
     Download and install a compatibility tool for a specific launcher.
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher, allow_missing_path=True)
     installer = resolve_installer(tool_name)
 
     if not installer:
@@ -231,17 +243,29 @@ def install_tool(
 
 @app.command(name="list-installed")
 def list_installed_tools(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
 ) -> None:
     """
     List all compatibility tools currently installed for a specific launcher.
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher)
 
-    with console.status(
-        f"[bold blue]Scanning {target_launcher.name} directories...", spinner="bouncingBar"
-    ):
-        installed_tools = target_launcher.get_installed_tools()
+    try:
+        with console.status(
+            f"[bold blue]Scanning {target_launcher.name} directories...", spinner="bouncingBar"
+        ):
+            installed_tools = target_launcher.get_installed_tools()
+    except Exception as e:
+        console.print(
+            f"[red]Failed to read the installed tools of {target_launcher.name}: {e}[/red]"
+        )
+        raise typer.Exit(code=1) from e
 
     if not installed_tools:
         console.print(
@@ -278,7 +302,13 @@ def list_installed_tools(
 
 @app.command(name="remove")
 def remove_tool(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
     tool_name: str = typer.Argument(
         ...,
         help=(
@@ -289,7 +319,7 @@ def remove_tool(
     """
     Remove an installed compatibility tool from a launcher.
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher)
 
     try:
         installed_tools = sorted(target_launcher.get_installed_tools(), key=lambda x: x.full_name)
@@ -307,7 +337,7 @@ def remove_tool(
 
     if not selected_tool:
         console.print(
-            "[red]Tool not found. Use 'list-installed <launcher_id>'"
+            "[red]Tool not found. Use 'list-installed <launcher>'"
             + "to find a valid name/index.[/red]"
         )
         raise typer.Exit(code=1)
@@ -327,7 +357,13 @@ def remove_tool(
 
 @app.command(name="update-all")
 def update_all(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
     keep_old: bool = typer.Option(
         False,
         "--keep-old",
@@ -347,7 +383,7 @@ def update_all(
     """
     Check for and install available updates for all compatibility tools of a launcher.
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher)
 
     try:
         with console.status(

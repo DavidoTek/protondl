@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import typer
 from rich.progress import Progress, TaskID
 
@@ -7,7 +9,12 @@ from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
 from protondl.core.models import Arch, CompatTool, InstallProgress
 from protondl.installers import CT_INSTALLERS
-from protondl.launchers import detect_all_launchers
+from protondl.launchers import (
+    LAUNCHER_TYPE_MAP,
+    create_launcher_from_path,
+    detect_all_launchers,
+    is_valid_launcher_home,
+)
 
 
 def get_launchers() -> list[Launcher]:
@@ -15,28 +22,74 @@ def get_launchers() -> list[Launcher]:
     return detect_all_launchers()
 
 
-def select_launcher(launcher_id: int) -> Launcher:
+def select_launcher(launcher: str, *, allow_missing_path: bool = False) -> Launcher:
     """
-    Return a Launcher instance based on the provided numeric ID, starting from 1.
-    The ID corresponds to the index shown in the 'list-launchers' command.
+    Return a Launcher instance based on a launcher spec.
+
+    The spec can be either the numeric ID of a detected launcher (starting from 1,
+    as shown by 'list-launchers'), or a '<type>:<path>' spec pointing to a custom
+    installation path (e.g. 'steam:~/mySteam' for a non-standard Steam install).
+
+    Custom paths are validated: they must exist and look like a data directory of
+    the given launcher type. Set ``allow_missing_path`` to True to skip the checks,
+    e.g. for the 'install' command, which creates the path on demand.
 
     Args:
-        launcher_id (int): The numeric ID of the launcher to select.
+        launcher (str): The launcher ID or '<type>:<path>' spec to select.
+        allow_missing_path (bool): If True, do not reject a path that does not
+            exist or does not look like a launcher data directory yet.
 
     Returns:
         Launcher: The selected Launcher instance.
 
     Raises:
-        typer.Exit: If the launcher_id is out of range.
+        typer.Exit: If the launcher spec is invalid, the ID is out of range,
+            or the custom path is invalid.
     """
 
-    launchers = get_launchers()
-    idx = launcher_id - 1
-    if not (0 <= idx < len(launchers)):
-        typer.secho(f"Error: Launcher ID {launcher_id} is out of range.", fg="red")
+    if launcher.isdigit():
+        launchers = get_launchers()
+        launcher_id = int(launcher)
+        idx = launcher_id - 1
+        if not (0 <= idx < len(launchers)):
+            typer.secho(f"Error: Launcher ID {launcher_id} is out of range.", fg="red")
+            raise typer.Exit(code=1)
+        return launchers[idx]
+
+    launcher_type, sep, launcher_path = launcher.partition(":")
+    if not sep or not launcher_path:
+        typer.secho(
+            "Error: Invalid launcher spec. Use the ID from 'list-launchers' "
+            + "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam').",
+            fg="red",
+        )
         raise typer.Exit(code=1)
 
-    return launchers[idx]
+    if launcher_type.lower() not in LAUNCHER_TYPE_MAP:
+        supported = ", ".join(LAUNCHER_TYPE_MAP)
+        typer.secho(
+            f"Error: Unknown launcher type '{launcher_type}'. Supported types: {supported}.",
+            fg="red",
+        )
+        raise typer.Exit(code=1)
+
+    root_path = Path(launcher_path).expanduser()
+    if not allow_missing_path:
+        if not root_path.is_dir():
+            typer.secho(f"Error: Launcher path does not exist: {root_path}", fg="red")
+            raise typer.Exit(code=1)
+        if not is_valid_launcher_home(launcher_type, root_path):
+            typer.secho(
+                f"Error: '{root_path}' is not a valid {launcher_type} installation directory.",
+                fg="red",
+            )
+            raise typer.Exit(code=1)
+
+    try:
+        return create_launcher_from_path(launcher_type, root_path)
+    except ValueError as e:
+        typer.secho(f"Error: {e}", fg="red")
+        raise typer.Exit(code=1) from None
 
 
 def resolve_installer(tool_name: str) -> CtInstaller | None:

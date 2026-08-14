@@ -23,7 +23,13 @@ EXIT_CODE_STATUS_ERROR = 3
 
 @app.command(name="list-games")
 def list_games(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
     awacy: bool = typer.Option(
         False,
         "--awacy",
@@ -43,7 +49,7 @@ def list_games(
     """
     List all compatibility tools currently installed for a specific launcher.
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher)
 
     awacy_index: AWACYIndex | None = None
     awacy_network_error = False
@@ -170,13 +176,19 @@ def _deck_status_cell(game: Game) -> str:
 
 @app.command(name="get-steam-deck-status")
 def get_steam_deck_status(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
     game_id: str = typer.Argument(..., help="ID of the Steam game, e.g., 123456"),
 ) -> None:
     """
     Show the Steam Deck compatibility status for a Steam game.
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher)
 
     if not isinstance(target_launcher, SteamLauncher):
         console.print(
@@ -185,7 +197,13 @@ def get_steam_deck_status(
         raise typer.Exit(code=1)
 
     steam_launcher = target_launcher
-    game_by_id: dict[str, SteamGame] = {game.id: game for game in steam_launcher.get_game_list()}
+    try:
+        game_by_id: dict[str, SteamGame] = {
+            game.id: game for game in steam_launcher.get_game_list()
+        }
+    except Exception as e:
+        console.print(f"[red]Failed to read the game list of {target_launcher.name}: {e}[/red]")
+        raise typer.Exit(code=1) from e
 
     game = game_by_id.get(game_id)
     if not game:
@@ -207,7 +225,13 @@ def get_steam_deck_status(
 
 @app.command(name="set-tool")
 def set_tool(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
     game_id: str = typer.Argument(..., help="ID of the game, e.g., 123456"),
     compat_tool_name: str = typer.Argument(..., help="Name of the tool, e.g., GE-Proton10-10"),
 ) -> None:
@@ -217,35 +241,46 @@ def set_tool(
     Example:
         protondl set-game-tools 1 123456 GE-Proton10-10
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher)
 
-    with console.status(
-        f"[bold blue]Setting compatibility tools for games in {target_launcher.name}...",
-        spinner="bouncingBar",
-    ):
-        games = target_launcher.get_game_list()
-        game_by_id = {game.id: game for game in games}
+    try:
+        with console.status(
+            f"[bold blue]Setting compatibility tools for games in {target_launcher.name}...",
+            spinner="bouncingBar",
+        ):
+            games = target_launcher.get_game_list()
+    except Exception as e:
+        console.print(f"[red]Failed to read the game list of {target_launcher.name}: {e}[/red]")
+        raise typer.Exit(code=1) from e
 
-        if game_id not in game_by_id:
-            console.print(f"[red]Game ID '{game_id}' not found in {target_launcher.name}.[/red]")
-            raise typer.Exit(code=1)
+    game_by_id = {game.id: game for game in games}
 
-        result_map: dict[Game, str | None] = {
-            game_by_id[game_id]: None if compat_tool_name == "none" else compat_tool_name
-        }
+    if game_id not in game_by_id:
+        console.print(f"[red]Game ID '{game_id}' not found in {target_launcher.name}.[/red]")
+        raise typer.Exit(code=1)
 
-        try:
-            target_launcher.set_games_tools(result_map)
-        except Exception as e:
-            console.print(f"[red]Failed to set game tools: {e}[/red]")
-            raise typer.Exit(code=1) from e
+    result_map: dict[Game, str | None] = {
+        game_by_id[game_id]: None if compat_tool_name == "none" else compat_tool_name
+    }
+
+    try:
+        target_launcher.set_games_tools(result_map)
+    except Exception as e:
+        console.print(f"[red]Failed to set game tools: {e}[/red]")
+        raise typer.Exit(code=1) from e
 
     console.print("[bold green]Game compatibility tool mapping updated successfully.[/bold green]")
 
 
 @app.command(name="set-global-tool")
 def set_global_tool(
-    launcher_id: int = typer.Argument(..., help="The ID of the launcher from 'list-launchers'"),
+    launcher: str = typer.Argument(
+        ...,
+        help=(
+            "The ID of the launcher from 'list-launchers', "
+            "or a '<type>:<path>' spec (e.g. 'steam:~/mySteam')"
+        ),
+    ),
     compat_tool_name: str = typer.Argument(
         ...,
         help=(
@@ -256,7 +291,7 @@ def set_global_tool(
     """
     Set the global/default compatibility tool for a launcher.
     """
-    target_launcher = select_launcher(launcher_id)
+    target_launcher = select_launcher(launcher)
 
     try:
         installed_tools = sorted(target_launcher.get_installed_tools(), key=lambda x: x.full_name)
@@ -274,7 +309,7 @@ def set_global_tool(
 
     if not selected_tool:
         console.print(
-            "[red]Tool not found. Use 'list-installed <launcher_id>'"
+            "[red]Tool not found. Use 'list-installed <launcher>'"
             + "to find a valid name/index.[/red]"
         )
         raise typer.Exit(code=1)

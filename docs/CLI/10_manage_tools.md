@@ -4,14 +4,17 @@ A core functionality of protondl is management of compatibility tools.
 
 Managing tools is currently supported for the following launchers: <span class="badge steam">Steam</span> <span class="badge lutris">Lutris</span> <span class="badge heroic">Heroic</span> <span class="badge bottles">Bottles</span>
 
+All commands below take a launcher argument, written as `<launcher>`. It accepts either the numeric ID of a
+detected launcher from [`list-launchers`](./index.md#list-installed-launchers) or a `<type>:<path>` spec to
+target a launcher at a custom installation path (see [Target a custom launcher path](./index.md#target-a-custom-launcher-path)).
+
 
 ## List tools available for a specific launcher
 
 Run the following commands to list all compatibility tools supported by a specific launcher.
-Replace `<launcher id>` with the ID of the launcher from [`list-launchers`](./index.md#list-installed-launchers).
 
 ```bash
-protondl list-tools <launcher id>
+protondl list-tools <launcher>
 ```
 
 The commands returns a list of supported compatibility tools, a description, and a URL with more information about the specific tool.
@@ -48,7 +51,7 @@ To install a compatibility tool for a launcher, run the following command.
 You need to specify the launcher ID and compatibility tool ID or name, then the exact version string.
 
 ```bash
-protondl install <launcher id> <tool id/name> <tool version name>
+protondl install <launcher> <tool id/name> <tool version name>
 
 # Example
 protondl install 1 GE-Proton GE-Proton10-10
@@ -76,7 +79,7 @@ See the [Library API](../Library_API/30_launcher_api.md#protondl_versionjson) do
 If you want to see, which compatibility tools are installed for a specific launcher, run the following command:
 
 ```bash
-protondl list-installed <launcher id>
+protondl list-installed <launcher>
 ```
 
 ## Remove an installed compatibility tool
@@ -85,7 +88,7 @@ To remove a compatibility tool from a launcher, specify the launcher ID and the 
 from [`list-installed`](#list-installed-compatibility-tools) or its exact name.
 
 ```bash
-protondl remove <launcher id> <tool index or name>
+protondl remove <launcher> <tool index or name>
 
 # Examples
 protondl remove 1 GE-Proton10-12
@@ -101,7 +104,7 @@ removed and are rejected with an error message.
 Set the launcher's global/default compatibility tool using a tool name or the index from `list-installed`.
 
 ```bash
-protondl set-global-tool <launcher id> <tool name or index>
+protondl set-global-tool <launcher> <tool name or index>
 
 # Examples
 protondl set-global-tool 1 GE-Proton10-10
@@ -115,7 +118,7 @@ Global tool configuration is currently implemented for Steam launchers.
 Check all installed compatibility tools of a launcher for updates and install them:
 
 ```bash
-protondl update-all <launcher id>
+protondl update-all <launcher>
 ```
 
 The command lists the available updates in a table with the installed versions and the

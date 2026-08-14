@@ -45,6 +45,22 @@ After running the command, you should get an output like this:
 └────┴────────────────┴─────────┴───────────────────────────────────────────────────────────────┘
 ```
 
+### Target a custom launcher path
+
+Commands that require a launcher accept either the ID from `list-launchers` or a `<type>:<path>` spec to target
+a launcher installed at a non-standard location (e.g. a Steam installation in `~/mySteam` instead of
+`~/.steam/root`). The supported types are `steam`, `lutris`, `heroic` and `bottles`.
+
+```bash
+protondl list-installed steam:~/mySteam
+protondl install steam:~/mySteam GE-Proton GE-Proton10-10
+```
+
+Commands that read launcher data (e.g. `list-installed`, `list-games`) validate the path: it must exist
+and look like a data directory of the given launcher type, otherwise the command fails with a clear
+error. Only the `install` command accepts a path that does not exist yet; it creates the required
+directories on demand.
+
 ### GitHub API Token
 
 Many of the compatibility tools supported by protondl rely on GitHub for hosting their releases.
