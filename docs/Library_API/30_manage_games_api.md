@@ -55,6 +55,85 @@ for game in launcher.get_game_list():
         print(f"{game.name} is VERIFIED (recommended runtime: {recommended_runtime or 'none'})")
 ```
 
+## Manage Steam shortcuts
+
+Non-Steam games and applications can be added to the Steam library as shortcuts. Shortcuts are stored in
+the binary `shortcuts.vdf` file in the config directory of each Steam user.
+
+`SteamLauncher` provides `get_shortcuts()`, `add_shortcut()`, `update_shortcuts()` and `remove_shortcuts()`
+to manage them. Shortcuts are represented as `SteamGame` objects with the shortcut-specific attributes
+`shortcut_id`, `shortcut_exe`, `shortcut_startdir`, `shortcut_icon` and `shortcut_user`.
+
+### List shortcuts
+
+```python
+from protondl.launchers.steam import SteamLauncher
+
+launcher = SteamLauncher.discover()[0]
+
+for shortcut in launcher.get_shortcuts():
+    print(
+        f"{shortcut.name}: {shortcut.shortcut_exe} "
+        f"(user {shortcut.shortcut_user}, sid {shortcut.shortcut_id})"
+    )
+```
+
+Shortcuts are also included in `get_game_list()` (unless called with `shortcuts=False`).
+
+### Add a shortcut
+
+`add_shortcut()` creates a new custom entry. The shortcut is added to the Steam user with the most
+existing shortcuts, or to the most recently logged in user if there are none. Use the `user` parameter
+to target a specific user (the userdata folder name).
+
+```python
+from protondl.launchers.steam import SteamLauncher
+
+launcher = SteamLauncher.discover()[0]
+
+shortcut = launcher.add_shortcut(
+    name="My Game",
+    exe="/opt/games/my-game/MyGame.sh",
+    startdir="/opt/games/my-game",
+    icon="/opt/games/my-game/icon.png",
+)
+
+# Assign a compatibility tool to the new shortcut like any other game
+launcher.set_games_tools({shortcut: "GE-Proton10-14"})
+```
+
+`add_shortcut()` raises a `ValueError` if `name` or `exe` is empty, or if no Steam user can be determined.
+The returned `SteamGame` carries the shortcut's appid, user and sid.
+
+### Update shortcuts
+
+Mutate the shortcut's `name`, `shortcut_exe`, `shortcut_startdir` or `shortcut_icon` attributes and write
+the changes with `update_shortcuts()`. Only these four fields are updated.
+
+```python
+from protondl.launchers.steam import SteamLauncher
+
+launcher = SteamLauncher.discover()[0]
+
+shortcut = launcher.get_shortcuts()[0]
+shortcut.name = "Renamed Game"
+shortcut.shortcut_exe = "/opt/games/my-game/MyGame"
+launcher.update_shortcuts([shortcut])
+```
+
+### Remove shortcuts
+
+```python
+from protondl.launchers.steam import SteamLauncher
+
+launcher = SteamLauncher.discover()[0]
+
+shortcuts = launcher.get_shortcuts()
+launcher.remove_shortcuts(shortcuts)  # remove all shortcuts
+```
+
+Note that Steam needs to be restarted to pick up changes to the shortcuts.
+
 ### Heroic
 
 `HeroicLauncher` lists installed games across all Heroic stores (GOG, Epic via legendary, Amazon via nile, and sideloaded apps). Only games that are installed are returned; DLC entries are included.

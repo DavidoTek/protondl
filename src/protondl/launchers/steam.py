@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from pathlib import Path
@@ -11,9 +12,14 @@ from protondl.core.models import CompatTool, CompatToolType, InstallMode
 from protondl.util.steam import (
     CompatToolInfo,
     CompatToolUsage,
+    calc_shortcut_app_id,
+    determine_most_recent_steam_user,
     get_steam_ctool_info,
+    get_steam_shortcuts,
+    get_steam_users,
     get_steam_vdf_compat_tool_mapping,
     vdf_safe_load,
+    write_steam_shortcuts,
 )
 
 PROTON_NEXT_APPID = 2230260
@@ -493,45 +499,196 @@ class SteamLauncher(Launcher):
         Raises:
             ValueError: If fetching the shortcuts failed.
         """
-        userdata_dir = self.root_path / "userdata"
-
         games = []
 
-        try:
-            for user_dir in userdata_dir.iterdir():
-                if not user_dir.is_dir():
-                    continue
+        for entry in get_steam_shortcuts(self.root_path):
+            appid = entry["appid"]
+            game = SteamGame(appid, entry["name"], self.root_path / "userdata" / entry["user"])
 
-                shortcuts_file = user_dir / "config" / "shortcuts.vdf"
-                if not shortcuts_file.is_file():
-                    continue
+            game.app_type = SteamAppType.GAME
+            if ct := compat_tool_mapping.get(str(appid)):
+                game.compat_tool_name = ct.get("name", "")
 
-                shortcuts_data = vdf.binary_load(open(shortcuts_file, "rb"))
-                if "shortcuts" not in shortcuts_data:
-                    continue
+            game.shortcut_id = entry["sid"]
+            game.shortcut_startdir = entry["startdir"]
+            game.shortcut_exe = entry["exe"]
+            game.shortcut_icon = entry["icon"]
+            game.shortcut_user = entry["user"]
 
-                for sid, svalue in shortcuts_data.get("shortcuts", {}).items():
-                    appid = svalue.get("appid", 0)
-                    if appid < 0:
-                        appid = appid + (1 << 32)  # convert to unsigned
-                    name = svalue.get("AppName") or svalue.get("appname", "")
-                    game = SteamGame(appid, name, install_path=user_dir)
-
-                    game.app_type = SteamAppType.GAME
-                    if ct := compat_tool_mapping.get(str(appid)):
-                        game.compat_tool_name = ct.get("name", "")
-
-                    game.shortcut_id = str(sid)
-                    game.shortcut_startdir = svalue.get("StartDir", "")
-                    game.shortcut_exe = svalue.get("Exe", "")
-                    game.shortcut_icon = svalue.get("icon", "")
-                    game.shortcut_user = user_dir.name
-
-                    games.append(game)
-        except Exception as e:
-            raise ValueError(f"Fetching Steam shortcuts failed: {e}") from e
+            games.append(game)
 
         return games
+
+    def get_shortcuts(self) -> Sequence[SteamGame]:
+        """
+        Returns a list of non-Steam shortcuts (custom game entries).
+
+        Shortcuts are read from the shortcuts.vdf files of all Steam users.
+
+        Returns:
+            Sequence[SteamGame]: A list of Steam shortcuts.
+
+        Raises:
+            ValueError: If fetching the shortcuts failed.
+        """
+        compat_tool_mapping = self._get_compat_tool_mapping()
+        return self._get_steam_shortcuts_list(compat_tool_mapping)
+
+    def add_shortcut(
+        self,
+        name: str,
+        exe: str,
+        startdir: str = "",
+        icon: str = "",
+        user: str = "",
+    ) -> SteamGame:
+        """
+        Adds a new non-Steam shortcut to Steam.
+
+        The shortcut is added to the most common user of existing shortcuts,
+        or to the most recently logged in user if there are no shortcuts yet.
+        Use the 'user' parameter to override the target user (userdata folder
+        name).
+
+        Args:
+            name (str): The display name of the shortcut.
+            exe (str): The executable to launch.
+            startdir (str): The working directory for the launch.
+            icon (str): The path to the icon used for the shortcut.
+            user (str): The userdata folder name of the Steam user the
+                shortcut should be added to. Auto-detected if empty.
+
+        Returns:
+            SteamGame: The newly added shortcut.
+
+        Raises:
+            ValueError: If 'name' or 'exe' is empty, no Steam user can be
+                determined, or writing the shortcut failed.
+        """
+        if not name or not exe:
+            raise ValueError("Shortcut name and executable are required")
+
+        if not user:
+            user = self._determine_shortcut_user()
+
+        shortcuts = get_steam_shortcuts(self.root_path)
+        user_sids = [int(entry["sid"]) for entry in shortcuts if entry["user"] == user]
+        next_sid = max(user_sids, default=-1) + 1
+
+        appid = calc_shortcut_app_id(name, exe)
+        if appid < 0:
+            appid = appid + (1 << 32)  # convert to unsigned
+
+        write_steam_shortcuts(
+            self.root_path,
+            [
+                {
+                    "user": user,
+                    "sid": str(next_sid),
+                    "appid": appid,
+                    "name": name,
+                    "exe": exe,
+                    "startdir": startdir,
+                    "icon": icon,
+                }
+            ],
+        )
+
+        game = SteamGame(appid, name, self.root_path / "userdata" / user)
+        game.app_type = SteamAppType.GAME
+        game.shortcut_id = str(next_sid)
+        game.shortcut_startdir = startdir
+        game.shortcut_exe = exe
+        game.shortcut_icon = icon
+        game.shortcut_user = user
+
+        self._cached_game_list = []
+        return game
+
+    def update_shortcuts(self, shortcuts: Sequence[SteamGame]) -> None:
+        """
+        Updates the given non-Steam shortcuts in the Steam configuration.
+
+        Only the name, executable, start directory and icon are updated.
+
+        Args:
+            shortcuts (Sequence[SteamGame]): The shortcuts to update.
+
+        Raises:
+            ValueError: If a shortcut has no shortcut_id or writing the
+                shortcuts failed.
+        """
+        entries = []
+        for shortcut in shortcuts:
+            if not shortcut.shortcut_id:
+                raise ValueError(f"Shortcut '{shortcut.name}' has no shortcut_id")
+            entries.append(
+                {
+                    "user": shortcut.shortcut_user,
+                    "sid": str(shortcut.shortcut_id),
+                    "appid": shortcut.appid,
+                    "name": shortcut.name,
+                    "exe": shortcut.shortcut_exe,
+                    "startdir": shortcut.shortcut_startdir,
+                    "icon": shortcut.shortcut_icon,
+                }
+            )
+
+        write_steam_shortcuts(self.root_path, entries)
+        self._cached_game_list = []
+
+    def remove_shortcuts(self, shortcuts: Sequence[SteamGame]) -> None:
+        """
+        Removes the given non-Steam shortcuts from the Steam configuration.
+
+        Args:
+            shortcuts (Sequence[SteamGame]): The shortcuts to remove.
+
+        Raises:
+            ValueError: If writing the shortcuts failed.
+        """
+        delete: dict[str, list[str]] = {}
+        for shortcut in shortcuts:
+            delete.setdefault(shortcut.shortcut_user, []).append(str(shortcut.shortcut_id))
+
+        write_steam_shortcuts(self.root_path, [], delete)
+        self._cached_game_list = []
+
+    def _get_compat_tool_mapping(self) -> dict[str, CompatToolUsage]:
+        """
+        Returns the game compatibility tool mapping from config.vdf,
+        or an empty dict if it cannot be loaded.
+        """
+        config_vdf_file: Path = self.root_path / "config" / "config.vdf"
+        try:
+            config_data = vdf_safe_load(config_vdf_file)
+            return get_steam_vdf_compat_tool_mapping(config_data)
+        except Exception as e:
+            print(f"Warning: Could not load the compatibility tool mapping: {e}")
+            return {}
+
+    def _determine_shortcut_user(self) -> str:
+        """
+        Determines the user a new shortcut should be added to.
+
+        Returns the most common user of existing shortcuts, otherwise the
+        most recently logged in user.
+
+        Returns:
+            str: The userdata folder name of the Steam user.
+
+        Raises:
+            ValueError: If no Steam user can be determined.
+        """
+        shortcuts = get_steam_shortcuts(self.root_path)
+        if shortcuts:
+            users: list[str] = [str(entry["user"]) for entry in shortcuts]
+            return Counter(users).most_common(1)[0][0]
+
+        user = determine_most_recent_steam_user(get_steam_users(self.root_path))
+        if user is None:
+            raise ValueError("No Steam user found to add the shortcut to")
+        return str(user.short_id)
 
     def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:
         if tool_type not in self.supported_tools_folders:

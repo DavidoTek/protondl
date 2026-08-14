@@ -5,7 +5,11 @@ import pytest
 
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
 from protondl.launchers.steam import SteamAppType, SteamDeckCompatType, SteamGame, SteamLauncher
-from protondl.util.steam import get_steam_vdf_compat_tool_mapping, vdf_safe_load
+from protondl.util.steam import (
+    get_steam_vdf_compat_tool_mapping,
+    vdf_safe_load,
+    write_steam_shortcuts,
+)
 
 
 def test_get_compatibility_tools_path(tmp_path: Path) -> None:
@@ -349,3 +353,230 @@ def test_get_game_list_continues_when_config_mapping_cannot_be_loaded(
 
     assert {game.appid for game in games} == {275850, 1070560, 1391110, 1493710}
     assert all(game.compat_tool_name == "" for game in games)
+
+
+def test_get_shortcuts_returns_shortcuts(tmp_path: Path) -> None:
+    """
+    Test that non-Steam shortcuts are returned as SteamGame entries.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    write_steam_shortcuts(
+        tmp_path,
+        [
+            {
+                "user": "123",
+                "sid": "0",
+                "appid": 3722544834,
+                "name": "Test Game",
+                "exe": "/opt/games/test.exe",
+                "startdir": "/opt/games",
+                "icon": "/opt/games/test.png",
+            }
+        ],
+    )
+
+    shortcuts = launcher.get_shortcuts()
+
+    assert len(shortcuts) == 1
+    shortcut = shortcuts[0]
+    assert shortcut.name == "Test Game"
+    assert shortcut.appid == 3722544834
+    assert shortcut.shortcut_id == "0"
+    assert shortcut.shortcut_user == "123"
+    assert shortcut.shortcut_exe == "/opt/games/test.exe"
+    assert shortcut.shortcut_startdir == "/opt/games"
+    assert shortcut.shortcut_icon == "/opt/games/test.png"
+    assert shortcut.app_type == SteamAppType.GAME
+
+
+def test_get_shortcuts_returns_empty_list_when_no_shortcuts(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+
+    assert launcher.get_shortcuts() == []
+
+
+def test_add_shortcut_uses_most_recent_user(tmp_path: Path) -> None:
+    """
+    Test that a shortcut is added to the most recently logged in user if
+    there are no existing shortcuts.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(parents=True)
+    (config_dir / "loginusers.vdf").write_text(
+        '"users"\n'
+        "{\n"
+        '\t"76561197960265851"\n'
+        "\t{\n"
+        '\t\t"AccountName"\t\t"user1"\n'
+        '\t\t"MostRecent"\t\t"1"\n'
+        "\t}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    game = launcher.add_shortcut("Test Game", "/opt/games/test.exe")
+
+    assert game.shortcut_user == "123"
+    assert game.shortcut_id == "0"
+    assert game.appid == 3722544834
+
+    shortcuts = launcher.get_shortcuts()
+    assert len(shortcuts) == 1
+    assert shortcuts[0].name == "Test Game"
+    assert shortcuts[0].shortcut_exe == "/opt/games/test.exe"
+
+
+def test_add_shortcut_uses_most_common_user(tmp_path: Path) -> None:
+    """
+    Test that a shortcut is added to the most common user of existing
+    shortcuts.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    write_steam_shortcuts(
+        tmp_path,
+        [
+            {
+                "user": "123",
+                "sid": "0",
+                "appid": 1000,
+                "name": "Game",
+                "exe": "/games/game",
+                "startdir": "",
+                "icon": "",
+            },
+            {
+                "user": "456",
+                "sid": "0",
+                "appid": 1001,
+                "name": "Game 2",
+                "exe": "/games/game2",
+                "startdir": "",
+                "icon": "",
+            },
+            {
+                "user": "123",
+                "sid": "1",
+                "appid": 1002,
+                "name": "Game 3",
+                "exe": "/games/game3",
+                "startdir": "",
+                "icon": "",
+            },
+        ],
+    )
+
+    game = launcher.add_shortcut("New Game", "/opt/games/new.exe")
+
+    assert game.shortcut_user == "123"
+    assert game.shortcut_id == "2"
+
+    shortcuts = launcher.get_shortcuts()
+    assert len([s for s in shortcuts if s.shortcut_user == "123"]) == 3
+
+
+def test_add_shortcut_with_explicit_user(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+
+    game = launcher.add_shortcut("Game", "/opt/games/game", user="999")
+
+    assert game.shortcut_user == "999"
+    assert game.shortcut_id == "0"
+
+
+def test_add_shortcut_raises_without_name_or_exe(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+
+    with pytest.raises(ValueError, match="name and executable"):
+        launcher.add_shortcut("", "/opt/games/game", user="123")
+
+    with pytest.raises(ValueError, match="name and executable"):
+        launcher.add_shortcut("Game", "", user="123")
+
+
+def test_add_shortcut_raises_without_user(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+
+    with pytest.raises(ValueError, match="No Steam user found"):
+        launcher.add_shortcut("Game", "/opt/games/game")
+
+
+def test_update_shortcuts(tmp_path: Path) -> None:
+    """
+    Test that the name, executable, start directory and icon of a shortcut
+    are updated.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    write_steam_shortcuts(
+        tmp_path,
+        [
+            {
+                "user": "123",
+                "sid": "0",
+                "appid": 1000,
+                "name": "Game",
+                "exe": "/games/game",
+                "startdir": "",
+                "icon": "",
+            }
+        ],
+    )
+
+    shortcuts = launcher.get_shortcuts()
+    shortcuts[0].name = "Renamed"
+    shortcuts[0].shortcut_exe = "/games/renamed"
+    shortcuts[0].shortcut_startdir = "/games"
+    shortcuts[0].shortcut_icon = "/icons/renamed.png"
+
+    launcher.update_shortcuts(shortcuts)
+
+    updated = launcher.get_shortcuts()
+    assert len(updated) == 1
+    assert updated[0].name == "Renamed"
+    assert updated[0].shortcut_exe == "/games/renamed"
+    assert updated[0].shortcut_startdir == "/games"
+    assert updated[0].shortcut_icon == "/icons/renamed.png"
+
+
+def test_update_shortcuts_raises_without_shortcut_id(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+
+    with pytest.raises(ValueError, match="no shortcut_id"):
+        launcher.update_shortcuts([SteamGame(1000, "Game", tmp_path)])
+
+
+def test_remove_shortcuts(tmp_path: Path) -> None:
+    """
+    Test that shortcuts are removed from the shortcuts.vdf file.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    write_steam_shortcuts(
+        tmp_path,
+        [
+            {
+                "user": "123",
+                "sid": "0",
+                "appid": 1000,
+                "name": "Game",
+                "exe": "/games/game",
+                "startdir": "",
+                "icon": "",
+            },
+            {
+                "user": "123",
+                "sid": "1",
+                "appid": 1001,
+                "name": "Game 2",
+                "exe": "/games/game2",
+                "startdir": "",
+                "icon": "",
+            },
+        ],
+    )
+
+    shortcuts = launcher.get_shortcuts()
+    launcher.remove_shortcuts([shortcuts[0]])
+
+    remaining = launcher.get_shortcuts()
+    assert len(remaining) == 1
+    assert remaining[0].shortcut_id == "1"
