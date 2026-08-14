@@ -502,7 +502,7 @@ class SteamLauncher(Launcher):
                 if not user_dir.is_dir():
                     continue
 
-                shortcuts_file = user_dir / "config" / "shortcuts.vdf'"
+                shortcuts_file = user_dir / "config" / "shortcuts.vdf"
                 if not shortcuts_file.is_file():
                     continue
 
