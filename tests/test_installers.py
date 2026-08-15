@@ -17,6 +17,7 @@ from protondl.installers import CT_INSTALLERS
 from protondl.installers.boxtron import BoxtronInstaller
 from protondl.installers.kron4ek_wine import Kron4ekWineInstaller
 from protondl.installers.lutris_wine import LutrisWineInstaller
+from protondl.installers.luxtorpeda import LuxtorpedaInstaller
 from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg_ntsync import ProtonTkgNtsyncInstaller
 from protondl.installers.rtsp_proton import RTSPProtonInstaller
@@ -83,6 +84,7 @@ def _make_tar_xz(tool_folder: str) -> bytes:
         ("RTSP Proton", CompatToolType.PROTON, True, ".tar.gz", ".sha512sum"),
         ("vkd3d-lutris", CompatToolType.VKD3D, False, ".tar.xz", ""),
         ("Lutris-Wine", CompatToolType.WINE, False, ".tar.xz", ""),
+        ("Luxtorpeda", CompatToolType.PROTON, False, ".tar.xz", ".sha512"),
         ("Kron4ek Wine-Builds Vanilla", CompatToolType.WINE, False, ".tar.xz", ""),
         ("Proton-Tkg (Wine Master NTSYNC)", CompatToolType.PROTON, True, ".tar.gz", ""),
     ],
@@ -112,6 +114,7 @@ def test_new_installers_are_registered_once() -> None:
         "RTSP Proton",
         "vkd3d-lutris",
         "Lutris-Wine",
+        "Luxtorpeda",
         "Kron4ek Wine-Builds Vanilla",
         "Proton-Tkg (Wine Master NTSYNC)",
     ]:
@@ -133,6 +136,8 @@ def test_new_installers_are_registered_once() -> None:
         (LutrisWineInstaller(), "lutris", True),
         (LutrisWineInstaller(), "bottles", True),
         (LutrisWineInstaller(), "steam", False),
+        (LuxtorpedaInstaller(), "steam", True),
+        (LuxtorpedaInstaller(), "lutris", True),
         (Kron4ekWineInstaller(), "lutris", True),
         (Kron4ekWineInstaller(), "heroic", True),
         (Kron4ekWineInstaller(), "steam", False),
@@ -206,6 +211,64 @@ def test_boxtron_install_writes_version_file(
     assert stored_info is not None
     assert stored_info.compat_tool == "Boxtron"
     assert stored_info.version == version
+
+
+def test_luxtorpeda_uses_fixed_install_dir(tmp_path: Path) -> None:
+    installer = LuxtorpedaInstaller()
+    install_dir = tmp_path / "compatibilitytools.d"
+    install_dir.mkdir()
+    before = set(install_dir.iterdir())
+
+    assert installer._find_installed_dir(install_dir, before, "v77.1.0") is None
+
+    target = install_dir / "luxtorpeda"
+    target.mkdir()
+    assert installer._find_installed_dir(install_dir, before, "v77.1.0") == target
+
+
+def test_luxtorpeda_install_writes_version_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    installer = LuxtorpedaInstaller()
+    version = "v77.1.0"
+    archive_bytes = _make_tar_xz("luxtorpeda")
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version=v,
+            date="2026-05-27",
+            download="https://example.com/luxtorpeda-v77.1.0.tar.xz",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    info = asyncio.run(installer.install(version, launcher, arch=Arch.X86_64))
+
+    installed_dir = tmp_path / "compatibilitytools.d" / "luxtorpeda"
+    version_file = installed_dir / "protondl_version.json"
+    assert version_file.is_file()
+
+    stored_info = read_version_file(installed_dir)
+    assert stored_info is not None
+    assert stored_info.compat_tool == "Luxtorpeda"
+    assert stored_info.version == version
+    assert info.arch == Arch.X86_64
 
 
 def test_proton_em_install_writes_version_file(

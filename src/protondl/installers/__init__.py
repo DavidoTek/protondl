@@ -8,6 +8,7 @@ from protondl.installers.dxvk_nightly import DXVKNightlyInstaller
 from protondl.installers.ge_proton import GEProtonInstaller
 from protondl.installers.kron4ek_wine import Kron4ekWineInstaller
 from protondl.installers.lutris_wine import LutrisWineInstaller
+from protondl.installers.luxtorpeda import LuxtorpedaInstaller
 from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg import ProtonTkgInstaller
 from protondl.installers.proton_tkg_ntsync import ProtonTkgNtsyncInstaller
@@ -35,6 +36,7 @@ CT_INSTALLERS = [
     ProtonEMInstaller(),
     RTSPProtonInstaller(),
     LutrisWineInstaller(),
+    LuxtorpedaInstaller(),
     Kron4ekWineInstaller(),
     ProtonTkgNtsyncInstaller(),
 ]
