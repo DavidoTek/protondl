@@ -11,6 +11,7 @@ from protondl.installers.proton_tkg import ProtonTkgInstaller
 from protondl.installers.proton_tkg_valvewine import ProtonTkgValveWineInstaller
 from protondl.installers.proton_tkg_winemaster import ProtonTkgWinemasterInstaller
 from protondl.installers.roberta import RobertaInstaller
+from protondl.installers.rtsp_proton import RTSPProtonInstaller
 from protondl.installers.vkd3d_lutris import VKD3DLutrisInstaller
 from protondl.installers.vkd3dproton import VKD3DProtonInstaller
 from protondl.installers.wine_tkg_winemaster import WineTkgWinemasterInstaller
@@ -29,6 +30,7 @@ CT_INSTALLERS = [
     BoxtronInstaller(),
     RobertaInstaller(),
     ProtonEMInstaller(),
+    RTSPProtonInstaller(),
 ]
 
 
