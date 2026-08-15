@@ -24,7 +24,10 @@ from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg_ntsync import ProtonTkgNtsyncInstaller
 from protondl.installers.rtsp_proton import RTSPProtonInstaller
 from protondl.installers.steam_play_none import SteamPlayNoneInstaller
-from protondl.installers.steam_tinkerlaunch import SteamTinkerLaunchInstaller
+from protondl.installers.steam_tinkerlaunch import (
+    SteamTinkerLaunchGitInstaller,
+    SteamTinkerLaunchInstaller,
+)
 from protondl.installers.vkd3d_lutris import VKD3DLutrisInstaller
 from protondl.launchers.bottles import BottlesLauncher
 from protondl.launchers.heroic import HeroicLauncher
@@ -105,6 +108,7 @@ def _make_tar_gz(tool_folder: str) -> bytes:
         ("Proton-CachyOS", CompatToolType.PROTON, False, ".tar.xz", ".sha512sum"),
         ("Steam-Play-None", CompatToolType.PROTON, False, ".tar.gz", ""),
         ("SteamTinkerLaunch", CompatToolType.PROTON, False, ".tar.gz", ""),
+        ("SteamTinkerLaunch-git", CompatToolType.PROTON, True, ".tar.gz", ""),
     ],
 )
 def test_new_installer_attributes(
@@ -139,6 +143,7 @@ def test_new_installers_are_registered_once() -> None:
         "Proton-CachyOS",
         "Steam-Play-None",
         "SteamTinkerLaunch",
+        "SteamTinkerLaunch-git",
     ]:
         assert name in names
 
@@ -179,6 +184,10 @@ def test_new_installers_are_registered_once() -> None:
         (SteamTinkerLaunchInstaller(), "lutris", False),
         (SteamTinkerLaunchInstaller(), "heroic", False),
         (SteamTinkerLaunchInstaller(), "bottles", False),
+        (SteamTinkerLaunchGitInstaller(), "steam", True),
+        (SteamTinkerLaunchGitInstaller(), "lutris", False),
+        (SteamTinkerLaunchGitInstaller(), "heroic", False),
+        (SteamTinkerLaunchGitInstaller(), "bottles", False),
     ],
 )
 def test_supports_launcher(installer: Any, launcher: str, expected: bool, tmp_path: Path) -> None:
@@ -1004,4 +1013,66 @@ def test_steam_tinkerlaunch_install_writes_version_file_and_vdfs(
     assert stored_info is not None
     assert stored_info.compat_tool == "SteamTinkerLaunch"
     assert stored_info.version == "v12.12"
+    assert info.arch == Arch.X86_64
+
+
+def test_steam_tinkerlaunch_git_fetch_releases_returns_master() -> None:
+    releases = asyncio_run(SteamTinkerLaunchGitInstaller().fetch_releases())
+    assert releases == [ReleaseVersion("master")]
+
+
+def test_steam_tinkerlaunch_git_fetch_release_data() -> None:
+    installer = SteamTinkerLaunchGitInstaller()
+    release_data = asyncio_run(installer._fetch_release_data("master", Arch.X86_64))
+
+    assert release_data.version == "master"
+    assert release_data.download == (
+        "https://github.com/sonic2kk/steamtinkerlaunch/archive/refs/heads/master.tar.gz"
+    )
+    assert release_data.original_filename is None
+
+
+def test_steam_tinkerlaunch_git_install_writes_version_file_and_vdfs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    installer = SteamTinkerLaunchGitInstaller()
+    archive_bytes = _make_tar_gz("sonic2kk-steamtinkerlaunch-9de3341")
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version="master",
+            date="",
+            download="https://example.com/master.tar.gz",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    info = asyncio.run(installer.install("master", launcher, arch=Arch.X86_64))
+
+    installed_dir = tmp_path / "compatibilitytools.d" / "SteamTinkerLaunch"
+    version_file = installed_dir / "protondl_version.json"
+    assert version_file.is_file()
+    assert (installed_dir / "compatibilitytool.vdf").is_file()
+    assert (installed_dir / "toolmanifest.vdf").is_file()
+
+    stored_info = read_version_file(installed_dir)
+    assert stored_info is not None
+    assert stored_info.compat_tool == "SteamTinkerLaunch-git"
+    assert stored_info.version == "master"
     assert info.arch == Arch.X86_64

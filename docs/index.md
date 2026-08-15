@@ -33,6 +33,7 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 - [Roberta](https://github.com/dreamer/roberta) (Proton)
 - [Steam-Play-None](https://github.com/Scrumplex/Steam-Play-None) (Proton)
 - [SteamTinkerLaunch](https://github.com/sonic2kk/steamtinkerlaunch) (Proton)
+- [SteamTinkerLaunch-git](https://github.com/sonic2kk/steamtinkerlaunch) (Proton)
 - [Luxtorpeda](https://codeberg.org/luxtorpeda/luxtorpeda) (Proton)
 - [Proton-EM](https://github.com/Etaash-mathamsetty/Proton) (Proton)
 - [RTSP Proton](https://github.com/SpookySkeletons/proton-ge-rtsp) (Proton)

@@ -7,7 +7,7 @@ import httpx
 
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
-from protondl.core.models import Arch, CompatToolType, ReleaseData
+from protondl.core.models import Arch, CompatToolType, ReleaseData, ReleaseVersion
 from protondl.launchers.steam import SteamLauncher
 from protondl.util.download import check_rate_limits
 
@@ -98,4 +98,27 @@ class SteamTinkerLaunchInstaller(CtInstaller):
             '  "commandline_waitforexitandrun" "/steamtinkerlaunch waitforexitandrun"\n'
             "}\n",
             encoding="utf-8",
+        )
+
+
+class SteamTinkerLaunchGitInstaller(SteamTinkerLaunchInstaller):
+    name = "SteamTinkerLaunch-git"
+    description = (
+        "Development release - may be unstable. "
+        "Linux wrapper tool for use with the Steam client which allows for easy "
+        "graphical configuration of game tools for Proton and native Linux games."
+    )
+    advanced = True
+    release_info_url = "https://github.com/sonic2kk/steamtinkerlaunch"
+
+    download_url = "https://github.com/sonic2kk/steamtinkerlaunch/archive/refs/heads/master.tar.gz"
+
+    async def fetch_releases(self, count: int = 30, page: int = 1) -> list[ReleaseVersion]:
+        return [ReleaseVersion("master")]
+
+    async def _fetch_release_data(self, version: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version="master",
+            date="",
+            download=self.download_url,
         )
