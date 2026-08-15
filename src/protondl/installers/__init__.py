@@ -6,6 +6,7 @@ from protondl.installers.dxvk import DXVKInstaller
 from protondl.installers.dxvk_async import DXVKAsyncInstaller
 from protondl.installers.dxvk_nightly import DXVKNightlyInstaller
 from protondl.installers.ge_proton import GEProtonInstaller
+from protondl.installers.lutris_wine import LutrisWineInstaller
 from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg import ProtonTkgInstaller
 from protondl.installers.proton_tkg_valvewine import ProtonTkgValveWineInstaller
@@ -31,6 +32,7 @@ CT_INSTALLERS = [
     RobertaInstaller(),
     ProtonEMInstaller(),
     RTSPProtonInstaller(),
+    LutrisWineInstaller(),
 ]
 
 
