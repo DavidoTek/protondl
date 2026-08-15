@@ -10,6 +10,7 @@ from protondl.installers.ge_proton import GEProtonInstaller
 from protondl.installers.kron4ek_wine import Kron4ekWineInstaller
 from protondl.installers.lutris_wine import LutrisWineInstaller
 from protondl.installers.luxtorpeda import LuxtorpedaInstaller
+from protondl.installers.proton_cachyos import ProtonCachyOSInstaller
 from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg import ProtonTkgInstaller
 from protondl.installers.proton_tkg_ntsync import ProtonTkgNtsyncInstaller
@@ -23,6 +24,7 @@ from protondl.installers.wine_tkg_winemaster import WineTkgWinemasterInstaller
 
 CT_INSTALLERS = [
     GEProtonInstaller(),
+    ProtonCachyOSInstaller(),
     ProtonTkgInstaller(),
     ProtonTkgWinemasterInstaller(),
     ProtonTkgValveWineInstaller(),

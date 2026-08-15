@@ -19,6 +19,7 @@ from protondl.installers.dwproton import DWProtonInstaller
 from protondl.installers.kron4ek_wine import Kron4ekWineInstaller
 from protondl.installers.lutris_wine import LutrisWineInstaller
 from protondl.installers.luxtorpeda import LuxtorpedaInstaller
+from protondl.installers.proton_cachyos import ProtonCachyOSInstaller
 from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg_ntsync import ProtonTkgNtsyncInstaller
 from protondl.installers.rtsp_proton import RTSPProtonInstaller
@@ -89,6 +90,7 @@ def _make_tar_xz(tool_folder: str) -> bytes:
         ("Kron4ek Wine-Builds Vanilla", CompatToolType.WINE, False, ".tar.xz", ""),
         ("Proton-Tkg (Wine Master NTSYNC)", CompatToolType.PROTON, True, ".tar.gz", ""),
         ("dwproton", CompatToolType.PROTON, True, ".tar.xz", ".sha512sum"),
+        ("Proton-CachyOS", CompatToolType.PROTON, False, ".tar.xz", ".sha512sum"),
     ],
 )
 def test_new_installer_attributes(
@@ -120,6 +122,7 @@ def test_new_installers_are_registered_once() -> None:
         "Kron4ek Wine-Builds Vanilla",
         "Proton-Tkg (Wine Master NTSYNC)",
         "dwproton",
+        "Proton-CachyOS",
     ]:
         assert name in names
 
@@ -148,6 +151,10 @@ def test_new_installers_are_registered_once() -> None:
         (DWProtonInstaller(), "lutris", True),
         (DWProtonInstaller(), "heroic", True),
         (DWProtonInstaller(), "bottles", True),
+        (ProtonCachyOSInstaller(), "steam", True),
+        (ProtonCachyOSInstaller(), "lutris", True),
+        (ProtonCachyOSInstaller(), "heroic", True),
+        (ProtonCachyOSInstaller(), "bottles", True),
     ],
 )
 def test_supports_launcher(installer: Any, launcher: str, expected: bool, tmp_path: Path) -> None:
@@ -587,5 +594,162 @@ def test_dwproton_install_writes_version_file(
     stored_info = read_version_file(installed_dir)
     assert stored_info is not None
     assert stored_info.compat_tool == "dwproton"
+    assert stored_info.version == version
+    assert info.arch == Arch.X86_64
+
+
+CACHYOS_RELEASE: dict[str, Any] = {
+    "tag_name": "cachyos-11.0-20260703-slr",
+    "published_at": "2026-07-22T00:57:55Z",
+    "assets": [
+        {
+            "name": "proton-cachyos-11.0-20260703-slr-arm64.sha512sum",
+            "size": 20,
+            "browser_download_url": "https://example.com/arm64.sha512sum",
+        },
+        {
+            "name": "proton-cachyos-11.0-20260703-slr-arm64.tar.xz",
+            "size": 300,
+            "browser_download_url": "https://example.com/arm64.tar.xz",
+        },
+        {
+            "name": "proton-cachyos-11.0-20260703-slr-x86_64.sha512sum",
+            "size": 20,
+            "browser_download_url": "https://example.com/x86_64.sha512sum",
+        },
+        {
+            "name": "proton-cachyos-11.0-20260703-slr-x86_64.tar.xz",
+            "size": 100,
+            "browser_download_url": "https://example.com/x86_64.tar.xz",
+        },
+        {
+            "name": "proton-cachyos-11.0-20260703-slr-x86_64_v3.sha512sum",
+            "size": 20,
+            "browser_download_url": "https://example.com/v3.sha512sum",
+        },
+        {
+            "name": "proton-cachyos-11.0-20260703-slr-x86_64_v3.tar.xz",
+            "size": 200,
+            "browser_download_url": "https://example.com/v3.tar.xz",
+        },
+    ],
+}
+
+
+def _cachyos_with_hwcaps(
+    monkeypatch: pytest.MonkeyPatch, hwcaps: set[str]
+) -> ProtonCachyOSInstaller:
+    monkeypatch.setattr(
+        "protondl.installers.proton_cachyos.detect_hwcaps", lambda: frozenset(hwcaps)
+    )
+    return ProtonCachyOSInstaller()
+
+
+def test_cachyos_asset_matching() -> None:
+    installer = ProtonCachyOSInstaller()
+
+    assert installer._asset_matches_arch(
+        "proton-cachyos-11.0-20260703-slr-x86_64_v3.tar.xz", Arch.X86_64, ".tar.xz"
+    )
+    assert installer._asset_matches_arch(
+        "proton-cachyos-11.0-20260703-slr-x86_64.tar.xz", Arch.X86_64, ".tar.xz"
+    )
+    assert installer._asset_matches_arch(
+        "proton-cachyos-11.0-20260703-slr-arm64.tar.xz", Arch.AARCH64, ".tar.xz"
+    )
+    assert not installer._asset_matches_arch(
+        "proton-cachyos-11.0-20260703-slr-arm64.tar.xz", Arch.X86_64, ".tar.xz"
+    )
+    assert installer._release_archs_from_assets(CACHYOS_RELEASE["assets"]) == [
+        Arch.X86_64,
+        Arch.AARCH64,
+    ]
+
+
+def test_cachyos_fetch_releases_lists_tags(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_async_client(monkeypatch, [CACHYOS_RELEASE])
+
+    releases = asyncio_run(ProtonCachyOSInstaller().fetch_releases())
+
+    assert releases == [ReleaseVersion("cachyos-11.0-20260703-slr", (Arch.X86_64, Arch.AARCH64))]
+
+
+def test_cachyos_selects_best_hwcap_variant(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_async_client(monkeypatch, CACHYOS_RELEASE)
+    installer = _cachyos_with_hwcaps(monkeypatch, {"x86_64", "x86_64_v2", "x86_64_v3"})
+
+    release_data = asyncio_run(
+        installer._fetch_release_data("cachyos-11.0-20260703-slr", Arch.X86_64)
+    )
+
+    assert release_data.download == "https://example.com/v3.tar.xz"
+    assert release_data.checksum == "https://example.com/v3.sha512sum"
+    assert release_data.original_filename == "proton-cachyos-11.0-20260703-slr-x86_64_v3.tar.xz"
+
+
+def test_cachyos_falls_back_to_plain_variant(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_async_client(monkeypatch, CACHYOS_RELEASE)
+    installer = _cachyos_with_hwcaps(monkeypatch, {"x86_64"})
+
+    release_data = asyncio_run(
+        installer._fetch_release_data("cachyos-11.0-20260703-slr", Arch.X86_64)
+    )
+
+    assert release_data.download == "https://example.com/x86_64.tar.xz"
+    assert release_data.checksum == "https://example.com/x86_64.sha512sum"
+
+
+def test_cachyos_selects_arm64_build(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_async_client(monkeypatch, CACHYOS_RELEASE)
+
+    release_data = asyncio_run(
+        ProtonCachyOSInstaller()._fetch_release_data("cachyos-11.0-20260703-slr", Arch.AARCH64)
+    )
+
+    assert release_data.download == "https://example.com/arm64.tar.xz"
+    assert release_data.checksum == "https://example.com/arm64.sha512sum"
+
+
+def test_cachyos_install_writes_version_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    installer = _cachyos_with_hwcaps(monkeypatch, {"x86_64", "x86_64_v2", "x86_64_v3"})
+    version = "cachyos-11.0-20260703-slr"
+    archive_bytes = _make_tar_xz(version)
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version=v,
+            date="2026-07-22",
+            download="https://example.com/v3.tar.xz",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    info = asyncio.run(installer.install(version, launcher, arch=Arch.X86_64))
+
+    installed_dir = tmp_path / "compatibilitytools.d" / version
+    version_file = installed_dir / "protondl_version.json"
+    assert version_file.is_file()
+
+    stored_info = read_version_file(installed_dir)
+    assert stored_info is not None
+    assert stored_info.compat_tool == "Proton-CachyOS"
     assert stored_info.version == version
     assert info.arch == Arch.X86_64
