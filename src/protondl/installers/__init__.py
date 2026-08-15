@@ -10,6 +10,7 @@ from protondl.installers.kron4ek_wine import Kron4ekWineInstaller
 from protondl.installers.lutris_wine import LutrisWineInstaller
 from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg import ProtonTkgInstaller
+from protondl.installers.proton_tkg_ntsync import ProtonTkgNtsyncInstaller
 from protondl.installers.proton_tkg_valvewine import ProtonTkgValveWineInstaller
 from protondl.installers.proton_tkg_winemaster import ProtonTkgWinemasterInstaller
 from protondl.installers.roberta import RobertaInstaller
@@ -35,6 +36,7 @@ CT_INSTALLERS = [
     RTSPProtonInstaller(),
     LutrisWineInstaller(),
     Kron4ekWineInstaller(),
+    ProtonTkgNtsyncInstaller(),
 ]
 
 
