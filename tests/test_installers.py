@@ -23,6 +23,7 @@ from protondl.installers.proton_cachyos import ProtonCachyOSInstaller
 from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg_ntsync import ProtonTkgNtsyncInstaller
 from protondl.installers.rtsp_proton import RTSPProtonInstaller
+from protondl.installers.steam_play_none import SteamPlayNoneInstaller
 from protondl.installers.vkd3d_lutris import VKD3DLutrisInstaller
 from protondl.launchers.bottles import BottlesLauncher
 from protondl.launchers.heroic import HeroicLauncher
@@ -77,6 +78,16 @@ def _make_tar_xz(tool_folder: str) -> bytes:
     return buffer.getvalue()
 
 
+def _make_tar_gz(tool_folder: str) -> bytes:
+    buffer = BytesIO()
+    content = b"test"
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tf:
+        info = tarfile.TarInfo(f"{tool_folder}/file.txt")
+        info.size = len(content)
+        tf.addfile(info, BytesIO(content))
+    return buffer.getvalue()
+
+
 @pytest.mark.parametrize(
     ("name", "tool_type", "advanced", "release_format", "checksum_suffix"),
     [
@@ -91,6 +102,7 @@ def _make_tar_xz(tool_folder: str) -> bytes:
         ("Proton-Tkg (Wine Master NTSYNC)", CompatToolType.PROTON, True, ".tar.gz", ""),
         ("dwproton", CompatToolType.PROTON, True, ".tar.xz", ".sha512sum"),
         ("Proton-CachyOS", CompatToolType.PROTON, False, ".tar.xz", ".sha512sum"),
+        ("Steam-Play-None", CompatToolType.PROTON, False, ".tar.gz", ""),
     ],
 )
 def test_new_installer_attributes(
@@ -123,6 +135,7 @@ def test_new_installers_are_registered_once() -> None:
         "Proton-Tkg (Wine Master NTSYNC)",
         "dwproton",
         "Proton-CachyOS",
+        "Steam-Play-None",
     ]:
         assert name in names
 
@@ -155,6 +168,10 @@ def test_new_installers_are_registered_once() -> None:
         (ProtonCachyOSInstaller(), "lutris", True),
         (ProtonCachyOSInstaller(), "heroic", True),
         (ProtonCachyOSInstaller(), "bottles", True),
+        (SteamPlayNoneInstaller(), "steam", True),
+        (SteamPlayNoneInstaller(), "lutris", False),
+        (SteamPlayNoneInstaller(), "heroic", False),
+        (SteamPlayNoneInstaller(), "bottles", False),
     ],
 )
 def test_supports_launcher(installer: Any, launcher: str, expected: bool, tmp_path: Path) -> None:
@@ -752,4 +769,98 @@ def test_cachyos_install_writes_version_file(
     assert stored_info is not None
     assert stored_info.compat_tool == "Proton-CachyOS"
     assert stored_info.version == version
+    assert info.arch == Arch.X86_64
+
+
+def test_steam_play_none_fetch_releases_returns_main() -> None:
+    assert asyncio_run(SteamPlayNoneInstaller().fetch_releases()) == [ReleaseVersion("main")]
+
+
+def test_steam_play_none_fetch_release_data() -> None:
+    installer = SteamPlayNoneInstaller()
+    release_data = asyncio_run(installer._fetch_release_data("main", Arch.X86_64))
+
+    assert release_data.version == "main"
+    assert release_data.download == (
+        "https://github.com/Scrumplex/Steam-Play-None/archive/refs/heads/main.tar.gz"
+    )
+    assert release_data.original_filename == "main.tar.gz"
+    assert release_data.checksum is None
+
+
+def test_steam_play_none_find_installed_dir_renames(
+    tmp_path: Path,
+) -> None:
+    installer = SteamPlayNoneInstaller()
+    install_dir = tmp_path / "compatibilitytools.d"
+    install_dir.mkdir()
+    before = set(install_dir.iterdir())
+
+    assert installer._find_installed_dir(install_dir, before, "main") is None
+
+    (install_dir / "Steam-Play-None-main").mkdir()
+
+    target = installer._find_installed_dir(install_dir, before, "main")
+    assert target == install_dir / "Steam-Play-None"
+    assert not (install_dir / "Steam-Play-None-main").exists()
+
+
+def test_steam_play_none_find_installed_dir_replaces_existing(tmp_path: Path) -> None:
+    installer = SteamPlayNoneInstaller()
+    install_dir = tmp_path / "compatibilitytools.d"
+    install_dir.mkdir()
+    before = set(install_dir.iterdir())
+    old_dir = install_dir / "Steam-Play-None"
+    old_dir.mkdir()
+    (old_dir / "old.txt").write_text("old", encoding="utf-8")
+
+    (install_dir / "Steam-Play-None-main").mkdir()
+    target = installer._find_installed_dir(install_dir, before, "main")
+
+    assert target == old_dir
+    assert not (old_dir / "old.txt").exists()
+
+
+def test_steam_play_none_install_writes_version_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    installer = SteamPlayNoneInstaller()
+    archive_bytes = _make_tar_gz("Steam-Play-None-main")
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version="main",
+            date="",
+            download="https://example.com/main.tar.gz",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    info = asyncio.run(installer.install("main", launcher, arch=Arch.X86_64))
+
+    installed_dir = tmp_path / "compatibilitytools.d" / "Steam-Play-None"
+    version_file = installed_dir / "protondl_version.json"
+    assert version_file.is_file()
+    assert not (installed_dir.parent / "Steam-Play-None-main").exists()
+
+    stored_info = read_version_file(installed_dir)
+    assert stored_info is not None
+    assert stored_info.compat_tool == "Steam-Play-None"
+    assert stored_info.version == "main"
     assert info.arch == Arch.X86_64
