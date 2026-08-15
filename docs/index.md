@@ -22,12 +22,22 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 ### Supported Tools
 
 - [GE-Proton](https://github.com/GloriousEggroll/proton-ge-custom) (Proton)
-- [Wine-Tkg](https://github.com/Frogging-Family/wine-tkg-git) (Wine)
 - [Proton-Tkg](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
+- [Proton-Tkg (Wine Master)](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
+- [Proton-Tkg (Valve Wine)](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
+- [Proton-Tkg (Wine Master NTSYNC)](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
+- [Wine-Tkg (Wine Master)](https://github.com/Frogging-Family/wine-tkg-git) (Wine)
+- [Boxtron](https://github.com/dreamer/boxtron) (Proton)
+- [Roberta](https://github.com/dreamer/roberta) (Proton)
+- [Proton-EM](https://github.com/Etaash-mathamsetty/Proton) (Proton)
+- [RTSP Proton](https://github.com/SpookySkeletons/proton-ge-rtsp) (Proton)
+- [Lutris-Wine](https://github.com/lutris/wine) (Wine)
+- [Kron4ek Wine-Builds Vanilla](https://github.com/Kron4ek/Wine-Builds) (Wine)
 - [DXVK](https://github.com/doitsujin/dxvk) (DXVK)
 - [DXVK Async](https://gitlab.com/Ph42oN/dxvk-gplasync) (DXVK)
 - [DXVK (nightly)](https://github.com/doitsujin/dxvk) (DXVK)
 - [vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) (VKD3D)
+- [vkd3d-lutris](https://github.com/lutris/vkd3d) (VKD3D)
 
 ### Current Scope
 
