@@ -121,11 +121,16 @@ Check all installed compatibility tools of a launcher for updates and install th
 protondl update-all <launcher>
 ```
 
-The command lists the available updates in a table with the installed versions and the
-latest version of each compatibility tool, then asks for confirmation before installing.
-Compatibility tools that are already at the newest version are shown as up to date.
-After a successful update it asks whether the compatibility tool of all games should be
-switched to the newest version.
+The command lists the available updates in a table with the architecture, the installed
+versions and the latest version of each compatibility tool, then asks for confirmation
+before installing. Compatibility tools that are already at the newest version are shown
+as up to date. After a successful update it asks whether the compatibility tool of all
+games should be switched to the newest version.
+
+Updates are checked per (compatibility tool, architecture): each installed architecture
+is updated to the newest release that provides a build for it, so the two architectures
+of a tool can be updated to different versions when the newest release only ships one of
+them. Games are moved to the new build of the same architecture.
 
 By default, older versions of a compatibility tool are deleted after the new version was
 installed successfully and the batch update of all games runs without asking.

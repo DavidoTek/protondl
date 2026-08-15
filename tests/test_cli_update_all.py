@@ -7,6 +7,7 @@ from protondl.cli import app
 from protondl.core.base_launcher import Launcher
 from protondl.core.config import RequestConfig
 from protondl.core.models import (
+    Arch,
     CompatTool,
     CompatToolType,
     InstallProgress,
@@ -62,7 +63,7 @@ def _patch_cli(
         keep_old: bool = False,
         progress_callback: ProgressCallback | None = None,
         request_config: RequestConfig | None = None,
-    ) -> dict[str, CompatTool]:
+    ) -> dict[tuple[str, Arch | None], CompatTool]:
         for update in updates:
             installed.append(update.latest_version)
         if progress_callback:
@@ -77,7 +78,7 @@ def _patch_cli(
                 )
             )
         return {
-            update.compat_tool_name: CompatTool(
+            (update.compat_tool_name, update.arch): CompatTool(
                 update.latest_version, CompatToolType.PROTON, Path("/tools") / update.latest_version
             )
             for update in updates

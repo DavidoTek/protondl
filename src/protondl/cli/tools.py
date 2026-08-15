@@ -21,6 +21,7 @@ from protondl.cli.helpers import (
 )
 from protondl.core.base_launcher import Launcher
 from protondl.core.models import (
+    Arch,
     CompatTool,
     CompatToolType,
     InstallProgress,
@@ -408,11 +409,14 @@ def update_all(
 
     table = Table(title=f"Available Updates: [bold cyan]{target_launcher.name}[/bold cyan]")
     table.add_column("Compatibility tool", style="cyan")
+    table.add_column("Architecture", style="dim")
     table.add_column("Installed versions", style="white")
     table.add_column("Latest version", style="green")
     for update in result.updates:
+        arch_name = update.arch.value if update.arch is not None else "auto"
         table.add_row(
             update.compat_tool_name,
+            arch_name,
             ", ".join(update.installed_versions),
             update.latest_version,
         )
@@ -471,13 +475,15 @@ def update_all(
 
 
 def _batch_update_all_games(
-    target_launcher: Launcher, updates: list[ToolUpdate], new_tools: Mapping[str, CompatTool]
+    target_launcher: Launcher,
+    updates: list[ToolUpdate],
+    new_tools: Mapping[tuple[str, Arch | None], CompatTool],
 ) -> None:
     """
     Updates the compatibility tool of all games to the newest version for each update.
     """
     for update in updates:
-        to_tool = new_tools.get(update.compat_tool_name)
+        to_tool = new_tools.get((update.compat_tool_name, update.arch))
         if to_tool is None:
             console.print(
                 f"[yellow]Could not find the newly installed {update.compat_tool_name}; "

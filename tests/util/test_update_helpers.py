@@ -17,7 +17,7 @@ from protondl.core.models import (
     ReleaseVersion,
     ToolUpdate,
 )
-from protondl.util.helpers import check_for_updates, update_compatibility_tools
+from protondl.util.helpers import check_for_updates, detect_host_arch, update_compatibility_tools
 
 
 class _FakeLauncher(Launcher):
@@ -63,6 +63,7 @@ class _FakeInstaller:
         releases: list[ReleaseVersion] | None = None,
         new_tool: CompatTool | None = None,
         new_info: CompatToolVersionInfo | None = None,
+        supported_archs: tuple[Arch, ...] = (Arch.X86_64,),
     ) -> None:
         self.name = name
         self._releases = releases or []
@@ -70,11 +71,14 @@ class _FakeInstaller:
         self.new_info = new_info
         self.fetch_count = 0
         self.install_calls: list[str] = []
+        self.install_archs: list[Arch | None] = []
+        self.supported_archs = supported_archs
         self.request_config = None
 
     async def fetch_releases(self, count: int = 30, page: int = 1) -> list[ReleaseVersion]:
         self.fetch_count += 1
-        return self._releases
+        start = (page - 1) * count
+        return self._releases[start : start + count]
 
     async def install(
         self,
@@ -84,6 +88,7 @@ class _FakeInstaller:
         progress_callback: ProgressCallback | None = None,
     ) -> CompatToolVersionInfo:
         self.install_calls.append(version)
+        self.install_archs.append(arch)
         if progress_callback is not None:
             progress_callback(InstallProgress(step=InstallStep.FINISHING, current=1, total=1))
         if self.new_tool is not None:
@@ -91,6 +96,14 @@ class _FakeInstaller:
         if self.new_info is not None:
             return self.new_info
         return CompatToolVersionInfo(compat_tool=self.name, version=version, installed_at=1)
+
+    def resolve_arch(self, arch: Arch | None) -> Arch:
+        if arch is not None:
+            return arch
+        host_arch = detect_host_arch()
+        if host_arch in self.supported_archs:
+            return host_arch
+        return Arch.X86_64
 
 
 class _FailingInstaller(_FakeInstaller):
@@ -106,6 +119,14 @@ def _tool(name: str) -> CompatTool:
 
 def _version_info(name: str) -> CompatToolVersionInfo:
     return CompatToolVersionInfo(compat_tool="GE-Proton", version=name, installed_at=1)
+
+
+def _arch_version_info(
+    name: str, version: str, arch: Arch, compat_tool: str = "GE-Proton"
+) -> CompatToolVersionInfo:
+    return CompatToolVersionInfo(
+        compat_tool=compat_tool, version=version, installed_at=1, arch=arch
+    )
 
 
 def _mock_installer_lookup(monkeypatch: pytest.MonkeyPatch, installer: _FakeInstaller) -> None:
@@ -360,7 +381,7 @@ def test_update_compatibility_tools_returns_newly_installed_tool(
 
     result = asyncio.run(update_compatibility_tools(launcher, [update]))
 
-    assert result == {"GE-Proton": new}
+    assert result == {("GE-Proton", None): new}
 
 
 def test_update_compatibility_tools_matches_tool_when_dir_name_differs_from_version(
@@ -382,7 +403,7 @@ def test_update_compatibility_tools_matches_tool_when_dir_name_differs_from_vers
 
     result = asyncio.run(update_compatibility_tools(launcher, [update]))
 
-    assert result == {"DXVK": new}
+    assert result == {("DXVK", None): new}
 
 
 def test_update_compatibility_tools_matches_workflow_run_id_version(
@@ -404,7 +425,7 @@ def test_update_compatibility_tools_matches_workflow_run_id_version(
 
     result = asyncio.run(update_compatibility_tools(launcher, [update]))
 
-    assert result == {"Proton-Tkg": new}
+    assert result == {("Proton-Tkg", None): new}
 
 
 def test_update_compatibility_tools_skips_update_when_new_tool_not_found(
@@ -424,3 +445,255 @@ def test_update_compatibility_tools_skips_update_when_new_tool_not_found(
     result = asyncio.run(update_compatibility_tools(launcher, [update]))
 
     assert result == {}
+
+
+def test_check_for_updates_x86_64_walks_back_to_newest_x86_64_release(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("GE-Proton10-5")])
+    _mock_version_files(
+        monkeypatch,
+        {"GE-Proton10-5": _arch_version_info("GE-Proton10-5", "GE-Proton10-5", Arch.X86_64)},
+    )
+    releases = [
+        ReleaseVersion("GE-Proton11-3", (Arch.AARCH64,)),
+        ReleaseVersion("GE-Proton11-2", (Arch.X86_64, Arch.AARCH64)),
+    ]
+    installer = _FakeInstaller("GE-Proton", releases, supported_archs=(Arch.X86_64, Arch.AARCH64))
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.unchecked == []
+    assert result.up_to_date == []
+    assert len(result.updates) == 1
+    update = result.updates[0]
+    assert update.compat_tool_name == "GE-Proton"
+    assert update.arch == Arch.X86_64
+    assert update.latest_version == "GE-Proton11-2"
+    assert update.installed_versions == ["GE-Proton10-5"]
+
+
+def test_check_for_updates_walks_back_across_pages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("GE-Proton10-5-aarch64")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "GE-Proton10-5-aarch64": _arch_version_info(
+                "GE-Proton10-5-aarch64", "GE-Proton10-5", Arch.AARCH64
+            )
+        },
+    )
+    releases = [ReleaseVersion(f"GE-Proton-{i}", (Arch.X86_64,)) for i in range(30)]
+    releases.append(ReleaseVersion("GE-Proton11-2", (Arch.X86_64, Arch.AARCH64)))
+    installer = _FakeInstaller("GE-Proton", releases, supported_archs=(Arch.X86_64, Arch.AARCH64))
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert installer.fetch_count == 2
+    assert result.unchecked == []
+    assert len(result.updates) == 1
+    update = result.updates[0]
+    assert update.arch == Arch.AARCH64
+    assert update.latest_version == "GE-Proton11-2"
+
+
+def test_check_for_updates_unsupported_arch_is_unchecked_without_fetching(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("GE-Proton10-5-aarch64")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "GE-Proton10-5-aarch64": _arch_version_info(
+                "GE-Proton10-5-aarch64", "GE-Proton10-5", Arch.AARCH64
+            )
+        },
+    )
+    installer = _FakeInstaller("GE-Proton", [ReleaseVersion("GE-Proton11-3", (Arch.X86_64,))])
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert installer.fetch_count == 0
+    assert result.updates == []
+    assert result.up_to_date == []
+    assert result.unchecked == ["GE-Proton10-5-aarch64"]
+
+
+def test_check_for_updates_aarch64_gets_newest_aarch64_release(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("GE-Proton10-5-aarch64")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "GE-Proton10-5-aarch64": _arch_version_info(
+                "GE-Proton10-5-aarch64", "GE-Proton10-5", Arch.AARCH64
+            )
+        },
+    )
+    releases = [
+        ReleaseVersion("GE-Proton11-3", (Arch.AARCH64,)),
+        ReleaseVersion("GE-Proton11-2", (Arch.X86_64,)),
+    ]
+    installer = _FakeInstaller("GE-Proton", releases, supported_archs=(Arch.X86_64, Arch.AARCH64))
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.unchecked == []
+    assert result.up_to_date == []
+    assert len(result.updates) == 1
+    update = result.updates[0]
+    assert update.arch == Arch.AARCH64
+    assert update.latest_version == "GE-Proton11-3"
+    assert update.installed_versions == ["GE-Proton10-5"]
+
+
+def test_check_for_updates_both_archs_update_to_same_latest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("GE-Proton10-5"), _tool("GE-Proton10-5-aarch64")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "GE-Proton10-5": _arch_version_info("GE-Proton10-5", "GE-Proton10-5", Arch.X86_64),
+            "GE-Proton10-5-aarch64": _arch_version_info(
+                "GE-Proton10-5-aarch64", "GE-Proton10-5", Arch.AARCH64
+            ),
+        },
+    )
+    releases = [ReleaseVersion("GE-Proton11-3", (Arch.X86_64, Arch.AARCH64))]
+    installer = _FakeInstaller("GE-Proton", releases, supported_archs=(Arch.X86_64, Arch.AARCH64))
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.unchecked == []
+    assert result.up_to_date == []
+    assert len(result.updates) == 2
+    by_arch = {update.arch: update for update in result.updates}
+    assert set(by_arch) == {Arch.X86_64, Arch.AARCH64}
+    assert by_arch[Arch.X86_64].latest_version == "GE-Proton11-3"
+    assert by_arch[Arch.AARCH64].latest_version == "GE-Proton11-3"
+    assert [tool.full_name for tool in by_arch[Arch.X86_64].installed_tools] == ["GE-Proton10-5"]
+    assert [tool.full_name for tool in by_arch[Arch.AARCH64].installed_tools] == [
+        "GE-Proton10-5-aarch64"
+    ]
+
+
+def test_check_for_updates_both_archs_update_to_different_versions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("GE-Proton10-5"), _tool("GE-Proton10-5-aarch64")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "GE-Proton10-5": _arch_version_info("GE-Proton10-5", "GE-Proton10-5", Arch.X86_64),
+            "GE-Proton10-5-aarch64": _arch_version_info(
+                "GE-Proton10-5-aarch64", "GE-Proton10-5", Arch.AARCH64
+            ),
+        },
+    )
+    releases = [
+        ReleaseVersion("GE-Proton11-3", (Arch.X86_64,)),
+        ReleaseVersion("GE-Proton11-2", (Arch.X86_64, Arch.AARCH64)),
+    ]
+    installer = _FakeInstaller("GE-Proton", releases, supported_archs=(Arch.X86_64, Arch.AARCH64))
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.unchecked == []
+    assert result.up_to_date == []
+    assert len(result.updates) == 2
+    by_arch = {update.arch: update for update in result.updates}
+    assert by_arch[Arch.X86_64].latest_version == "GE-Proton11-3"
+    assert by_arch[Arch.AARCH64].latest_version == "GE-Proton11-2"
+
+
+def test_check_for_updates_single_arch_up_to_date_label_keeps_plain_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("dxvk-2.3")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "dxvk-2.3": CompatToolVersionInfo(
+                compat_tool="DXVK", version="dxvk-2.3", installed_at=1, arch=Arch.X86_64
+            )
+        },
+    )
+    installer = _FakeInstaller("DXVK", [ReleaseVersion("dxvk-2.3")])
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.updates == []
+    assert result.up_to_date == ["DXVK"]
+    assert result.unchecked == []
+
+
+def test_check_for_updates_multi_arch_up_to_date_label_includes_arch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("GE-Proton10-5"), _tool("GE-Proton10-5-aarch64")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "GE-Proton10-5": _arch_version_info("GE-Proton10-5", "GE-Proton10-5", Arch.X86_64),
+            "GE-Proton10-5-aarch64": _arch_version_info(
+                "GE-Proton10-5-aarch64", "GE-Proton10-5", Arch.AARCH64
+            ),
+        },
+    )
+    releases = [ReleaseVersion("GE-Proton10-5", (Arch.X86_64, Arch.AARCH64))]
+    installer = _FakeInstaller("GE-Proton", releases, supported_archs=(Arch.X86_64, Arch.AARCH64))
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.updates == []
+    assert set(result.up_to_date) == {"GE-Proton (x86_64)", "GE-Proton (aarch64)"}
+    assert result.unchecked == []
+
+
+def test_update_compatibility_tools_installs_each_arch_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    x86 = _tool("GE-Proton10-5")
+    arm = _tool("GE-Proton10-5-aarch64")
+    launcher = _FakeLauncher([x86, arm])
+    updates = [
+        ToolUpdate("GE-Proton", "GE-Proton11-3", ["GE-Proton10-5"], [x86], arch=Arch.X86_64),
+        ToolUpdate("GE-Proton", "GE-Proton11-2", ["GE-Proton10-5"], [arm], arch=Arch.AARCH64),
+    ]
+    installer = _FakeInstaller("GE-Proton")
+    _mock_installer_lookup(monkeypatch, installer)
+
+    asyncio.run(update_compatibility_tools(launcher, updates))
+
+    assert installer.install_calls == ["GE-Proton11-3", "GE-Proton11-2"]
+    assert installer.install_archs == [Arch.X86_64, Arch.AARCH64]
+    assert launcher.removed == ["GE-Proton10-5", "GE-Proton10-5-aarch64"]
+
+
+def test_update_compatibility_tools_removes_only_updated_arch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    x86 = _tool("GE-Proton11-3")
+    arm = _tool("GE-Proton10-5-aarch64")
+    launcher = _FakeLauncher([x86, arm])
+    update = ToolUpdate("GE-Proton", "GE-Proton11-2", ["GE-Proton10-5"], [arm], arch=Arch.AARCH64)
+    installer = _FakeInstaller("GE-Proton")
+    _mock_installer_lookup(monkeypatch, installer)
+
+    asyncio.run(update_compatibility_tools(launcher, [update]))
+
+    assert installer.install_calls == ["GE-Proton11-2"]
+    assert installer.install_archs == [Arch.AARCH64]
+    assert launcher.removed == ["GE-Proton10-5-aarch64"]

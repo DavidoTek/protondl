@@ -44,18 +44,29 @@ class ToolUpdate:
     """
     A compatibility tool that can be updated to a newer version.
 
+    One ToolUpdate is created per (compatibility tool, architecture): the
+    latest_version is the newest release that provides a build for the
+    update's architecture. When both architectures of a tool are installed,
+    two updates are produced which may target different versions.
+
     Attributes:
         compat_tool_name: The name of the compatibility tool (CtInstaller.name).
-        latest_version: The newest available version string.
-        installed_versions: The versions of the tool currently installed,
-            as recorded in the tools' version files.
-        installed_tools: The installed compatibility tools to be replaced.
+        latest_version: The newest available version string that provides a
+            build for the update's architecture.
+        installed_versions: The versions of the tool currently installed for
+            the update's architecture, as recorded in the tools' version files.
+        installed_tools: The installed compatibility tools of the update's
+            architecture to be replaced.
+        arch: The architecture this update applies to, or None to resolve
+            the architecture during installation (host architecture if
+            supported, else x86_64).
     """
 
     compat_tool_name: str
     latest_version: str
     installed_versions: list[str]
     installed_tools: list[CompatTool]
+    arch: Arch | None = None
 
 
 @dataclass

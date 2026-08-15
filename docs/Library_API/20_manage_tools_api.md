@@ -111,23 +111,31 @@ The function is async and returns an `UpdateCheckResult` with three fields:
 
 Field | Type | Description
 ------|------|------------
-`updates` | `list[ToolUpdate]` | A list of `ToolUpdate` objects, one per compatibility tool class that has an available update. Each entry contains the tool name (`compat_tool_name`), the newest available version (`latest_version`), the currently installed versions (`installed_versions`), and the installed `CompatTool` objects (`installed_tools`).
-`up_to_date` | `list[str]` | A list of names of compatibility tools that are already at the newest available version.
+`updates` | `list[ToolUpdate]` | A list of `ToolUpdate` objects, one per (compatibility tool, architecture) that has an available update. Each entry contains the tool name (`compat_tool_name`), the newest available version providing that architecture (`latest_version`), the currently installed versions of that architecture (`installed_versions`), the installed `CompatTool` objects (`installed_tools`), and the architecture (`arch`).
+`up_to_date` | `list[str]` | A list of compatibility tools that are already at the newest available version. Tools providing multiple architectures are labeled with their architecture (e.g. `GE-Proton (x86_64)`).
 `unchecked` | `list[str]` | A list of names of installed tools for which no update check was possible.
 
 Things to consider:
 
 - Only tools that carry a `protondl_version.json` file (i.e. tools installed by protondl)
   can be checked. All other installed tools are reported in `unchecked`.
-- Multiple installed versions of the same tool class are grouped, and the newest version
-  is fetched only once per tool class.
+- Installed tools are grouped by compatibility tool class and architecture. For each
+  architecture the release history is walked back (up to a few pages) until a release that
+  provides a build for that architecture is found. The architecture is taken from the tool's
+  version file (`arch`, falling back to its translation details), and finally from the
+  installer's default resolution.
+- A release may only ship a subset of a tool's architectures (e.g. an architecture-specific
+  patch). The newest release for each architecture is therefore determined independently,
+  so the two architectures of one tool can be updated to *different* versions when the
+  newest release does not provide both.
+- The release history is fetched once per compatibility tool class; it is only paginated
+  further when an installed architecture has not found a matching release yet.
 - If fetching the newest version fails (e.g. the remote API is unreachable), the affected
   tools are reported in `unchecked` instead of raising.
 - Pass an optional `RequestConfig` as `request_config` to authenticate API requests and
   raise the rate limits (see [API tokens](#api-tokens)). A `RequestConfig()` created
   without arguments picks up the `GITHUB_TOKEN` and `GITLAB_TOKEN` environment variables
   automatically; an explicitly passed config takes precedence.
-- TODO: Improve handling of multiple architectures.
 
 ### Install updates
 
@@ -169,8 +177,13 @@ Argument | Type | Description
 
 Things to consider:
 
-- Each compatibility tool is installed using the architecture resolved from the host
-  system (same behavior as `CtInstaller.install()`).
+- Each update is installed for its own architecture (`ToolUpdate.arch`), i.e. the
+  architecture of the installed builds it replaces. When both architectures of a tool
+  are installed and updated, two builds (one per architecture) are installed, possibly
+  at different versions.
+- The function returns a dict mapping `(compat_tool_name, arch)` to the newly installed
+  `CompatTool` for every update whose installation directory could be determined. Use
+  these to point games at the new build (see `batch_update_games_tools()` below).
 - If `keep_old=False`, the old versions are deleted. Games of the launcher that still
   reference an old version would then point to a missing tool, so follow up with
   `batch_update_games_tools()` (see below). With `keep_old=True` the batch update is
@@ -246,17 +259,21 @@ async def main() -> None:
             f"{event.step.value} {event.current}/{event.total}"
         )
 
-    await update_compatibility_tools(
+    new_tools = await update_compatibility_tools(
         launcher, result.updates, keep_old=False, progress_callback=on_progress
     )
 
     # 3. Point all games to the newest version. As the old versions were deleted
     #    in step 2, games still referencing them would break without this step.
-    installed_tools = launcher.get_installed_tools()
+    #    Each update is migrated to its own architecture-specific new build.
     for update in result.updates:
-        new_tool = next(tool for tool in installed_tools if tool.full_name == update.latest_version)
-        count = batch_update_games_tools(launcher, update.compat_tool_name, new_tool)
-        print(f"Updated {count} games to {update.latest_version}")
+        new_tool = new_tools.get((update.compat_tool_name, update.arch))
+        if new_tool is None:
+            print(f"Could not find the newly installed {update.compat_tool_name}; skipping")
+            continue
+        for old_tool in update.installed_tools:
+            count = batch_update_games_tools(launcher, old_tool, new_tool)
+            print(f"Updated {count} games to {new_tool.full_name}")
 
 
 asyncio.run(main())
