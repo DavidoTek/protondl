@@ -2,6 +2,7 @@ from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
 from protondl.core.models import CompatToolType
 from protondl.installers.boxtron import BoxtronInstaller
+from protondl.installers.dwproton import DWProtonInstaller
 from protondl.installers.dxvk import DXVKInstaller
 from protondl.installers.dxvk_async import DXVKAsyncInstaller
 from protondl.installers.dxvk_nightly import DXVKNightlyInstaller
@@ -39,6 +40,7 @@ CT_INSTALLERS = [
     LuxtorpedaInstaller(),
     Kron4ekWineInstaller(),
     ProtonTkgNtsyncInstaller(),
+    DWProtonInstaller(),
 ]
 
 

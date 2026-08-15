@@ -15,6 +15,7 @@ from protondl.core.models import (
 )
 from protondl.installers import CT_INSTALLERS
 from protondl.installers.boxtron import BoxtronInstaller
+from protondl.installers.dwproton import DWProtonInstaller
 from protondl.installers.kron4ek_wine import Kron4ekWineInstaller
 from protondl.installers.lutris_wine import LutrisWineInstaller
 from protondl.installers.luxtorpeda import LuxtorpedaInstaller
@@ -87,6 +88,7 @@ def _make_tar_xz(tool_folder: str) -> bytes:
         ("Luxtorpeda", CompatToolType.PROTON, False, ".tar.xz", ".sha512"),
         ("Kron4ek Wine-Builds Vanilla", CompatToolType.WINE, False, ".tar.xz", ""),
         ("Proton-Tkg (Wine Master NTSYNC)", CompatToolType.PROTON, True, ".tar.gz", ""),
+        ("dwproton", CompatToolType.PROTON, True, ".tar.xz", ".sha512sum"),
     ],
 )
 def test_new_installer_attributes(
@@ -117,6 +119,7 @@ def test_new_installers_are_registered_once() -> None:
         "Luxtorpeda",
         "Kron4ek Wine-Builds Vanilla",
         "Proton-Tkg (Wine Master NTSYNC)",
+        "dwproton",
     ]:
         assert name in names
 
@@ -141,6 +144,10 @@ def test_new_installers_are_registered_once() -> None:
         (Kron4ekWineInstaller(), "lutris", True),
         (Kron4ekWineInstaller(), "heroic", True),
         (Kron4ekWineInstaller(), "steam", False),
+        (DWProtonInstaller(), "steam", True),
+        (DWProtonInstaller(), "lutris", True),
+        (DWProtonInstaller(), "heroic", True),
+        (DWProtonInstaller(), "bottles", True),
     ],
 )
 def test_supports_launcher(installer: Any, launcher: str, expected: bool, tmp_path: Path) -> None:
@@ -500,3 +507,85 @@ def test_ntsync_subclasses_winemaster_with_ntsync_package() -> None:
     assert installer.proton_package_name == "proton-arch-ntsync-nopackage.yml"
     assert installer.tool_type is CompatToolType.PROTON
     assert installer.advanced is True
+
+
+DWPROTON_RELEASE = {
+    "tag_name": "dwproton-11.0-11",
+    "published_at": "2026-08-07T23:32:56+01:00",
+    "assets": [
+        {
+            "name": "dwproton-11.0-11-x86_64.sha512sum",
+            "size": 20,
+            "browser_download_url": "https://example.com/dwproton-11.0-11-x86_64.sha512sum",
+        },
+        {
+            "name": "dwproton-11.0-11-x86_64.tar.xz",
+            "size": 200,
+            "browser_download_url": "https://example.com/dwproton-11.0-11-x86_64.tar.xz",
+        },
+        {
+            "name": "dwproton-11.0-11-x86_64.tar.xz.torrent",
+            "size": 30,
+            "browser_download_url": "https://example.com/dwproton-11.0-11-x86_64.tar.xz.torrent",
+        },
+    ],
+}
+
+
+def test_dwproton_fetch_release_data_ignores_torrent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_async_client(monkeypatch, DWPROTON_RELEASE)
+
+    installer = DWProtonInstaller()
+    release_data = asyncio_run(installer._fetch_release_data("dwproton-11.0-11", Arch.X86_64))
+
+    assert release_data.version == "dwproton-11.0-11"
+    assert release_data.download == "https://example.com/dwproton-11.0-11-x86_64.tar.xz"
+    assert release_data.checksum == "https://example.com/dwproton-11.0-11-x86_64.sha512sum"
+    assert release_data.original_filename == "dwproton-11.0-11-x86_64.tar.xz"
+
+
+def test_dwproton_install_writes_version_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    installer = DWProtonInstaller()
+    version = "dwproton-11.0-11"
+    archive_bytes = _make_tar_xz(version)
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version=v,
+            date="2026-08-07",
+            download="https://example.com/dwproton-11.0-11-x86_64.tar.xz",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    info = asyncio.run(installer.install(version, launcher, arch=Arch.X86_64))
+
+    installed_dir = tmp_path / "compatibilitytools.d" / version
+    version_file = installed_dir / "protondl_version.json"
+    assert version_file.is_file()
+
+    stored_info = read_version_file(installed_dir)
+    assert stored_info is not None
+    assert stored_info.compat_tool == "dwproton"
+    assert stored_info.version == version
+    assert info.arch == Arch.X86_64

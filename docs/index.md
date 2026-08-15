@@ -22,6 +22,7 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 ### Supported Tools
 
 - [GE-Proton](https://github.com/GloriousEggroll/proton-ge-custom) (Proton)
+- [dwproton](https://dawn.wine/dawn-winery/dwproton) (Proton)
 - [Proton-Tkg](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
 - [Proton-Tkg (Wine Master)](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
 - [Proton-Tkg (Valve Wine)](https://github.com/Frogging-Family/wine-tkg-git) (Proton)
