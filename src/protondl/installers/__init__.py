@@ -19,6 +19,7 @@ from protondl.installers.proton_tkg_winemaster import ProtonTkgWinemasterInstall
 from protondl.installers.roberta import RobertaInstaller
 from protondl.installers.rtsp_proton import RTSPProtonInstaller
 from protondl.installers.steam_play_none import SteamPlayNoneInstaller
+from protondl.installers.steam_tinkerlaunch import SteamTinkerLaunchInstaller
 from protondl.installers.vkd3d_lutris import VKD3DLutrisInstaller
 from protondl.installers.vkd3dproton import VKD3DProtonInstaller
 from protondl.installers.wine_tkg_winemaster import WineTkgWinemasterInstaller
@@ -45,6 +46,7 @@ CT_INSTALLERS = [
     ProtonTkgNtsyncInstaller(),
     DWProtonInstaller(),
     SteamPlayNoneInstaller(),
+    SteamTinkerLaunchInstaller(),
 ]
 
 

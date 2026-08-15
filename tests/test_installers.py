@@ -24,6 +24,7 @@ from protondl.installers.proton_em import ProtonEMInstaller
 from protondl.installers.proton_tkg_ntsync import ProtonTkgNtsyncInstaller
 from protondl.installers.rtsp_proton import RTSPProtonInstaller
 from protondl.installers.steam_play_none import SteamPlayNoneInstaller
+from protondl.installers.steam_tinkerlaunch import SteamTinkerLaunchInstaller
 from protondl.installers.vkd3d_lutris import VKD3DLutrisInstaller
 from protondl.launchers.bottles import BottlesLauncher
 from protondl.launchers.heroic import HeroicLauncher
@@ -103,6 +104,7 @@ def _make_tar_gz(tool_folder: str) -> bytes:
         ("dwproton", CompatToolType.PROTON, True, ".tar.xz", ".sha512sum"),
         ("Proton-CachyOS", CompatToolType.PROTON, False, ".tar.xz", ".sha512sum"),
         ("Steam-Play-None", CompatToolType.PROTON, False, ".tar.gz", ""),
+        ("SteamTinkerLaunch", CompatToolType.PROTON, False, ".tar.gz", ""),
     ],
 )
 def test_new_installer_attributes(
@@ -136,6 +138,7 @@ def test_new_installers_are_registered_once() -> None:
         "dwproton",
         "Proton-CachyOS",
         "Steam-Play-None",
+        "SteamTinkerLaunch",
     ]:
         assert name in names
 
@@ -172,6 +175,10 @@ def test_new_installers_are_registered_once() -> None:
         (SteamPlayNoneInstaller(), "lutris", False),
         (SteamPlayNoneInstaller(), "heroic", False),
         (SteamPlayNoneInstaller(), "bottles", False),
+        (SteamTinkerLaunchInstaller(), "steam", True),
+        (SteamTinkerLaunchInstaller(), "lutris", False),
+        (SteamTinkerLaunchInstaller(), "heroic", False),
+        (SteamTinkerLaunchInstaller(), "bottles", False),
     ],
 )
 def test_supports_launcher(installer: Any, launcher: str, expected: bool, tmp_path: Path) -> None:
@@ -863,4 +870,138 @@ def test_steam_play_none_install_writes_version_file(
     assert stored_info is not None
     assert stored_info.compat_tool == "Steam-Play-None"
     assert stored_info.version == "main"
+    assert info.arch == Arch.X86_64
+
+
+STL_RELEASE_DICT = {
+    "tag_name": "v12.12",
+    "published_at": "2023-03-14T12:00:00Z",
+    "tarball_url": "https://api.github.com/repos/sonic2kk/steamtinkerlaunch/tarball/v12.12",
+    "assets": [],
+}
+
+
+def test_steam_tinkerlaunch_fetch_releases_returns_tags(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_async_client(monkeypatch, [STL_RELEASE_DICT])
+
+    releases = asyncio_run(SteamTinkerLaunchInstaller().fetch_releases())
+
+    assert [r.version for r in releases] == ["v12.12"]
+    assert releases[0].archs == (Arch.X86_64,)
+
+
+def test_steam_tinkerlaunch_fetch_release_data_uses_tarball_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_async_client(monkeypatch, STL_RELEASE_DICT)
+
+    release_data = asyncio_run(
+        SteamTinkerLaunchInstaller()._fetch_release_data("v12.12", Arch.X86_64)
+    )
+
+    assert release_data.version == "v12.12"
+    assert release_data.download == STL_RELEASE_DICT["tarball_url"]
+    assert release_data.original_filename is None
+
+
+def test_steam_tinkerlaunch_fetch_release_data_latest(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_async_client(monkeypatch, STL_RELEASE_DICT)
+
+    release_data = asyncio_run(
+        SteamTinkerLaunchInstaller()._fetch_release_data("latest", Arch.X86_64)
+    )
+
+    assert release_data.version == "v12.12"
+    assert release_data.download == STL_RELEASE_DICT["tarball_url"]
+
+
+def test_steam_tinkerlaunch_fetch_release_data_unknown_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _fake_async_client(monkeypatch, {"message": "Not Found"})
+
+    with pytest.raises(ValueError):
+        asyncio_run(SteamTinkerLaunchInstaller()._fetch_release_data("nope", Arch.X86_64))
+
+
+def test_steam_tinkerlaunch_find_installed_dir_renames_and_writes_vdfs(tmp_path: Path) -> None:
+    installer = SteamTinkerLaunchInstaller()
+    install_dir = tmp_path / "compatibilitytools.d"
+    install_dir.mkdir()
+    before = set(install_dir.iterdir())
+
+    assert installer._find_installed_dir(install_dir, before, "v12.12") is None
+
+    (install_dir / "sonic2kk-steamtinkerlaunch-9de3341").mkdir()
+
+    target = installer._find_installed_dir(install_dir, before, "v12.12")
+
+    assert target == install_dir / "SteamTinkerLaunch"
+    assert not (install_dir / "sonic2kk-steamtinkerlaunch-9de3341").exists()
+    assert (target / "compatibilitytool.vdf").is_file()
+    assert (target / "toolmanifest.vdf").is_file()
+    assert "Proton-stl" in (target / "compatibilitytool.vdf").read_text(encoding="utf-8")
+    assert '"/steamtinkerlaunch run"' in (target / "toolmanifest.vdf").read_text(encoding="utf-8")
+
+
+def test_steam_tinkerlaunch_find_installed_dir_replaces_existing(tmp_path: Path) -> None:
+    installer = SteamTinkerLaunchInstaller()
+    install_dir = tmp_path / "compatibilitytools.d"
+    install_dir.mkdir()
+    before = set(install_dir.iterdir())
+    old_dir = install_dir / "SteamTinkerLaunch"
+    old_dir.mkdir()
+    (old_dir / "old.txt").write_text("old", encoding="utf-8")
+
+    (install_dir / "sonic2kk-steamtinkerlaunch-9de3341").mkdir()
+    target = installer._find_installed_dir(install_dir, before, "v12.12")
+
+    assert target == old_dir
+    assert not (old_dir / "old.txt").exists()
+
+
+def test_steam_tinkerlaunch_install_writes_version_file_and_vdfs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    installer = SteamTinkerLaunchInstaller()
+    archive_bytes = _make_tar_gz("sonic2kk-steamtinkerlaunch-9de3341")
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version="v12.12",
+            date="2023-03-14",
+            download="https://example.com/tarball/v12.12",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    info = asyncio.run(installer.install("v12.12", launcher, arch=Arch.X86_64))
+
+    installed_dir = tmp_path / "compatibilitytools.d" / "SteamTinkerLaunch"
+    version_file = installed_dir / "protondl_version.json"
+    assert version_file.is_file()
+    assert (installed_dir / "compatibilitytool.vdf").is_file()
+    assert (installed_dir / "toolmanifest.vdf").is_file()
+    assert not (installed_dir.parent / "sonic2kk-steamtinkerlaunch-9de3341").exists()
+
+    stored_info = read_version_file(installed_dir)
+    assert stored_info is not None
+    assert stored_info.compat_tool == "SteamTinkerLaunch"
+    assert stored_info.version == "v12.12"
     assert info.arch == Arch.X86_64
