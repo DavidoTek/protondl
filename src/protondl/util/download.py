@@ -18,6 +18,7 @@ from protondl.core.models import (
 
 GITHUB_API = "https://api.github.com/"
 GITLAB_APIS = ["https://gitlab.com/api/"]
+GITEA_APIS = ["https://codeberg.org/api/v1/", "https://dawn.wine/api/v1/"]
 
 GITLAB_RATELIMIT_MSGS = ["Retry later", "rate limit exceeded"]
 
@@ -39,6 +40,19 @@ def is_gitlab_instance(url: str) -> bool:
         True if the URL is associated with GitLab, False otherwise.
     """
     return any(instance in url for instance in GITLAB_APIS)
+
+
+def is_gitea_instance(url: str) -> bool:
+    """
+    Checks if the given URL belongs to a Gitea (or Forgejo) instance.
+
+    Args:
+        url: The URL to check.
+
+    Returns:
+        True if the URL is associated with a known Gitea instance, False otherwise.
+    """
+    return any(instance in url for instance in GITEA_APIS)
 
 
 async def is_online(host: str = "https://api.github.com/rate_limit", timeout: int = 5) -> bool:
@@ -120,6 +134,7 @@ async def fetch_project_release_data(
         ReleaseData: A dataclass containing release metadata and asset URLs.
     """
     is_gl = is_gitlab_instance(release_url)
+    is_gitea = is_gitea_instance(release_url)
     api_tag = tag if tag not in ["", "latest"] else "latest"
 
     if is_gl:
@@ -138,7 +153,7 @@ async def fetch_project_release_data(
             version=data.get(tag_key, "unknown"), date=data.get(date_key, "unknown").split("T")[0]
         )
 
-        if GITHUB_API in release_url:
+        if GITHUB_API in release_url or is_gitea:
             assets = data.get("assets", [])
         elif is_gitlab_instance(release_url):
             assets = data.get("assets", {}).get("links", [])
@@ -192,7 +207,11 @@ async def fetch_project_releases(
     is_gl = is_gitlab_instance(releases_url)
     tag_key = "name" if is_gl else "tag_name"
 
-    params = {"per_page": count, "page": page}
+    params = (
+        {"limit": count, "page": page}
+        if is_gitea_instance(releases_url)
+        else {"per_page": count, "page": page}
+    )
 
     headers = config.get_headers(releases_url)
     async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:

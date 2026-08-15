@@ -43,6 +43,28 @@ def _fake_async_client(monkeypatch: pytest.MonkeyPatch, data: Any) -> None:
     monkeypatch.setattr("protondl.util.download.httpx.AsyncClient", make_client)
 
 
+class ParamsCapturingClient(FakeClient):
+    def __init__(self, data: Any) -> None:
+        super().__init__(data)
+        self.params: dict[str, Any] | None = None
+
+    async def get(self, url: str, params: dict[str, Any] | None = None) -> FakeResponse:
+        self.params = params
+        return FakeResponse(self._data)
+
+
+def _fake_async_client_capturing(
+    monkeypatch: pytest.MonkeyPatch, data: Any
+) -> ParamsCapturingClient:
+    client = ParamsCapturingClient(data)
+
+    def make_client(*args: Any, **kwargs: Any) -> ParamsCapturingClient:
+        return client
+
+    monkeypatch.setattr("protondl.util.download.httpx.AsyncClient", make_client)
+    return client
+
+
 GE_PROTON_RELEASE = {
     "tag_name": "GE-Proton11-3",
     "published_at": "2026-08-03T12:00:00Z",
@@ -293,6 +315,117 @@ def test_fetch_project_release_data_missing_arch(monkeypatch: pytest.MonkeyPatch
 
     assert release_data.download is None
     assert release_data.checksum is None
+
+
+LUXTORPEDA_RELEASE_URL = "https://codeberg.org/api/v1/repos/luxtorpeda/luxtorpeda/releases"
+
+LUXTORPEDA_RELEASE = {
+    "tag_name": "v77.1.0",
+    "published_at": "2026-05-27T02:35:32+02:00",
+    "assets": [
+        {
+            "name": "luxtorpeda-v77.1.0.tar.xz",
+            "size": 100,
+            "browser_download_url": "https://example.com/luxtorpeda-v77.1.0.tar.xz",
+        },
+        {
+            "name": "luxtorpeda-v77.1.0.tar.xz.sha512",
+            "size": 10,
+            "browser_download_url": "https://example.com/luxtorpeda-v77.1.0.tar.xz.sha512",
+        },
+    ],
+}
+
+
+def test_fetch_project_release_data_gitea_codeberg(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_async_client(monkeypatch, LUXTORPEDA_RELEASE)
+
+    release_data = asyncio_run(
+        fetch_project_release_data(
+            LUXTORPEDA_RELEASE_URL,
+            ".tar.xz",
+            RequestConfig(),
+            tag="v77.1.0",
+            checksum_suffix=".sha512",
+        )
+    )
+
+    assert release_data == ReleaseData(
+        version="v77.1.0",
+        date="2026-05-27",
+        download="https://example.com/luxtorpeda-v77.1.0.tar.xz",
+        size=100,
+        checksum="https://example.com/luxtorpeda-v77.1.0.tar.xz.sha512",
+        original_filename="luxtorpeda-v77.1.0.tar.xz",
+    )
+
+
+DWPROTON_RELEASE_URL = "https://dawn.wine/api/v1/repos/dawn-winery/dwproton/releases"
+
+DWPROTON_RELEASE = {
+    "tag_name": "dwproton-11.0-11",
+    "published_at": "2026-08-07T23:32:56+01:00",
+    "assets": [
+        {
+            "name": "dwproton-11.0-11-x86_64.sha512sum",
+            "size": 20,
+            "browser_download_url": "https://example.com/dwproton-11.0-11-x86_64.sha512sum",
+        },
+        {
+            "name": "dwproton-11.0-11-x86_64.tar.xz",
+            "size": 200,
+            "browser_download_url": "https://example.com/dwproton-11.0-11-x86_64.tar.xz",
+        },
+        {
+            "name": "dwproton-11.0-11-x86_64.tar.xz.torrent",
+            "size": 30,
+            "browser_download_url": "https://example.com/dwproton-11.0-11-x86_64.tar.xz.torrent",
+        },
+    ],
+}
+
+
+def test_fetch_project_release_data_gitea_dawnwine(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_async_client(monkeypatch, DWPROTON_RELEASE)
+
+    release_data = asyncio_run(
+        fetch_project_release_data(
+            DWPROTON_RELEASE_URL,
+            ".tar.xz",
+            RequestConfig(),
+            tag="dwproton-11.0-11",
+            checksum_suffix=".sha512sum",
+        )
+    )
+
+    assert release_data == ReleaseData(
+        version="dwproton-11.0-11",
+        date="2026-08-07",
+        download="https://example.com/dwproton-11.0-11-x86_64.tar.xz",
+        size=200,
+        checksum="https://example.com/dwproton-11.0-11-x86_64.sha512sum",
+        original_filename="dwproton-11.0-11-x86_64.tar.xz",
+    )
+
+
+def test_fetch_project_releases_gitea_uses_limit_param(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _fake_async_client_capturing(
+        monkeypatch,
+        [
+            {"tag_name": "v77.1.0", "assets": LUXTORPEDA_RELEASE["assets"]},
+            {"tag_name": "v77.0.0", "assets": LUXTORPEDA_RELEASE["assets"]},
+        ],
+    )
+
+    releases = asyncio_run(fetch_project_releases(LUXTORPEDA_RELEASE_URL, RequestConfig()))
+
+    assert client.params == {"limit": 100, "page": 1}
+    assert releases == [
+        ReleaseVersion("v77.1.0", (Arch.X86_64,)),
+        ReleaseVersion("v77.0.0", (Arch.X86_64,)),
+    ]
 
 
 def asyncio_run(coro: Any) -> Any:
