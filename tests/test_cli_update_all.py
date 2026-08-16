@@ -63,7 +63,7 @@ def _patch_cli(
         keep_old: bool = False,
         progress_callback: ProgressCallback | None = None,
         request_config: RequestConfig | None = None,
-    ) -> dict[tuple[str, Arch | None], CompatTool]:
+    ) -> dict[tuple[str, Arch | None, str], CompatTool]:
         for update in updates:
             installed.append(update.latest_version)
         if progress_callback:
@@ -78,7 +78,7 @@ def _patch_cli(
                 )
             )
         return {
-            (update.compat_tool_name, update.arch): CompatTool(
+            (update.compat_tool_name, update.arch, update.variant): CompatTool(
                 update.latest_version, CompatToolType.PROTON, Path("/tools") / update.latest_version
             )
             for update in updates
