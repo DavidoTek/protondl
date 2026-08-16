@@ -141,10 +141,11 @@ before installing. Compatibility tools that are already at the newest version ar
 as up to date. After a successful update it asks whether the compatibility tool of all
 games should be switched to the newest version.
 
-Updates are checked per (compatibility tool, architecture): each installed architecture
-is updated to the newest release that provides a build for it, so the two architectures
-of a tool can be updated to different versions when the newest release only ships one of
-them. Games are moved to the new build of the same architecture.
+Updates are checked per (compatibility tool, architecture, build variant): each installed
+architecture and variant is updated to the newest release that provides a build for it, so
+the two architectures or variants of a tool can be updated to different versions when the
+newest release only ships some of them. Games are moved to the new build of the same
+architecture and variant.
 
 By default, older versions of a compatibility tool are deleted after the new version was
 installed successfully and the batch update of all games runs without asking.

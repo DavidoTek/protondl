@@ -120,25 +120,30 @@ The function is async and returns an `UpdateCheckResult` with three fields:
 
 Field | Type | Description
 ------|------|------------
-`updates` | `list[ToolUpdate]` | A list of `ToolUpdate` objects, one per (compatibility tool, architecture) that has an available update. Each entry contains the tool name (`compat_tool_name`), the newest available version providing that architecture (`latest_version`), the currently installed versions of that architecture (`installed_versions`), the installed `CompatTool` objects (`installed_tools`), and the architecture (`arch`).
-`up_to_date` | `list[str]` | A list of compatibility tools that are already at the newest available version. Tools providing multiple architectures are labeled with their architecture (e.g. `GE-Proton (x86_64)`).
+`updates` | `list[ToolUpdate]` | A list of `ToolUpdate` objects, one per (compatibility tool, architecture, build variant) that has an available update. Each entry contains the tool name (`compat_tool_name`), the newest available version providing that architecture and variant (`latest_version`), the currently installed versions of that architecture and variant (`installed_versions`), the installed `CompatTool` objects (`installed_tools`), the architecture (`arch`), and the build variant (`variant`).
+`up_to_date` | `list[str]` | A list of compatibility tools that are already at the newest available version. Tools providing multiple architectures or build variants are labeled with them (e.g. `GE-Proton (x86_64)`, `GE-Proton (x86_64) (fshack)`).
 `unchecked` | `list[str]` | A list of names of installed tools for which no update check was possible.
 
 Things to consider:
 
 - Only tools that carry a `protondl_version.json` file (i.e. tools installed by protondl)
   can be checked. All other installed tools are reported in `unchecked`.
-- Installed tools are grouped by compatibility tool class and architecture. For each
-  architecture the release history is walked back (up to a few pages) until a release that
-  provides a build for that architecture is found. The architecture is taken from the tool's
-  version file (`arch`, falling back to its translation details), and finally from the
-  installer's default resolution.
+- Installed tools are grouped by compatibility tool class, architecture and build
+  variant. For each (architecture, variant) combination the release history is walked
+  back (up to a few pages) until a release providing a build of that variant and
+  architecture is found. The architecture is taken from the tool's version file (`arch`,
+  falling back to its translation details), and finally from the installer's default
+  resolution.
 - A release may only ship a subset of a tool's architectures (e.g. an architecture-specific
   patch). The newest release for each architecture is therefore determined independently,
   so the two architectures of one tool can be updated to *different* versions when the
   newest release does not provide both.
+- Tools that ship multiple build variants per architecture (e.g. fshack or wow64 builds)
+  are handled the same way: each installed variant is updated to the newest release that
+  provides it, so the variants of a tool may also be updated to different versions.
 - The release history is fetched once per compatibility tool class; it is only paginated
-  further when an installed architecture has not found a matching release yet.
+  further when an installed (architecture, variant) combination has not found a matching
+  release yet.
 - If fetching the newest version fails (e.g. the remote API is unreachable), the affected
   tools are reported in `unchecked` instead of raising.
 - Pass an optional `RequestConfig` as `request_config` to authenticate API requests and
@@ -186,13 +191,13 @@ Argument | Type | Description
 
 Things to consider:
 
-- Each update is installed for its own architecture (`ToolUpdate.arch`), i.e. the
-  architecture of the installed builds it replaces. When both architectures of a tool
-  are installed and updated, two builds (one per architecture) are installed, possibly
-  at different versions.
-- The function returns a dict mapping `(compat_tool_name, arch)` to the newly installed
-  `CompatTool` for every update whose installation directory could be determined. Use
-  these to point games at the new build (see `batch_update_games_tools()` below).
+- Each update is installed for its own architecture (`ToolUpdate.arch`) and build variant
+  (`ToolUpdate.variant`), i.e. the architecture and variant of the installed builds it
+  replaces. When both architectures or both variants of a tool are installed and updated,
+  multiple builds (one per combination) are installed, possibly at different versions.
+- The function returns a dict mapping `(compat_tool_name, arch, variant)` to the newly
+  installed `CompatTool` for every update whose installation directory could be determined.
+  Use these to point games at the new build (see `batch_update_games_tools()` below).
 - If `keep_old=False`, the old versions are deleted. Games of the launcher that still
   reference an old version would then point to a missing tool, so follow up with
   `batch_update_games_tools()` (see below). With `keep_old=True` the batch update is
@@ -274,9 +279,9 @@ async def main() -> None:
 
     # 3. Point all games to the newest version. As the old versions were deleted
     #    in step 2, games still referencing them would break without this step.
-    #    Each update is migrated to its own architecture-specific new build.
+    #    Each update is migrated to its own architecture- and variant-specific new build.
     for update in result.updates:
-        new_tool = new_tools.get((update.compat_tool_name, update.arch))
+        new_tool = new_tools.get((update.compat_tool_name, update.arch, update.variant))
         if new_tool is None:
             print(f"Could not find the newly installed {update.compat_tool_name}; skipping")
             continue
