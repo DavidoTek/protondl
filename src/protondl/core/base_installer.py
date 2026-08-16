@@ -11,6 +11,7 @@ import httpx
 from protondl.core.base_launcher import Launcher
 from protondl.core.config import RequestConfig
 from protondl.core.models import (
+    AlreadyInstalledError,
     Arch,
     CompatTool,
     CompatToolType,
@@ -29,8 +30,8 @@ from protondl.util.download import (
     fetch_project_release_data,
     fetch_project_releases,
 )
-from protondl.util.helpers import detect_host_arch
-from protondl.util.version_file import write_version_file
+from protondl.util.helpers import _resolve_tool_arch, detect_host_arch
+from protondl.util.version_file import read_version_file, write_version_file
 
 
 class CtInstaller(ABC):
@@ -112,16 +113,24 @@ class CtInstaller(ABC):
         version: str,
         launcher: Launcher,
         arch: Arch | None = None,
+        force: bool = False,
         progress_callback: ProgressCallback | None = None,
     ) -> CompatToolVersionInfo:
         """
         Downloads and extracts a specific version of the tool into the launcher's directory.
+
+        If the requested version and architecture are already installed, the
+        installation is cancelled by raising AlreadyInstalledError, unless
+        force is True. The check is architecture-aware: x86_64 and aarch64
+        builds of the same version are tracked independently.
 
         Args:
             version (str): The specific version string to install.
             launcher (Launcher): The Launcher instance where the tool should be installed.
             arch (Arch | None): The architecture to install. Defaults to the host
                 architecture if supported by the tool, otherwise to x86_64.
+            force (bool): Whether to remove an already installed build of the
+                same version and architecture and re-install it. Defaults to False.
             progress_callback (ProgressCallback | None, optional):
                 A callback function to report progress as InstallProgress events,
                 covering the fetch, download, verification, extraction and
@@ -132,12 +141,16 @@ class CtInstaller(ABC):
                 including the installed architecture.
 
         Raises:
+            AlreadyInstalledError: If the requested version and architecture are
+                already installed for the launcher and force is False.
             ValueError: If the version string is invalid or no build exists for the
                 requested architecture.
             PermissionError: If the library lacks write access to the launcher's
                 compatibility tools directory.
         """
         arch = self.resolve_arch(arch)
+
+        self._check_not_installed(launcher, version, arch, force)
 
         def report(step: InstallStep, current: int = 0, total: int = 0) -> None:
             if progress_callback is not None:
@@ -148,6 +161,8 @@ class CtInstaller(ABC):
 
         if not release_data.download:
             raise ValueError(f"No {arch.value} asset found for version '{version}' of {self.name}.")
+
+        self._check_not_installed(launcher, release_data.version, arch, force)
 
         info = CompatToolVersionInfo(
             compat_tool=self.name,
@@ -175,6 +190,9 @@ class CtInstaller(ABC):
 
                     report(InstallStep.VERIFYING)
                     await self._verify_checksum(client, release_data, tmp_path)
+
+                    if force:
+                        self._remove_installed_tool(launcher, release_data.version, arch)
 
                     install_dir = self._get_extract_dir(launcher)
                     before = set(install_dir.iterdir())
@@ -237,6 +255,76 @@ class CtInstaller(ABC):
                 for the default variant.
         """
         return ""
+
+    def find_installed_tool(
+        self, launcher: Launcher, version: str, arch: Arch
+    ) -> CompatTool | None:
+        """
+        Finds an installed build of the given version and architecture.
+
+        A build is considered installed if its protondl_version.json matches the
+        installer's name, the given version and architecture. For legacy version
+        files without an arch field, the host-side architecture recorded in the
+        translation details is used as a fallback.
+
+        The lookup is best-effort: if the launcher's installed tools cannot be
+        enumerated (e.g. missing launcher configuration files), None is returned
+        and the caller proceeds without a check.
+
+        Args:
+            launcher (Launcher): The launcher to search for installed tools.
+            version (str): The version to look for.
+            arch (Arch): The architecture to look for.
+
+        Returns:
+            CompatTool | None: The installed tool, or None if no build of the
+                given version and architecture is installed.
+        """
+        try:
+            installed_tools = launcher.get_installed_tools()
+        except Exception:
+            return None
+        for tool in installed_tools:
+            info = read_version_file(tool.install_dir)
+            if info is None:
+                continue
+            if info.compat_tool != self.name or info.version != version:
+                continue
+            if _resolve_tool_arch(self, info) != arch:
+                continue
+            return tool
+        return None
+
+    def _check_not_installed(
+        self, launcher: Launcher, version: str, arch: Arch, force: bool
+    ) -> None:
+        """
+        Cancels the installation if the given version and architecture are already installed.
+
+        Args:
+            launcher (Launcher): The launcher to search for installed tools.
+            version (str): The version to check.
+            arch (Arch): The architecture to check.
+            force (bool): Whether the installation will re-install the build.
+
+        Raises:
+            AlreadyInstalledError: If the build is already installed and force is False.
+        """
+        if not force and self.find_installed_tool(launcher, version, arch) is not None:
+            raise AlreadyInstalledError(self.name, version, arch)
+
+    def _remove_installed_tool(self, launcher: Launcher, version: str, arch: Arch) -> None:
+        """
+        Removes an already installed build of the given version and architecture.
+
+        Args:
+            launcher (Launcher): The launcher to search for installed tools.
+            version (str): The version of the build to remove.
+            arch (Arch): The architecture of the build to remove.
+        """
+        existing = self.find_installed_tool(launcher, version, arch)
+        if existing is not None:
+            launcher.remove_tool(existing)
 
     def remove(self, tool: CompatTool, launcher: Launcher) -> None:
         """

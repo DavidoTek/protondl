@@ -62,6 +62,9 @@ asyncio.run(
         versions[0].version,
         launchers[0],
         arch=Arch.AARCH64,  # Optional
+        # force=True removes an already installed build of the same version
+        # and architecture before re-installing it (default: False)
+        force=False,
         # Optional: receive step-based progress (fetch, download, verify, extract)
         progress_callback=lambda event: print(
             f"{event.step.value}: {event.current} / {event.total}"
@@ -73,6 +76,12 @@ asyncio.run(
 `fetch_releases()` returns a list of `ReleaseVersion` objects with a `version` string and an
 `archs` tuple of `Arch` values. `install()` returns the `CompatToolVersionInfo` written to the
 tool's `protondl_version.json`, which includes the installed architecture.
+
+If the requested version and architecture are already installed for the launcher,
+`install()` raises `AlreadyInstalledError` instead of downloading and extracting it
+again. The check is architecture-aware, so installing a different architecture of an
+already installed version is allowed. Pass `force=True` to remove the existing build
+of the same version and architecture and re-install it.
 
 For a complete workflow with launcher/tool selection, see the CLI implementation in `src/protondl/cli/main.py`.
 

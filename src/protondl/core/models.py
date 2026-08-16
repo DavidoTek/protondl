@@ -11,6 +11,26 @@ class InstallMode(Enum):
     SNAP = "snap"
 
 
+class AlreadyInstalledError(Exception):
+    """
+    Raised when a compatibility tool version is already installed.
+
+    The requested version and architecture are already installed for the
+    launcher. Use the force option of install() to re-install the tool.
+
+    Attributes:
+        tool_name (str): The name of the compatibility tool.
+        version (str): The already installed version.
+        arch (Arch): The already installed architecture.
+    """
+
+    def __init__(self, tool_name: str, version: str, arch: "Arch") -> None:
+        self.tool_name = tool_name
+        self.version = version
+        self.arch = arch
+        super().__init__(f"{tool_name} {version} ({arch.value}) is already installed.")
+
+
 class CompatToolType(Enum):
     PROTON = "proton"
     WINE = "wine"

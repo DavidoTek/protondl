@@ -7,9 +7,11 @@ from typing import Any
 import pytest
 
 from protondl.core.models import (
+    AlreadyInstalledError,
     Arch,
     CompatTool,
     CompatToolType,
+    CompatToolVersionInfo,
     InstallMode,
     InstallProgress,
     InstallStep,
@@ -18,7 +20,7 @@ from protondl.core.models import (
 from protondl.installers.dxvk import DXVKInstaller
 from protondl.installers.ge_proton import GEProtonInstaller
 from protondl.launchers.lutris import LutrisLauncher
-from protondl.util.version_file import read_version_file
+from protondl.util.version_file import read_version_file, write_version_file
 
 
 def _make_tar_gz(tool_folder: str) -> bytes:
@@ -29,6 +31,141 @@ def _make_tar_gz(tool_folder: str) -> bytes:
         info.size = len(content)
         tf.addfile(info, BytesIO(content))
     return buffer.getvalue()
+
+
+def _mock_install(
+    monkeypatch: pytest.MonkeyPatch,
+    installer: Any,
+    version: str,
+    archive_bytes: dict[Arch, bytes],
+) -> dict[str, Any]:
+    """Patches the fetch/download/verify steps and counts downloads."""
+    calls: dict[str, Any] = {"downloads": 0, "current_arch": None}
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        calls["current_arch"] = arch
+        return ReleaseData(
+            version=v,
+            date="2026-08-03",
+            download="https://example.com/tool.tar.gz",
+            size=len(archive_bytes[arch]),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+    ) -> None:
+        calls["downloads"] += 1
+        destination.write_bytes(archive_bytes[calls["current_arch"]])
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+    return calls
+
+
+def test_install_raises_when_version_already_installed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+    archive_bytes = _make_tar_gz(version)
+
+    calls = _mock_install(
+        monkeypatch, installer, version, {Arch.X86_64: archive_bytes, Arch.AARCH64: archive_bytes}
+    )
+
+    asyncio.run(installer.install(version, launcher, arch=Arch.AARCH64))
+    assert calls["downloads"] == 1
+
+    with pytest.raises(AlreadyInstalledError, match="GE-Proton11-3 \\(aarch64\\) is already"):
+        asyncio.run(installer.install(version, launcher, arch=Arch.AARCH64))
+    assert calls["downloads"] == 1
+
+
+def test_install_allows_different_arch_same_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+    x86_bytes = _make_tar_gz(version)
+    aarch64_bytes = _make_tar_gz(version + "-aarch64")
+
+    calls = _mock_install(
+        monkeypatch,
+        installer,
+        version,
+        {Arch.X86_64: x86_bytes, Arch.AARCH64: aarch64_bytes},
+    )
+
+    asyncio.run(installer.install(version, launcher, arch=Arch.X86_64))
+    asyncio.run(installer.install(version, launcher, arch=Arch.AARCH64))
+
+    assert calls["downloads"] == 2
+    x86_dir = tmp_path / "runners" / "wine" / version
+    aarch64_dir = tmp_path / "runners" / "wine" / f"{version}-aarch64"
+    x86_info = read_version_file(x86_dir)
+    aarch64_info = read_version_file(aarch64_dir)
+    assert x86_info is not None
+    assert x86_info.arch == Arch.X86_64
+    assert aarch64_info is not None
+    assert aarch64_info.arch == Arch.AARCH64
+
+
+def test_install_force_reinstalls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+    archive_bytes = _make_tar_gz(version)
+
+    calls = _mock_install(
+        monkeypatch, installer, version, {Arch.X86_64: archive_bytes, Arch.AARCH64: archive_bytes}
+    )
+
+    asyncio.run(installer.install(version, launcher, arch=Arch.AARCH64))
+    installed_dir = tmp_path / "runners" / "wine" / version
+    assert read_version_file(installed_dir) is not None
+
+    asyncio.run(installer.install(version, launcher, arch=Arch.AARCH64, force=True))
+
+    assert calls["downloads"] == 2
+    info = read_version_file(installed_dir)
+    assert info is not None
+    assert info.arch == Arch.AARCH64
+
+
+def test_find_installed_tool_matches_version_and_arch(tmp_path: Path) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+
+    installed_dir = launcher.get_compatibility_tools_path(CompatToolType.PROTON) / version
+    installed_dir.mkdir(parents=True)
+    (installed_dir / "file.txt").write_text("test", encoding="utf-8")
+    write_version_file(
+        installed_dir,
+        CompatToolVersionInfo(
+            compat_tool=installer.name,
+            version=version,
+            installed_at=1,
+            arch=Arch.X86_64,
+        ),
+    )
+
+    found = installer.find_installed_tool(launcher, version, Arch.X86_64)
+    assert found is not None
+    assert found.install_dir == installed_dir
+
+    assert installer.find_installed_tool(launcher, version, Arch.AARCH64) is None
+    assert installer.find_installed_tool(launcher, "GE-Proton11-4", Arch.X86_64) is None
 
 
 def test_install_writes_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

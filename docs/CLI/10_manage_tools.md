@@ -69,6 +69,20 @@ If the requested architecture is not available for the tool, the installation fa
 with an error. After a successful installation, the CLI prints the installed
 architecture (e.g. `Successfully installed GE-Proton (aarch64)!`).
 
+If the requested version and architecture are already installed, the installation
+is skipped and protondl prints a notice (e.g. `GE-Proton11-3 (x86_64) is already
+installed.`), exiting with code 2. The check is architecture-aware: an x86_64 and
+an aarch64 build of the same version are independent, so installing the other
+architecture is allowed.
+
+Use `--force` (or `-f`) to re-install a version that is already installed. This
+removes the existing build of the same version and architecture before
+downloading and extracting it again:
+
+```bash
+protondl install 1 GE-Proton GE-Proton11-3 --arch aarch64 --force
+```
+
 When protondl installs a compatibility tool, it writes a `protondl_version.json` file into the
 tool's folder that stores metadata about the installation, including the compatibility tool's
 name, version, install timestamp, and the installed architecture with translation details.

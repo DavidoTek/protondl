@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from protondl.core.config import RequestConfig
 from protondl.core.models import (
+    AlreadyInstalledError,
     Arch,
     CompatTool,
     CompatToolVersionInfo,
@@ -413,9 +414,16 @@ async def update_compatibility_tools(
                     )
                 )
 
-        info = await installer.install(
-            update.latest_version, launcher, arch=update.arch, progress_callback=report_progress
-        )
+        try:
+            info = await installer.install(
+                update.latest_version,
+                launcher,
+                arch=update.arch,
+                progress_callback=report_progress,
+            )
+        except AlreadyInstalledError:
+            report_progress(InstallProgress(step=InstallStep.COMPLETED))
+            continue
 
         if not keep_old:
             for tool in update.installed_tools:

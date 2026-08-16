@@ -21,6 +21,7 @@ from protondl.cli.helpers import (
 )
 from protondl.core.base_launcher import Launcher
 from protondl.core.models import (
+    AlreadyInstalledError,
     Arch,
     CompatTool,
     CompatToolType,
@@ -169,6 +170,15 @@ def install_tool(
             "Defaults to the host architecture if supported by the tool, otherwise x86_64."
         ),
     ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help=(
+            "Re-install the version even if a build of the same version and "
+            "architecture is already installed (removes it first)."
+        ),
+    ),
 ) -> None:
     """
     Download and install a compatibility tool for a specific launcher.
@@ -229,6 +239,7 @@ def install_tool(
                     version,
                     target_launcher,
                     arch=requested_arch,
+                    force=force,
                     progress_callback=update_spinner,
                 )
             )
@@ -237,6 +248,9 @@ def install_tool(
             f"[bold green]Successfully installed {installer.name} ({arch_name})![/bold green]"
         )
         console.print(f"Please restart {target_launcher.name} to see the changes.")
+    except AlreadyInstalledError as e:
+        console.print(f"[yellow]{e}[/yellow]")
+        raise typer.Exit(code=2) from e
     except Exception as e:
         console.print(f"[red]Installation failed: {e}[/red]")
         raise typer.Exit(1) from e
