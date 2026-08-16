@@ -66,6 +66,9 @@ class LutrisWineInstaller(CtInstaller):
         release_data.version = version
         return release_data
 
+    def variant_of(self, version: str) -> str:
+        return "fshack" if "fshack-" in version else ""
+
     @staticmethod
     def _fshack_asset_condition(is_fshack: bool) -> Callable[[dict[str, Any]], bool]:
         """

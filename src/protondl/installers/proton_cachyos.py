@@ -28,20 +28,21 @@ class ProtonCachyOSInstaller(GEProtonInstaller):
     arch_release_suffixes = {Arch.X86_64: "-x86_64", Arch.AARCH64: "-arm64"}
 
     def _asset_matches_arch(self, name: str, arch: Arch, file_suffix: str) -> bool:
-        if arch is Arch.X86_64:
-            return re.search(rf"-x86_64(_v[234])?{re.escape(file_suffix)}$", name) is not None
-        return super()._asset_matches_arch(name, arch, file_suffix)
+        if arch is not Arch.X86_64:
+            return super()._asset_matches_arch(name, arch, file_suffix)
+
+        match = re.search(rf"-x86_64(_v[234])?{re.escape(file_suffix)}$", name)
+        if match is None:
+            return False
+        suffix = match.group(1) or ""
+        return f"x86_64{suffix}" in detect_hwcaps()
 
     def _asset_priority(self, asset: Mapping[str, Any]) -> int:
         name = asset.get("name", "")
         match = _HWCAP_RE.search(str(name))
         if match is None:
             return 0
-        suffix = match.group(1) or ""
-        variant = f"x86_64{suffix}"
-        if variant not in detect_hwcaps():
-            return 0
-        return _HWCAP_LEVELS[suffix]
+        return _HWCAP_LEVELS[match.group(1) or ""]
 
     async def _fetch_release_data(self, version: str, arch: Arch) -> ReleaseData:
         release_data = await fetch_project_release_data(

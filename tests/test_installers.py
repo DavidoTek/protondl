@@ -678,8 +678,8 @@ def _cachyos_with_hwcaps(
     return ProtonCachyOSInstaller()
 
 
-def test_cachyos_asset_matching() -> None:
-    installer = ProtonCachyOSInstaller()
+def test_cachyos_asset_matching(monkeypatch: pytest.MonkeyPatch) -> None:
+    installer = _cachyos_with_hwcaps(monkeypatch, {"x86_64", "x86_64_v2", "x86_64_v3"})
 
     assert installer._asset_matches_arch(
         "proton-cachyos-11.0-20260703-slr-x86_64_v3.tar.xz", Arch.X86_64, ".tar.xz"
@@ -699,8 +699,76 @@ def test_cachyos_asset_matching() -> None:
     ]
 
 
+def test_cachyos_excludes_unsupported_hwcap_variants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installer = _cachyos_with_hwcaps(monkeypatch, {"x86_64"})
+
+    assert not installer._asset_matches_arch(
+        "proton-cachyos-11.0-20260703-slr-x86_64_v3.tar.xz", Arch.X86_64, ".tar.xz"
+    )
+    assert not installer._asset_matches_arch(
+        "proton-cachyos-11.0-20260703-slr-x86_64_v4.tar.xz", Arch.X86_64, ".tar.xz"
+    )
+    assert installer._asset_matches_arch(
+        "proton-cachyos-11.0-20260703-slr-x86_64.tar.xz", Arch.X86_64, ".tar.xz"
+    )
+
+
+def test_cachyos_release_with_only_unsupported_variants_not_advertised_as_x86_64(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    release: dict[str, Any] = {
+        "tag_name": "cachyos-12.0-20260722-slr",
+        "published_at": "2026-07-22T00:57:55Z",
+        "assets": [
+            {
+                "name": "proton-cachyos-12.0-20260722-slr-x86_64_v4.tar.xz",
+                "size": 100,
+                "browser_download_url": "https://example.com/v4.tar.xz",
+            },
+            {
+                "name": "proton-cachyos-12.0-20260722-slr-arm64.tar.xz",
+                "size": 300,
+                "browser_download_url": "https://example.com/arm64.tar.xz",
+            },
+        ],
+    }
+    _fake_async_client(monkeypatch, [release])
+    _cachyos_with_hwcaps(monkeypatch, {"x86_64"})
+
+    releases = asyncio_run(ProtonCachyOSInstaller().fetch_releases())
+
+    assert releases == [ReleaseVersion("cachyos-12.0-20260722-slr", (Arch.AARCH64,))]
+
+
+def test_cachyos_release_with_only_unsupported_variants_has_no_x86_64_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    release: dict[str, Any] = {
+        "tag_name": "cachyos-12.0-20260722-slr",
+        "published_at": "2026-07-22T00:57:55Z",
+        "assets": [
+            {
+                "name": "proton-cachyos-12.0-20260722-slr-x86_64_v4.tar.xz",
+                "size": 100,
+                "browser_download_url": "https://example.com/v4.tar.xz",
+            },
+        ],
+    }
+    _fake_async_client(monkeypatch, release)
+    installer = _cachyos_with_hwcaps(monkeypatch, {"x86_64"})
+
+    release_data = asyncio_run(
+        installer._fetch_release_data("cachyos-12.0-20260722-slr", Arch.X86_64)
+    )
+
+    assert release_data.download is None
+
+
 def test_cachyos_fetch_releases_lists_tags(monkeypatch: pytest.MonkeyPatch) -> None:
     _fake_async_client(monkeypatch, [CACHYOS_RELEASE])
+    _cachyos_with_hwcaps(monkeypatch, {"x86_64", "x86_64_v2", "x86_64_v3"})
 
     releases = asyncio_run(ProtonCachyOSInstaller().fetch_releases())
 

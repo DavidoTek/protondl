@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import pytest
@@ -64,6 +64,7 @@ class _FakeInstaller:
         new_tool: CompatTool | None = None,
         new_info: CompatToolVersionInfo | None = None,
         supported_archs: tuple[Arch, ...] = (Arch.X86_64,),
+        variant_of: Callable[[str], str] | None = None,
     ) -> None:
         self.name = name
         self._releases = releases or []
@@ -73,7 +74,11 @@ class _FakeInstaller:
         self.install_calls: list[str] = []
         self.install_archs: list[Arch | None] = []
         self.supported_archs = supported_archs
+        self._variant_of = variant_of or (lambda version: "")
         self.request_config = None
+
+    def variant_of(self, version: str) -> str:
+        return self._variant_of(version)
 
     async def fetch_releases(self, count: int = 30, page: int = 1) -> list[ReleaseVersion]:
         self.fetch_count += 1
@@ -140,6 +145,10 @@ def _mock_version_files(
         return versions.get(install_dir.name)
 
     monkeypatch.setattr("protondl.util.version_file.read_version_file", read_version_file)
+
+
+def _lutris_variant(version: str) -> str:
+    return "fshack" if "fshack-" in version else ""
 
 
 def test_check_for_updates_returns_available_update(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -381,7 +390,7 @@ def test_update_compatibility_tools_returns_newly_installed_tool(
 
     result = asyncio.run(update_compatibility_tools(launcher, [update]))
 
-    assert result == {("GE-Proton", None): new}
+    assert result == {("GE-Proton", None, ""): new}
 
 
 def test_update_compatibility_tools_matches_tool_when_dir_name_differs_from_version(
@@ -403,7 +412,7 @@ def test_update_compatibility_tools_matches_tool_when_dir_name_differs_from_vers
 
     result = asyncio.run(update_compatibility_tools(launcher, [update]))
 
-    assert result == {("DXVK", None): new}
+    assert result == {("DXVK", None, ""): new}
 
 
 def test_update_compatibility_tools_matches_workflow_run_id_version(
@@ -425,7 +434,7 @@ def test_update_compatibility_tools_matches_workflow_run_id_version(
 
     result = asyncio.run(update_compatibility_tools(launcher, [update]))
 
-    assert result == {("Proton-Tkg", None): new}
+    assert result == {("Proton-Tkg", None, ""): new}
 
 
 def test_update_compatibility_tools_skips_update_when_new_tool_not_found(
@@ -660,6 +669,197 @@ def test_check_for_updates_multi_arch_up_to_date_label_includes_arch(
     assert result.updates == []
     assert set(result.up_to_date) == {"GE-Proton (x86_64)", "GE-Proton (aarch64)"}
     assert result.unchecked == []
+
+
+def test_check_for_updates_multi_variant_does_not_cross_match_variants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("lutris-fshack-7.2")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "lutris-fshack-7.2": _arch_version_info(
+                "lutris-fshack-7.2", "lutris-fshack-7.2", Arch.X86_64, "Lutris-Wine"
+            )
+        },
+    )
+    installer = _FakeInstaller(
+        "Lutris-Wine",
+        [ReleaseVersion("lutris-8.0"), ReleaseVersion("lutris-fshack-7.2")],
+        variant_of=_lutris_variant,
+    )
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.updates == []
+    assert result.up_to_date == ["Lutris-Wine (fshack)"]
+    assert result.unchecked == []
+
+
+def test_check_for_updates_multi_variant_gets_newest_same_variant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("lutris-fshack-7.2")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "lutris-fshack-7.2": _arch_version_info(
+                "lutris-fshack-7.2", "lutris-fshack-7.2", Arch.X86_64, "Lutris-Wine"
+            )
+        },
+    )
+    installer = _FakeInstaller(
+        "Lutris-Wine",
+        [ReleaseVersion("lutris-8.0"), ReleaseVersion("lutris-fshack-7.3")],
+        variant_of=_lutris_variant,
+    )
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.unchecked == []
+    assert len(result.updates) == 1
+    update = result.updates[0]
+    assert update.arch == Arch.X86_64
+    assert update.variant == "fshack"
+    assert update.latest_version == "lutris-fshack-7.3"
+    assert update.installed_versions == ["lutris-fshack-7.2"]
+    assert [tool.full_name for tool in update.installed_tools] == ["lutris-fshack-7.2"]
+
+
+def test_check_for_updates_multi_variant_separates_installed_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = _FakeLauncher([_tool("lutris-7.2"), _tool("lutris-fshack-7.2")])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "lutris-7.2": _arch_version_info(
+                "lutris-7.2", "lutris-7.2", Arch.X86_64, "Lutris-Wine"
+            ),
+            "lutris-fshack-7.2": _arch_version_info(
+                "lutris-fshack-7.2", "lutris-fshack-7.2", Arch.X86_64, "Lutris-Wine"
+            ),
+        },
+    )
+    installer = _FakeInstaller(
+        "Lutris-Wine",
+        [ReleaseVersion("lutris-8.0"), ReleaseVersion("lutris-fshack-7.3")],
+        variant_of=_lutris_variant,
+    )
+    _mock_installer_lookup(monkeypatch, installer)
+
+    result = asyncio.run(check_for_updates(launcher))
+
+    assert result.unchecked == []
+    assert len(result.updates) == 2
+    by_variant = {update.variant: update for update in result.updates}
+    assert set(by_variant) == {"", "fshack"}
+    assert [tool.full_name for tool in by_variant[""].installed_tools] == ["lutris-7.2"]
+    assert [tool.full_name for tool in by_variant["fshack"].installed_tools] == [
+        "lutris-fshack-7.2"
+    ]
+    assert by_variant[""].latest_version == "lutris-8.0"
+    assert by_variant["fshack"].latest_version == "lutris-fshack-7.3"
+
+
+def test_update_compatibility_tools_multi_variant_removes_only_matching_variant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    regular = _tool("lutris-7.2")
+    fshack = _tool("lutris-fshack-7.2")
+    launcher = _FakeLauncher([regular, fshack])
+    updates = [
+        ToolUpdate(
+            "Lutris-Wine",
+            "lutris-8.0",
+            ["lutris-7.2"],
+            [regular],
+            arch=Arch.X86_64,
+            variant="",
+        ),
+        ToolUpdate(
+            "Lutris-Wine",
+            "lutris-fshack-7.3",
+            ["lutris-fshack-7.2"],
+            [fshack],
+            arch=Arch.X86_64,
+            variant="fshack",
+        ),
+    ]
+    installer = _FakeInstaller("Lutris-Wine", variant_of=_lutris_variant)
+    _mock_installer_lookup(monkeypatch, installer)
+
+    asyncio.run(update_compatibility_tools(launcher, updates))
+
+    assert installer.install_calls == ["lutris-8.0", "lutris-fshack-7.3"]
+    assert launcher.removed == ["lutris-7.2", "lutris-fshack-7.2"]
+
+
+class _VariantInstaller(_FakeInstaller):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+
+    async def install(
+        self,
+        version: str,
+        launcher: _FakeLauncher,
+        arch: Arch | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> CompatToolVersionInfo:
+        launcher._installed_tools.append(_tool(version))
+        return CompatToolVersionInfo(
+            compat_tool=self.name, version=version, installed_at=1, arch=arch
+        )
+
+
+def test_update_compatibility_tools_returns_variant_keyed_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    new_regular = _tool("lutris-8.0")
+    new_fshack = _tool("lutris-fshack-7.3")
+    launcher = _FakeLauncher([new_regular, new_fshack])
+    _mock_version_files(
+        monkeypatch,
+        {
+            "lutris-8.0": _arch_version_info(
+                "lutris-8.0", "lutris-8.0", Arch.X86_64, "Lutris-Wine"
+            ),
+            "lutris-fshack-7.3": _arch_version_info(
+                "lutris-fshack-7.3", "lutris-fshack-7.3", Arch.X86_64, "Lutris-Wine"
+            ),
+        },
+    )
+    installer = _VariantInstaller("Lutris-Wine")
+    _mock_installer_lookup(monkeypatch, installer)
+    updates = [
+        ToolUpdate(
+            "Lutris-Wine",
+            "lutris-8.0",
+            ["lutris-7.2"],
+            [_tool("lutris-7.2")],
+            arch=Arch.X86_64,
+            variant="",
+        ),
+        ToolUpdate(
+            "Lutris-Wine",
+            "lutris-fshack-7.3",
+            ["lutris-fshack-7.2"],
+            [_tool("lutris-fshack-7.2")],
+            arch=Arch.X86_64,
+            variant="fshack",
+        ),
+    ]
+
+    result = asyncio.run(update_compatibility_tools(launcher, updates))
+
+    assert set(result) == {
+        ("Lutris-Wine", Arch.X86_64, ""),
+        ("Lutris-Wine", Arch.X86_64, "fshack"),
+    }
+    assert result[("Lutris-Wine", Arch.X86_64, "")].full_name == "lutris-8.0"
+    assert result[("Lutris-Wine", Arch.X86_64, "fshack")].full_name == "lutris-fshack-7.3"
 
 
 def test_update_compatibility_tools_installs_each_arch_version(

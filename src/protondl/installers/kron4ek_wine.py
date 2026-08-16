@@ -92,6 +92,13 @@ class Kron4ekWineInstaller(CtInstaller):
         release_data.version = version
         return release_data
 
+    def variant_of(self, version: str) -> str:
+        if version.endswith(_WOW64_SUFFIX):
+            return "wow64"
+        if version.endswith(_AMD64_SUFFIX):
+            return "amd64"
+        return ""
+
     @staticmethod
     def _wow64_asset_condition() -> Callable[[dict[str, Any]], bool]:
         """

@@ -477,13 +477,13 @@ def update_all(
 def _batch_update_all_games(
     target_launcher: Launcher,
     updates: list[ToolUpdate],
-    new_tools: Mapping[tuple[str, Arch | None], CompatTool],
+    new_tools: Mapping[tuple[str, Arch | None, str], CompatTool],
 ) -> None:
     """
     Updates the compatibility tool of all games to the newest version for each update.
     """
     for update in updates:
-        to_tool = new_tools.get((update.compat_tool_name, update.arch))
+        to_tool = new_tools.get((update.compat_tool_name, update.arch, update.variant))
         if to_tool is None:
             console.print(
                 f"[yellow]Could not find the newly installed {update.compat_tool_name}; "

@@ -158,11 +158,13 @@ async def check_for_updates(
     Checks all installed compatibility tools of a launcher for available updates.
 
     The newest available version is determined per (compatibility tool,
-    architecture): for each installed architecture of a tool, the release
-    history is walked back until a release providing a build for that
-    architecture is found. This handles releases that only ship a subset of
-    the tool's architectures (e.g. an architecture-specific patch), and means
-    the two architectures of a tool may be updated to different versions.
+    architecture, build variant): for each installed architecture and variant
+    of a tool, the release history is walked back until a release providing a
+    build of that variant and architecture is found. This handles releases
+    that only ship a subset of the tool's architectures (e.g. an
+    architecture-specific patch) and tools that ship multiple build variants
+    per architecture (e.g. fshack or wow64 builds); it means the
+    architectures and variants of a tool may be updated to different versions.
 
     Args:
         launcher: The game launcher instance to operate on.
@@ -170,17 +172,18 @@ async def check_for_updates(
 
     Returns:
         UpdateCheckResult: The compatibility tools with an available update
-            (one entry per architecture, including the newest version providing
-            that architecture), the tools that are already at the newest
-            version, and the tools that could not be checked.
+            (one entry per architecture and build variant, including the newest
+            version providing that architecture and variant), the tools that
+            are already at the newest version, and the tools that could not be
+            checked.
     """
     from protondl.installers import get_installer_by_name
     from protondl.util.version_file import read_version_file
 
     installed_tools = launcher.get_installed_tools()
     unchecked: list[str] = []
-    groups: dict[tuple[str, Arch], list[CompatTool]] = {}
-    versions_by_group: dict[tuple[str, Arch], list[str]] = {}
+    groups: dict[tuple[str, Arch, str], list[CompatTool]] = {}
+    versions_by_group: dict[tuple[str, Arch, str], list[str]] = {}
     installers: dict[str, CtInstaller] = {}
     installer_order: list[str] = []
 
@@ -199,7 +202,8 @@ async def check_for_updates(
             installer.request_config = request_config
 
         arch = _resolve_tool_arch(installer, info)
-        group = (installer.name, arch)
+        variant = installer.variant_of(info.version)
+        group = (installer.name, arch, variant)
         if installer.name not in installers:
             installers[installer.name] = installer
             installer_order.append(installer.name)
@@ -210,25 +214,25 @@ async def check_for_updates(
     up_to_date: list[str] = []
     for tool_name in installer_order:
         installer = installers[tool_name]
-        group_archs = [arch for (name, arch) in groups if name == tool_name]
+        group_variants = [(arch, variant) for (name, arch, variant) in groups if name == tool_name]
 
         try:
-            candidates = await _newest_releases_for_archs(installer, group_archs)
+            candidates = await _newest_releases_for_archs(installer, group_variants)
         except Exception:
             unchecked.extend(tool.full_name for tool in _group_tools(groups, tool_name))
             continue
 
-        for arch in group_archs:
-            candidate = candidates.get(arch)
-            tools = groups[(tool_name, arch)]
+        for arch, variant in group_variants:
+            candidate = candidates.get((arch, variant))
+            tools = groups[(tool_name, arch, variant)]
             if candidate is None:
                 unchecked.extend(tool.full_name for tool in tools)
                 continue
 
             latest_version = candidate.version
-            installed_versions = versions_by_group[(tool_name, arch)]
+            installed_versions = versions_by_group[(tool_name, arch, variant)]
             if latest_version in installed_versions:
-                up_to_date.append(_tool_label(installer, arch))
+                up_to_date.append(_tool_label(installer, arch, variant))
             else:
                 updates.append(
                     ToolUpdate(
@@ -237,6 +241,7 @@ async def check_for_updates(
                         installed_versions=installed_versions,
                         installed_tools=tools,
                         arch=arch,
+                        variant=variant,
                     )
                 )
 
@@ -244,35 +249,42 @@ async def check_for_updates(
 
 
 async def _newest_releases_for_archs(
-    installer: CtInstaller, archs: Sequence[Arch]
-) -> dict[Arch, ReleaseVersion]:
+    installer: CtInstaller, arch_variants: Sequence[tuple[Arch, str]]
+) -> dict[tuple[Arch, str], ReleaseVersion]:
     """
-    Finds the newest release providing a build for each of the given architectures.
+    Finds the newest release providing a build for each of the given
+    (architecture, variant) combinations.
 
     The release history is walked back page by page until a release providing
-    each requested architecture is found or the release history is exhausted
+    each requested combination is found or the release history is exhausted
     (bounded by MAX_UPDATE_RELEASES_PAGES).
 
     Args:
         installer: The compatibility tool installer to query.
-        archs: The architectures to find the newest release for.
+        arch_variants: The (architecture, variant) combinations to find the
+            newest release for.
 
     Returns:
-        dict[Arch, ReleaseVersion]: The newest release providing a build for
-            each architecture, keyed by architecture. Architectures without a
-            matching release within the fetched history are omitted.
+        dict[tuple[Arch, str], ReleaseVersion]: The newest release providing a
+            build for each requested combination, keyed by the combination.
+            Combinations without a matching release within the fetched history
+            are omitted.
     """
-    archs = [arch for arch in archs if arch in installer.supported_archs]
-    if not archs:
+    arch_variants = [
+        (arch, variant) for arch, variant in arch_variants if arch in installer.supported_archs
+    ]
+    if not arch_variants:
         return {}
-    found: dict[Arch, ReleaseVersion] = {}
+    found: dict[tuple[Arch, str], ReleaseVersion] = {}
     for page in range(1, MAX_UPDATE_RELEASES_PAGES + 1):
         releases = await installer.fetch_releases(count=UPDATE_RELEASES_PAGE_SIZE, page=page)
         for release in releases:
-            for arch in archs:
-                if arch not in found and arch in release.archs:
-                    found[arch] = release
-        if len(found) == len(archs):
+            release_variant = installer.variant_of(release.version)
+            for arch, variant in arch_variants:
+                key = (arch, variant)
+                if key not in found and arch in release.archs and release_variant == variant:
+                    found[key] = release
+        if len(found) == len(arch_variants):
             break
         if len(releases) < UPDATE_RELEASES_PAGE_SIZE:
             break
@@ -304,30 +316,37 @@ def _resolve_tool_arch(installer: CtInstaller, info: CompatToolVersionInfo) -> A
     return installer.resolve_arch(None)
 
 
-def _tool_label(installer: CtInstaller, arch: Arch) -> str:
+def _tool_label(installer: CtInstaller, arch: Arch, variant: str = "") -> str:
     """
     Returns the display label of a tool for a given architecture.
 
     For tools that provide multiple architectures the label includes the
-    architecture, single-architecture tools keep their plain name.
+    architecture, single-architecture tools keep their plain name. A non-empty
+    build variant is appended to the label.
 
     Args:
         installer: The compatibility tool installer of the tool.
         arch: The architecture to label.
+        variant: The build variant of the tool, or an empty string for the
+            default variant.
 
     Returns:
         str: The display label.
     """
     if len(installer.supported_archs) > 1:
-        return f"{installer.name} ({arch.value})"
-    return installer.name
+        label = f"{installer.name} ({arch.value})"
+    else:
+        label = installer.name
+    if variant:
+        return f"{label} ({variant})"
+    return label
 
 
 def _group_tools(
-    groups: dict[tuple[str, Arch], list[CompatTool]], tool_name: str
+    groups: dict[tuple[str, Arch, str], list[CompatTool]], tool_name: str
 ) -> list[CompatTool]:
     """Returns all installed tools of the given compatibility tool name."""
-    return [tool for (name, _), tools in groups.items() if name == tool_name for tool in tools]
+    return [tool for (name, _, _), tools in groups.items() if name == tool_name for tool in tools]
 
 
 async def update_compatibility_tools(
@@ -336,14 +355,14 @@ async def update_compatibility_tools(
     keep_old: bool = False,
     progress_callback: ProgressCallback | None = None,
     request_config: RequestConfig | None = None,
-) -> dict[tuple[str, Arch | None], CompatTool]:
+) -> dict[tuple[str, Arch | None, str], CompatTool]:
     """
     Installs the newest version of all given compatibility tools.
 
     Each update is installed for its own architecture (the architecture of the
     installed builds it replaces). If keep_old is False, all older versions of
-    the compatibility tool for that architecture are removed after the new
-    version was installed successfully.
+    the compatibility tool for that architecture and build variant are removed
+    after the new version was installed successfully.
 
     Args:
         launcher: The game launcher instance to operate on.
@@ -355,16 +374,17 @@ async def update_compatibility_tools(
         request_config: Optional configuration for API requests, including auth tokens.
 
     Returns:
-        dict[(str, Arch | None), CompatTool]: A mapping of compatibility tool
-            name and architecture to the newly installed tool for every update
-            whose installation directory could be determined.
+        dict[(str, Arch | None, str), CompatTool]: A mapping of compatibility
+            tool name, architecture and build variant to the newly installed
+            tool for every update whose installation directory could be
+            determined.
 
     Raises:
         ValueError: If no CtInstaller exists for one of the compatibility tools.
     """
     from protondl.installers import get_installer_by_name
 
-    installed_new_tools: dict[tuple[str, Arch | None], CompatTool] = {}
+    installed_new_tools: dict[tuple[str, Arch | None, str], CompatTool] = {}
     total = len(updates)
     for index, update in enumerate(updates):
         installer = get_installer_by_name(update.compat_tool_name)
@@ -403,7 +423,7 @@ async def update_compatibility_tools(
 
         new_tool = _find_installed_tool(launcher, info)
         if new_tool is not None:
-            installed_new_tools[(update.compat_tool_name, update.arch)] = new_tool
+            installed_new_tools[(update.compat_tool_name, update.arch, update.variant)] = new_tool
 
         report_progress(InstallProgress(step=InstallStep.COMPLETED))
 

@@ -219,6 +219,25 @@ class CtInstaller(ABC):
         """
         return self.tool_type in launcher.supported_tools_folders
 
+    def variant_of(self, version: str) -> str:
+        """
+        Returns the build variant a version string belongs to.
+
+        Tools that ship multiple distinct build variants under the same
+        architecture and version-string space (e.g. Lutris-Wine's fshack
+        builds or Kron4ek's wow64 builds) must override this so that update
+        checks group the variants separately instead of treating them as
+        interchangeable builds.
+
+        Args:
+            version (str): The version string as returned by fetch_releases.
+
+        Returns:
+            str: The variant identifier of the version, or an empty string
+                for the default variant.
+        """
+        return ""
+
     def remove(self, tool: CompatTool, launcher: Launcher) -> None:
         """
         Removes an installed compatibility tool.
