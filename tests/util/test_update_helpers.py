@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from protondl.core.base_launcher import Game, Launcher
+from protondl.core.config import RequestConfig
 from protondl.core.models import (
     Arch,
     CompatTool,
@@ -135,7 +136,9 @@ def _arch_version_info(
 
 
 def _mock_installer_lookup(monkeypatch: pytest.MonkeyPatch, installer: _FakeInstaller) -> None:
-    monkeypatch.setattr("protondl.installers.get_installer_by_name", lambda name: installer)
+    monkeypatch.setattr(
+        "protondl.installers.get_installer_by_name", lambda name, request_config=None: installer
+    )
 
 
 def _mock_version_files(
@@ -211,7 +214,9 @@ def test_check_for_updates_mixed_updates_and_up_to_date(
         },
     )
 
-    def fake_lookup(name: str) -> _FakeInstaller | None:
+    def fake_lookup(
+        name: str, request_config: RequestConfig | None = None
+    ) -> _FakeInstaller | None:
         if name == "GE-Proton":
             return _FakeInstaller("GE-Proton", [ReleaseVersion("GE-Proton11-3")])
         if name == "DXVK":
@@ -262,7 +267,9 @@ def test_check_for_updates_unchecked_without_matching_installer(
     launcher = _FakeLauncher([_tool("UnknownTool-1.0")])
     info = CompatToolVersionInfo(compat_tool="Unknown", version="UnknownTool-1.0", installed_at=1)
     _mock_version_files(monkeypatch, {"UnknownTool-1.0": info})
-    monkeypatch.setattr("protondl.installers.get_installer_by_name", lambda name: None)
+    monkeypatch.setattr(
+        "protondl.installers.get_installer_by_name", lambda name, request_config=None: None
+    )
 
     result = asyncio.run(check_for_updates(launcher))
 
@@ -342,7 +349,9 @@ def test_update_compatibility_tools_reports_progress_for_all_updates(
         ToolUpdate("DXVK", "dxvk-2.3", ["dxvk-2.2"], [_tool("dxvk-2.2")]),
     ]
     installer = _FakeInstaller("GE-Proton")
-    monkeypatch.setattr("protondl.installers.get_installer_by_name", lambda name: installer)
+    monkeypatch.setattr(
+        "protondl.installers.get_installer_by_name", lambda name, request_config=None: installer
+    )
 
     progress: list[InstallProgress] = []
     asyncio.run(

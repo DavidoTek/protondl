@@ -13,7 +13,7 @@ from protondl.core.models import (
     ReleaseData,
     ReleaseVersion,
 )
-from protondl.installers import CT_INSTALLERS
+from protondl.installers import get_all_installers
 from protondl.installers.boxtron import BoxtronInstaller
 from protondl.installers.dwproton import DWProtonInstaller
 from protondl.installers.kron4ek_wine import Kron4ekWineInstaller
@@ -114,7 +114,8 @@ def _make_tar_gz(tool_folder: str) -> bytes:
 def test_new_installer_attributes(
     name: str, tool_type: CompatToolType, advanced: bool, release_format: str, checksum_suffix: str
 ) -> None:
-    installer = CT_INSTALLERS[[i.name for i in CT_INSTALLERS].index(name)]
+    all_installers = get_all_installers()
+    installer = all_installers[[i.name for i in all_installers].index(name)]
     assert installer.name == name
     assert installer.tool_type is tool_type
     assert installer.advanced is advanced
@@ -127,7 +128,8 @@ def test_new_installer_attributes(
 
 
 def test_new_installers_are_registered_once() -> None:
-    names = [installer.name for installer in CT_INSTALLERS]
+    all_installers = get_all_installers()
+    names = [installer.name for installer in all_installers]
     assert len(names) == len(set(names))
     for name in [
         "Boxtron",

@@ -82,8 +82,8 @@ class CtInstaller(ABC):
     from_arch: str = "x86_64"
     to_os: str = "linux"
 
-    def __init__(self) -> None:
-        self.request_config: RequestConfig = RequestConfig()
+    def __init__(self, request_config: RequestConfig | None = None) -> None:
+        self.request_config: RequestConfig = request_config or RequestConfig()
         self.buffer_size = 65536
 
     async def fetch_releases(self, count: int = 30, page: int = 1) -> list[ReleaseVersion]:

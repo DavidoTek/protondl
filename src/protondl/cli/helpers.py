@@ -7,8 +7,9 @@ from rich.progress import Progress, TaskID
 
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
+from protondl.core.config import RequestConfig
 from protondl.core.models import Arch, CompatTool, InstallProgress
-from protondl.installers import CT_INSTALLERS
+from protondl.installers import get_all_installers
 from protondl.launchers import (
     LAUNCHER_TYPE_MAP,
     create_launcher_from_path,
@@ -92,20 +93,24 @@ def select_launcher(launcher: str, *, allow_missing_path: bool = False) -> Launc
         raise typer.Exit(code=1) from None
 
 
-def resolve_installer(tool_name: str) -> CtInstaller | None:
+def resolve_installer(
+    tool_name: str, request_config: RequestConfig | None = None
+) -> CtInstaller | None:
     """
     Resolve a compatibility tool installer from a name or numeric identifier.
 
     Args:
         tool_name: human name or 1-based numeric ID of the tool.
-        launcher: ignored; present to keep the API stable.
+        request_config: optional configuration for HTTP requests made by the installer.
 
     Returns:
         The matching :class:`CtInstaller` instance, or ``None`` if no match
         exists.
     """
+    all_installers = get_all_installers(request_config)
+
     installer = next(
-        (i for i in CT_INSTALLERS if i.name.lower() == tool_name.lower()),
+        (i for i in all_installers if i.name.lower() == tool_name.lower()),
         None,
     )
     if installer:
@@ -113,8 +118,8 @@ def resolve_installer(tool_name: str) -> CtInstaller | None:
 
     if tool_name.isdigit():
         tool_id = int(tool_name) - 1
-        if 0 <= tool_id < len(CT_INSTALLERS):
-            return CT_INSTALLERS[tool_id]
+        if 0 <= tool_id < len(all_installers):
+            return all_installers[tool_id]
 
     return None
 

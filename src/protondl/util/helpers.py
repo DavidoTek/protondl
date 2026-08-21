@@ -194,13 +194,10 @@ async def check_for_updates(
             unchecked.append(tool.full_name)
             continue
 
-        installer = get_installer_by_name(info.compat_tool)
+        installer = get_installer_by_name(info.compat_tool, request_config=request_config)
         if installer is None:
             unchecked.append(tool.full_name)
             continue
-
-        if request_config is not None:
-            installer.request_config = request_config
 
         arch = _resolve_tool_arch(installer, info)
         variant = installer.variant_of(info.version)
@@ -388,14 +385,11 @@ async def update_compatibility_tools(
     installed_new_tools: dict[tuple[str, Arch | None, str], CompatTool] = {}
     total = len(updates)
     for index, update in enumerate(updates):
-        installer = get_installer_by_name(update.compat_tool_name)
+        installer = get_installer_by_name(update.compat_tool_name, request_config=request_config)
         if installer is None:
             raise ValueError(
                 f"No installer found for compatibility tool '{update.compat_tool_name}'."
             )
-
-        if request_config is not None:
-            installer.request_config = request_config
 
         def report_progress(
             event: InstallProgress,

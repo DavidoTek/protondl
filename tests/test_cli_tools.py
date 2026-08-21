@@ -56,7 +56,9 @@ def _patch_cli(monkeypatch: pytest.MonkeyPatch) -> _FakeInstaller:
     monkeypatch.setattr(
         "protondl.cli.tools.select_launcher", lambda launcher_id, **_: _FakeLauncher()
     )
-    monkeypatch.setattr("protondl.cli.tools.resolve_installer", lambda tool_name: installer)
+    monkeypatch.setattr(
+        "protondl.cli.tools.resolve_installer", lambda tool_name, request_config=None: installer
+    )
     return installer
 
 

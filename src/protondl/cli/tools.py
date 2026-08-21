@@ -29,7 +29,7 @@ from protondl.core.models import (
     InstallStep,
     ToolUpdate,
 )
-from protondl.installers import CT_INSTALLERS, get_tools_for_launcher
+from protondl.installers import get_installer_index, get_tools_for_launcher
 from protondl.util.helpers import (
     batch_update_games_tools,
     check_for_updates,
@@ -53,7 +53,6 @@ def list_supported_tools(
     """
     target_launcher = select_launcher(launcher)
     compatible_tools = get_tools_for_launcher(target_launcher)
-    compatible_tools.sort(key=lambda t: CT_INSTALLERS.index(t))
 
     if not compatible_tools:
         console.print(f"[yellow]No compatible tools found for {target_launcher.name}.[/yellow]")
@@ -71,7 +70,7 @@ def list_supported_tools(
     table.add_column("More Info", style="blue")
 
     for tool in compatible_tools:
-        global_id = CT_INSTALLERS.index(tool) + 1
+        global_id = get_installer_index(tool)
         table.add_row(str(global_id), tool.name, tool.description, tool.info_url)
 
     console.print(table)
@@ -98,7 +97,7 @@ def list_versions(
     """
     Fetch and list all available remote versions for a specific tool.
     """
-    installer = resolve_installer(tool_name)
+    installer = resolve_installer(tool_name, request_config=state["request_config"])
 
     if not installer:
         console.print(f"[red]Error: Tool '{tool_name}' not found in registry.[/red]")
@@ -112,8 +111,6 @@ def list_versions(
             f"{installer.name}. Supported: {supported}.[/red]"
         )
         raise typer.Exit(1)
-
-    installer.request_config = state["request_config"]
 
     try:
         with console.status(
@@ -184,7 +181,7 @@ def install_tool(
     Download and install a compatibility tool for a specific launcher.
     """
     target_launcher = select_launcher(launcher, allow_missing_path=True)
-    installer = resolve_installer(tool_name)
+    installer = resolve_installer(tool_name, request_config=state["request_config"])
 
     if not installer:
         console.print(f"[red]Error: Tool '{tool_name}' is not supported.[/red]")
@@ -198,8 +195,6 @@ def install_tool(
             f"{installer.name}. Supported: {supported}.[/red]"
         )
         raise typer.Exit(1)
-
-    installer.request_config = state["request_config"]
 
     if not installer.supports_launcher(target_launcher):
         console.print(

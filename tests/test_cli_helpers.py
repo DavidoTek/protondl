@@ -4,8 +4,9 @@ import pytest
 import typer
 
 from protondl.cli.helpers import resolve_installer, select_launcher
+from protondl.core.config import RequestConfig
 from protondl.core.models import InstallMode
-from protondl.installers import CT_INSTALLERS
+from protondl.installers import get_all_installers, get_installer_by_name
 from protondl.launchers import create_launcher_from_path, is_valid_launcher_home
 from protondl.launchers.heroic import HeroicLauncher
 from protondl.launchers.lutris import LutrisLauncher
@@ -111,12 +112,36 @@ def test_create_launcher_from_path_lutris_config_dir(tmp_path: Path) -> None:
 
 
 def test_resolve_installer_by_name() -> None:
-    assert resolve_installer(CT_INSTALLERS[0].name) is CT_INSTALLERS[0]
+    all_installers = get_all_installers()
+    result = resolve_installer(all_installers[0].name)
+    assert result is not None
+    assert result.name == all_installers[0].name
 
 
 def test_resolve_installer_global_index() -> None:
-    # numeric IDs correspond to CT_INSTALLERS order and are independent of launcher
-    assert resolve_installer("1") is CT_INSTALLERS[0]
-    assert resolve_installer(str(len(CT_INSTALLERS))) is CT_INSTALLERS[-1]
+    all_installers = get_all_installers()
+    # numeric IDs correspond to install order and are independent of launcher
+    assert resolve_installer("1").name == all_installers[0].name  # type: ignore[union-attr]
+    assert resolve_installer(str(len(all_installers))).name == all_installers[-1].name  # type: ignore[union-attr]
     # out-of-range returns None
-    assert resolve_installer(str(len(CT_INSTALLERS) + 1)) is None
+    assert resolve_installer(str(len(all_installers) + 1)) is None
+
+
+def test_resolve_installer_passes_request_config() -> None:
+    config = RequestConfig(github_token="token")
+    result = resolve_installer("GE-Proton", request_config=config)
+    assert result is not None
+    assert result.request_config is config
+
+
+def test_get_installer_by_name_passes_request_config() -> None:
+    config = RequestConfig(github_token="token")
+    installer = get_installer_by_name("GE-Proton", request_config=config)
+    assert installer is not None
+    assert installer.request_config is config
+
+
+def test_get_all_installers_passes_request_config() -> None:
+    config = RequestConfig(gitlab_token="token")
+    for installer in get_all_installers(request_config=config):
+        assert installer.request_config is config
