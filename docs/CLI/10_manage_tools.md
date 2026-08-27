@@ -88,6 +88,12 @@ tool's folder that stores metadata about the installation, including the compati
 name, version, install timestamp, and the installed architecture with translation details.
 See the [Library API](../Library_API/30_launcher_api.md#protondl_versionjson) docs for details.
 
+Press `Ctrl+C` during the download or extraction to cancel the installation. protondl removes
+the partially downloaded archive and any files already extracted, so no half-installed tool is
+left behind, prints `Installation cancelled.` and exits with code 130. Cancellation is
+cooperative and takes effect within a fraction of a second; press `Ctrl+C` a second time to
+abort immediately without cleanup.
+
 ## List installed compatibility tools
 
 If you want to see, which compatibility tools are installed for a specific launcher, run the following command:
@@ -170,3 +176,8 @@ Options:
 
 Note: Tools that could not be mapped to an installer (e.g. tools not installed by protondl)
 are reported but skipped.
+
+Press `Ctrl+C` while the tools are being updated to cancel the run. Tools already updated
+before the cancel stay installed, the current tool's partial download and extraction are
+cleaned up, and protondl prints `Update cancelled.` and exits with code 130 without running
+the batch update of games. Press `Ctrl+C` a second time to abort immediately.

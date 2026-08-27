@@ -13,6 +13,7 @@ from rich.table import Table
 
 from protondl.cli import app, console, state
 from protondl.cli.helpers import (
+    cancel_on_sigint,
     parse_arch,
     resolve_installed_tool,
     resolve_installer,
@@ -23,8 +24,10 @@ from protondl.core.base_launcher import Launcher
 from protondl.core.models import (
     AlreadyInstalledError,
     Arch,
+    CancelToken,
     CompatTool,
     CompatToolType,
+    InstallCancelledError,
     InstallProgress,
     InstallStep,
     ToolUpdate,
@@ -215,15 +218,20 @@ def install_tool(
         + f"to [bold green]{target_launcher.name}[/bold green]..."
     )
 
+    cancel_token = CancelToken()
+
     try:
-        with Progress(
-            "[progress.description]{task.description}",
-            BarColumn(),
-            "[progress.percentage]{task.percentage:>3.0f}%",
-            DownloadColumn(),
-            TransferSpeedColumn(),
-            TimeRemainingColumn(),
-        ) as progress:
+        with (
+            cancel_on_sigint(cancel_token, console),
+            Progress(
+                "[progress.description]{task.description}",
+                BarColumn(),
+                "[progress.percentage]{task.percentage:>3.0f}%",
+                DownloadColumn(),
+                TransferSpeedColumn(),
+                TimeRemainingColumn(),
+            ) as progress,
+        ):
             task_id = progress.add_task(f"Installing {installer.name}...", total=None)
 
             def update_spinner(event: InstallProgress) -> None:
@@ -236,6 +244,7 @@ def install_tool(
                     arch=requested_arch,
                     force=force,
                     progress_callback=update_spinner,
+                    cancel_token=cancel_token,
                 )
             )
         arch_name = info.arch.value if info.arch else "unknown"
@@ -246,6 +255,9 @@ def install_tool(
     except AlreadyInstalledError as e:
         console.print(f"[yellow]{e}[/yellow]")
         raise typer.Exit(code=2) from e
+    except InstallCancelledError as e:
+        console.print("[yellow]Installation cancelled.[/yellow]")
+        raise typer.Exit(code=130) from e
     except Exception as e:
         console.print(f"[red]Installation failed: {e}[/red]")
         raise typer.Exit(1) from e
@@ -434,13 +446,18 @@ def update_all(
     if not yes_install and not typer.confirm("Do you want to install the updates?"):
         return
 
+    cancel_token = CancelToken()
+
     try:
-        with Progress(
-            "[progress.description]{task.description}",
-            BarColumn(),
-            "[progress.percentage]{task.percentage:>3.0f}%",
-            TimeRemainingColumn(),
-        ) as progress:
+        with (
+            cancel_on_sigint(cancel_token, console),
+            Progress(
+                "[progress.description]{task.description}",
+                BarColumn(),
+                "[progress.percentage]{task.percentage:>3.0f}%",
+                TimeRemainingColumn(),
+            ) as progress,
+        ):
             outer_task = progress.add_task(
                 "Updating compatibility tools...", total=len(result.updates)
             )
@@ -464,9 +481,13 @@ def update_all(
                     keep_old=keep_old,
                     progress_callback=update_progress,
                     request_config=state["request_config"],
+                    cancel_token=cancel_token,
                 )
             )
             progress.remove_task(inner_task)
+    except InstallCancelledError as e:
+        console.print("[yellow]Update cancelled.[/yellow]")
+        raise typer.Exit(code=130) from e
     except Exception as e:
         console.print(f"[red]Updating compatibility tools failed: {e}[/red]")
         raise typer.Exit(code=1) from e

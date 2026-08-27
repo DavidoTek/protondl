@@ -1,3 +1,5 @@
+import os
+import signal
 from pathlib import Path
 
 import pytest
@@ -8,6 +10,7 @@ from protondl.core.base_launcher import Launcher
 from protondl.core.config import RequestConfig
 from protondl.core.models import (
     Arch,
+    CancelToken,
     CompatTool,
     CompatToolType,
     InstallProgress,
@@ -63,7 +66,10 @@ def _patch_cli(
         keep_old: bool = False,
         progress_callback: ProgressCallback | None = None,
         request_config: RequestConfig | None = None,
+        cancel_token: CancelToken | None = None,
     ) -> dict[tuple[str, Arch | None, str], CompatTool]:
+        if cancel_token is not None:
+            cancel_token.raise_if_cancelled()
         for update in updates:
             installed.append(update.latest_version)
         if progress_callback:
@@ -172,6 +178,30 @@ def test_update_all_install_declined(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0
     assert installed == []
     assert "Do you want to install the updates?" in result.stdout
+
+
+def test_update_all_cancelled_on_sigint(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_cli(monkeypatch, _make_result())
+
+    async def cancelling_update(
+        launcher: Launcher,
+        updates: list[ToolUpdate],
+        keep_old: bool = False,
+        progress_callback: ProgressCallback | None = None,
+        request_config: RequestConfig | None = None,
+        cancel_token: CancelToken | None = None,
+    ) -> dict[tuple[str, Arch | None, str], CompatTool]:
+        os.kill(os.getpid(), signal.SIGINT)
+        assert cancel_token is not None
+        cancel_token.raise_if_cancelled()
+        raise AssertionError("update should have been cancelled")
+
+    monkeypatch.setattr("protondl.cli.tools.update_compatibility_tools", cancelling_update)
+
+    result = runner.invoke(app, ["update-all", "1", "--yes-install"])
+
+    assert result.exit_code == 130
+    assert "Update cancelled." in result.stdout
 
 
 def test_update_all_check_failure(monkeypatch: pytest.MonkeyPatch) -> None:

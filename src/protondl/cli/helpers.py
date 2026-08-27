@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import signal
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import typer
+from rich.console import Console
 from rich.progress import Progress, TaskID
 
 from protondl.core.base_installer import CtInstaller
 from protondl.core.base_launcher import Launcher
 from protondl.core.config import RequestConfig
-from protondl.core.models import Arch, CompatTool, InstallProgress
+from protondl.core.models import Arch, CancelToken, CompatTool, InstallProgress
 from protondl.installers import get_all_installers
 from protondl.launchers import (
     LAUNCHER_TYPE_MAP,
@@ -168,6 +172,42 @@ def resolve_installed_tool(installed_tools: list[CompatTool], tool_name: str) ->
         (tool for tool in installed_tools if tool.full_name.lower() == tool_name.lower()),
         None,
     )
+
+
+@contextmanager
+def cancel_on_sigint(cancel_token: CancelToken, console: Console) -> Iterator[None]:
+    """
+    Turn Ctrl+C (SIGINT) into a cooperative cancellation of the given token.
+
+    While the context is active, the first Ctrl+C requests cancellation through
+    ``cancel_token`` instead of raising ``KeyboardInterrupt``, so the running
+    install/update can remove partially downloaded and extracted files before
+    raising :class:`InstallCancelledError`. A second Ctrl+C restores the default
+    handler and aborts immediately.
+
+    If no signal handler can be installed (e.g. not running in the main thread),
+    the context does nothing and Ctrl+C keeps its default behaviour.
+
+    Args:
+        cancel_token (CancelToken): The token to cancel when SIGINT is received.
+        console (Console): The console used to print the cancellation notice.
+    """
+
+    def handler(signum: int, frame: object) -> None:
+        console.print("\n[yellow]Cancelling... press Ctrl+C again to abort immediately.[/yellow]")
+        cancel_token.cancel()
+        signal.signal(signal.SIGINT, previous_handler)
+
+    try:
+        previous_handler = signal.signal(signal.SIGINT, handler)
+    except ValueError:
+        yield
+        return
+
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGINT, previous_handler)
 
 
 def update_install_progress(progress: Progress, task_id: TaskID, event: InstallProgress) -> None:
