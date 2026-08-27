@@ -237,6 +237,7 @@ def test_boxtron_install_writes_version_file(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -297,6 +298,7 @@ def test_luxtorpeda_install_writes_version_file(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -342,6 +344,7 @@ def test_proton_em_install_writes_version_file(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -610,6 +613,7 @@ def test_dwproton_install_writes_version_file(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -835,6 +839,7 @@ def test_cachyos_install_writes_version_file(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -928,6 +933,7 @@ def test_steam_play_none_install_writes_version_file(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -1060,6 +1066,7 @@ def test_steam_tinkerlaunch_install_writes_version_file_and_vdfs(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -1123,6 +1130,7 @@ def test_steam_tinkerlaunch_git_install_writes_version_file_and_vdfs(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 

@@ -8,6 +8,7 @@ import httpx
 from protondl.core.config import RequestConfig
 from protondl.core.models import (
     Arch,
+    CancelToken,
     GitHubArtifactResponse,
     InstallProgress,
     InstallStep,
@@ -376,6 +377,7 @@ async def download_file(
     progress_callback: ProgressCallback | None = None,
     known_size: int = 0,
     buffer_size: int = 65536,
+    cancel_token: CancelToken | None = None,
 ) -> None:
     """
     Downloads a file from the specified URL to the given destination path.
@@ -390,6 +392,12 @@ async def download_file(
         known_size (int): The known size of the file, if available.
             If 0, it will attempt to determine the size from the response headers.
         buffer_size (int): The size of the buffer to use when reading the file in bytes.
+        cancel_token (CancelToken | None, optional): An optional token checked before
+            every written chunk. The partially downloaded file is left in place for
+            the caller to clean up.
+
+    Raises:
+        InstallCancelledError: If the cancel_token is cancelled during the download.
     """
     destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -403,6 +411,8 @@ async def download_file(
         with open(destination, "wb") as f:
             downloaded = 0
             async for chunk in response.aiter_bytes(chunk_size=buffer_size):
+                if cancel_token is not None:
+                    cancel_token.raise_if_cancelled()
                 f.write(chunk)
                 downloaded += len(chunk)
                 if progress_callback:

@@ -1,3 +1,4 @@
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -9,6 +10,64 @@ class InstallMode(Enum):
     NATIVE = "native"
     FLATPAK = "flatpak"
     SNAP = "snap"
+
+
+class InstallCancelledError(Exception):
+    """
+    Raised when a compatibility tool install or update was cancelled.
+
+    Cancellation is requested through a CancelToken passed to
+    CtInstaller.install() or update_compatibility_tools(). Partially
+    downloaded and extracted files are cleaned up before this is raised.
+    """
+
+    def __init__(self, message: str = "The operation was cancelled.") -> None:
+        super().__init__(message)
+
+
+class CancelToken:
+    """
+    A cooperative cancellation token for install and update operations.
+
+    Pass a token to CtInstaller.install() or update_compatibility_tools() and
+    call cancel() from anywhere (for example a GUI's cancel button, possibly
+    from another thread) to abort the running operation. Cancellation is
+    cooperative: the operation checks the token between its steps and during
+    the long-running download and extraction steps (per downloaded chunk and
+    per extracted archive member), then raises InstallCancelledError at the
+    next checkpoint after cleaning up partially written files.
+
+    A token is single use. Once cancelled it stays cancelled; create a new
+    token for each operation. cancel() and cancelled are safe to call from a
+    different thread than the one running the operation.
+    """
+
+    def __init__(self) -> None:
+        self._event = threading.Event()
+
+    def cancel(self) -> None:
+        """Requests cancellation of the operation using this token."""
+        self._event.set()
+
+    @property
+    def cancelled(self) -> bool:
+        """
+        Whether cancellation has been requested.
+
+        Returns:
+            bool: True if cancel() has been called, False otherwise.
+        """
+        return self._event.is_set()
+
+    def raise_if_cancelled(self) -> None:
+        """
+        Raises InstallCancelledError if cancellation has been requested.
+
+        Raises:
+            InstallCancelledError: If cancel() has been called on this token.
+        """
+        if self._event.is_set():
+            raise InstallCancelledError()
 
 
 class AlreadyInstalledError(Exception):

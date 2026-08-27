@@ -8,9 +8,11 @@ from protondl.core.base_launcher import Game, Launcher
 from protondl.core.config import RequestConfig
 from protondl.core.models import (
     Arch,
+    CancelToken,
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
+    InstallCancelledError,
     InstallMode,
     InstallProgress,
     InstallStep,
@@ -92,7 +94,10 @@ class _FakeInstaller:
         launcher: _FakeLauncher,
         arch: Arch | None = None,
         progress_callback: ProgressCallback | None = None,
+        cancel_token: CancelToken | None = None,
     ) -> CompatToolVersionInfo:
+        if cancel_token is not None:
+            cancel_token.raise_if_cancelled()
         self.install_calls.append(version)
         self.install_archs.append(arch)
         if progress_callback is not None:
@@ -317,6 +322,74 @@ def test_update_compatibility_tools_installs_latest_and_removes_old(
         ("GE-Proton", 1, 1),
         ("GE-Proton", 1, 1),
     ]
+
+
+def test_update_compatibility_tools_cancel_before_first_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old = _tool("GE-Proton10-5")
+    launcher = _FakeLauncher([old])
+    update = ToolUpdate(
+        compat_tool_name="GE-Proton",
+        latest_version="GE-Proton11-3",
+        installed_versions=["GE-Proton10-5"],
+        installed_tools=[old],
+    )
+    installer = _FakeInstaller("GE-Proton")
+    _mock_installer_lookup(monkeypatch, installer)
+
+    cancel_token = CancelToken()
+    cancel_token.cancel()
+
+    with pytest.raises(InstallCancelledError):
+        asyncio.run(update_compatibility_tools(launcher, [update], cancel_token=cancel_token))
+
+    assert installer.install_calls == []
+    assert launcher.removed == []
+
+
+def test_update_compatibility_tools_cancel_stops_before_remaining_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old_a = _tool("GE-Proton10-5")
+    old_b = _tool("DXVK-2.3")
+    launcher = _FakeLauncher([old_a, old_b])
+    update_a = ToolUpdate(
+        compat_tool_name="GE-Proton",
+        latest_version="GE-Proton11-3",
+        installed_versions=["GE-Proton10-5"],
+        installed_tools=[old_a],
+    )
+    update_b = ToolUpdate(
+        compat_tool_name="DXVK",
+        latest_version="DXVK-2.4",
+        installed_versions=["DXVK-2.3"],
+        installed_tools=[old_b],
+    )
+    cancel_token = CancelToken()
+    installer = _FakeInstaller("GE-Proton")
+
+    async def install_then_cancel(
+        version: str,
+        launcher: _FakeLauncher,
+        arch: Arch | None = None,
+        progress_callback: ProgressCallback | None = None,
+        cancel_token: CancelToken | None = None,
+    ) -> CompatToolVersionInfo:
+        installer.install_calls.append(version)
+        if cancel_token is not None:
+            cancel_token.cancel()
+        return CompatToolVersionInfo(compat_tool="GE-Proton", version=version, installed_at=1)
+
+    monkeypatch.setattr(installer, "install", install_then_cancel)
+    _mock_installer_lookup(monkeypatch, installer)
+
+    with pytest.raises(InstallCancelledError):
+        asyncio.run(
+            update_compatibility_tools(launcher, [update_a, update_b], cancel_token=cancel_token)
+        )
+
+    assert installer.install_calls == ["GE-Proton11-3"]
 
 
 def test_update_compatibility_tools_keeps_old_versions(
@@ -816,6 +889,7 @@ class _VariantInstaller(_FakeInstaller):
         launcher: _FakeLauncher,
         arch: Arch | None = None,
         progress_callback: ProgressCallback | None = None,
+        cancel_token: CancelToken | None = None,
     ) -> CompatToolVersionInfo:
         launcher._installed_tools.append(_tool(version))
         return CompatToolVersionInfo(

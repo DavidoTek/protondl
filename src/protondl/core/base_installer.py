@@ -13,9 +13,11 @@ from protondl.core.config import RequestConfig
 from protondl.core.models import (
     AlreadyInstalledError,
     Arch,
+    CancelToken,
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
+    InstallCancelledError,
     InstallProgress,
     InstallStep,
     ProgressCallback,
@@ -115,6 +117,7 @@ class CtInstaller(ABC):
         arch: Arch | None = None,
         force: bool = False,
         progress_callback: ProgressCallback | None = None,
+        cancel_token: CancelToken | None = None,
     ) -> CompatToolVersionInfo:
         """
         Downloads and extracts a specific version of the tool into the launcher's directory.
@@ -135,6 +138,12 @@ class CtInstaller(ABC):
                 A callback function to report progress as InstallProgress events,
                 covering the fetch, download, verification, extraction and
                 finalization steps.
+            cancel_token (CancelToken | None, optional): A token whose cancel()
+                method aborts the installation. It is checked between the steps
+                and during the download (per chunk) and extraction (per archive
+                member). On cancellation, the partially downloaded archive and
+                any files extracted so far are removed and InstallCancelledError
+                is raised.
 
         Returns:
             CompatToolVersionInfo: The metadata written to the tool's version file,
@@ -143,6 +152,8 @@ class CtInstaller(ABC):
         Raises:
             AlreadyInstalledError: If the requested version and architecture are
                 already installed for the launcher and force is False.
+            InstallCancelledError: If the cancel_token is cancelled before the
+                installation completes.
             ValueError: If the version string is invalid or no build exists for the
                 requested architecture.
             PermissionError: If the library lacks write access to the launcher's
@@ -155,6 +166,12 @@ class CtInstaller(ABC):
         def report(step: InstallStep, current: int = 0, total: int = 0) -> None:
             if progress_callback is not None:
                 progress_callback(InstallProgress(step=step, current=current, total=total))
+
+        def check_cancelled() -> None:
+            if cancel_token is not None:
+                cancel_token.raise_if_cancelled()
+
+        check_cancelled()
 
         report(InstallStep.FETCHING_RELEASE)
         release_data = await self._fetch_release_data(version, arch)
@@ -180,26 +197,37 @@ class CtInstaller(ABC):
                 tmp_path = Path(tmp_file.name)
 
                 try:
+                    check_cancelled()
                     await download_file(
                         url=release_data.download,
                         destination=tmp_path,
                         client=client,
                         progress_callback=progress_callback,
                         known_size=release_data.size or 0,
+                        cancel_token=cancel_token,
                     )
 
+                    check_cancelled()
                     report(InstallStep.VERIFYING)
                     await self._verify_checksum(client, release_data, tmp_path)
 
+                    check_cancelled()
                     if force:
                         self._remove_installed_tool(launcher, release_data.version, arch)
 
                     install_dir = self._get_extract_dir(launcher)
                     before = set(install_dir.iterdir())
                     report(InstallStep.EXTRACTING)
-                    self._extract_archive(
-                        tmp_path, install_dir, progress_callback=progress_callback
-                    )
+                    try:
+                        self._extract_archive(
+                            tmp_path,
+                            install_dir,
+                            progress_callback=progress_callback,
+                            cancel_token=cancel_token,
+                        )
+                    except InstallCancelledError:
+                        self._cleanup_partial_extraction(install_dir, before)
+                        raise
 
                     installed_dir = self._find_installed_dir(
                         install_dir, before, release_data.version
@@ -523,6 +551,7 @@ class CtInstaller(ABC):
         archive_path: Path,
         extract_to: Path,
         progress_callback: ProgressCallback | None = None,
+        cancel_token: CancelToken | None = None,
     ) -> None:
         """
         Helper method to extract an archive file to the specified directory.
@@ -532,23 +561,60 @@ class CtInstaller(ABC):
             extract_to (Path): The directory where the contents should be extracted.
             progress_callback (ProgressCallback | None, optional): A callback to
                 receive EXTRACTING progress events with per-file progress.
+            cancel_token (CancelToken | None, optional): A token checked before each
+                extracted archive member.
 
         Raises:
             ValueError: If the archive format is unsupported.
+            InstallCancelledError: If the cancel_token is cancelled during extraction.
         """
         if self.release_format.endswith(".tar.zst"):
-            extract_tar_zst(archive_path, extract_to, progress_callback=progress_callback)
+            extract_tar_zst(
+                archive_path,
+                extract_to,
+                progress_callback=progress_callback,
+                cancel_token=cancel_token,
+            )
         elif ".tar." in self.release_format:
             extract_tar(
                 archive_path,
                 extract_to,
                 compression=self.release_format.split(".tar.")[-1],
                 progress_callback=progress_callback,
+                cancel_token=cancel_token,
             )
         elif self.release_format.endswith(".zip"):
-            extract_zip(archive_path, extract_to, progress_callback=progress_callback)
+            extract_zip(
+                archive_path,
+                extract_to,
+                progress_callback=progress_callback,
+                cancel_token=cancel_token,
+            )
         else:
             raise ValueError(f"Unsupported archive format: {self.release_format}")
+
+    def _cleanup_partial_extraction(self, install_dir: Path, before: set[Path]) -> None:
+        """
+        Removes files and directories created by an aborted extraction.
+
+        Any entry in install_dir that was not present before extraction started
+        is deleted. Used to undo a partial extraction after cancellation.
+
+        Args:
+            install_dir (Path): The directory the archive was extracted into.
+            before (set[Path]): The contents of install_dir before extraction.
+        """
+        try:
+            entries = list(install_dir.iterdir())
+        except OSError:
+            return
+        for entry in entries:
+            if entry in before:
+                continue
+            if entry.is_dir():
+                shutil.rmtree(entry, ignore_errors=True)
+            else:
+                entry.unlink(missing_ok=True)
 
     def _find_installed_dir(
         self, install_dir: Path, before: set[Path], version: str

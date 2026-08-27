@@ -69,6 +69,8 @@ asyncio.run(
         progress_callback=lambda event: print(
             f"{event.step.value}: {event.current} / {event.total}"
         ),
+        # Optional: a CancelToken to abort the download/extraction (see below)
+        cancel_token=None,
     )
 )
 ```
@@ -84,6 +86,54 @@ already installed version is allowed. Pass `force=True` to remove the existing b
 of the same version and architecture and re-install it.
 
 For a complete workflow with launcher/tool selection, see the CLI implementation in `src/protondl/cli/main.py`.
+
+### Cancelling an installation
+
+Pass a `CancelToken` to `install()` to make a running installation abortable, e.g. from a
+GUI's cancel button next to a progress bar.
+
+```python
+import asyncio
+import threading
+
+from protondl.core.models import CancelToken, InstallCancelledError
+
+cancel_token = CancelToken()
+
+# Cancel from anywhere - another thread, a signal handler, a GUI callback.
+# Here: cancel automatically after 10 seconds.
+threading.Timer(10.0, cancel_token.cancel).start()
+
+try:
+    asyncio.run(
+        tool_installer.install(
+            versions[0].version,
+            launchers[0],
+            progress_callback=lambda event: print(
+                f"{event.step.value}: {event.current}/{event.total}"
+            ),
+            cancel_token=cancel_token,
+        )
+    )
+except InstallCancelledError:
+    print("Installation cancelled.")
+```
+
+Things to consider:
+
+- Cancellation is **cooperative**: the token is checked between the install steps and during
+  the two long-running steps - the download (before every downloaded chunk) and the
+  extraction (before every extracted archive member). `cancel()` therefore takes effect
+  within a fraction of a second, not instantly.
+- On cancellation, the partially downloaded archive and any files already extracted into the
+  launcher's compatibility tools directory are removed before `InstallCancelledError` is
+  raised, so no half-installed tool is left behind.
+- `CancelToken` is single use. Once `cancel()` has been called the token stays cancelled;
+  create a new token for each installation.
+- `cancel()` and the `cancelled` property are safe to call from a different thread than the
+  one running `install()`.
+- A token that is already cancelled when passed to `install()` aborts it before the release
+  info is fetched.
 
 ## Automatic tool updates
 
@@ -188,6 +238,7 @@ Argument | Type | Description
 `keep_old` | `bool` |  Whether to keep older versions of the tools. If `False` (the default), all older versions are deleted after the new version was installed successfully.
 `progress_callback` | `ProgressCallback \| None` |  An optional callback receiving `InstallProgress` events for the currently installed tool. Each event carries the current `step` (`InstallStep`: fetching release info, downloading, verifying checksum, extracting, finalizing, installed) with the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted files), plus the tool's name and its index within the update run (`tool`, `tool_index`, `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully processed (after old versions were removed).
 `request_config` | `RequestConfig \| None` |  An optional `RequestConfig` for authenticated API requests. Takes precedence over the `GITHUB_TOKEN`/`GITLAB_TOKEN` environment variables; see [API tokens](#api-tokens).
+`cancel_token` | `CancelToken \| None` |  An optional `CancelToken` to abort the update run. It is checked before each tool and forwarded to the running `install()` (see [Cancelling an installation](#cancelling-an-installation)), so a cancel also takes effect during the current download or extraction. Raises `InstallCancelledError` when cancelled.
 
 Things to consider:
 
@@ -203,6 +254,9 @@ Things to consider:
   `batch_update_games_tools()` (see below). With `keep_old=True` the batch update is
   optional because the old versions remain usable.
 - A `ValueError` is raised if no `CtInstaller` exists for one of the tools.
+- When cancelled through `cancel_token`, tools already updated before the cancel stay
+  installed, the current tool's partial download and extraction are cleaned up, and
+  `InstallCancelledError` propagates out of `update_compatibility_tools()`.
 
 ### Batch update games
 

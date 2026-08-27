@@ -10,6 +10,7 @@ from protondl.core.config import RequestConfig
 from protondl.core.models import (
     AlreadyInstalledError,
     Arch,
+    CancelToken,
     CompatTool,
     CompatToolVersionInfo,
     InstallProgress,
@@ -353,6 +354,7 @@ async def update_compatibility_tools(
     keep_old: bool = False,
     progress_callback: ProgressCallback | None = None,
     request_config: RequestConfig | None = None,
+    cancel_token: CancelToken | None = None,
 ) -> dict[tuple[str, Arch | None, str], CompatTool]:
     """
     Installs the newest version of all given compatibility tools.
@@ -370,6 +372,12 @@ async def update_compatibility_tools(
             currently installed tool, enriched with the tool's name and its index
             within the update run (tool, tool_index, tool_total).
         request_config: Optional configuration for API requests, including auth tokens.
+        cancel_token: Optional token whose cancel() method aborts the update run.
+            It is checked before each tool and forwarded to the running
+            installation (see CtInstaller.install()), so a cancel takes effect
+            during the current download or extraction. Tools already updated
+            before the cancel stay installed; the current tool's partial
+            download and extraction are removed.
 
     Returns:
         dict[(str, Arch | None, str), CompatTool]: A mapping of compatibility
@@ -379,12 +387,17 @@ async def update_compatibility_tools(
 
     Raises:
         ValueError: If no CtInstaller exists for one of the compatibility tools.
+        InstallCancelledError: If the cancel_token is cancelled before the
+            update run completes.
     """
     from protondl.installers import get_installer_by_name
 
     installed_new_tools: dict[tuple[str, Arch | None, str], CompatTool] = {}
     total = len(updates)
     for index, update in enumerate(updates):
+        if cancel_token is not None:
+            cancel_token.raise_if_cancelled()
+
         installer = get_installer_by_name(update.compat_tool_name, request_config=request_config)
         if installer is None:
             raise ValueError(
@@ -414,6 +427,7 @@ async def update_compatibility_tools(
                 launcher,
                 arch=update.arch,
                 progress_callback=report_progress,
+                cancel_token=cancel_token,
             )
         except AlreadyInstalledError:
             report_progress(InstallProgress(step=InstallStep.COMPLETED))

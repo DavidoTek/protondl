@@ -1,7 +1,14 @@
 from pathlib import Path
 
 from protondl.core.base_installer import CtInstaller
-from protondl.core.models import Arch, CompatToolType, ProgressCallback, ReleaseData, ReleaseVersion
+from protondl.core.models import (
+    Arch,
+    CancelToken,
+    CompatToolType,
+    ProgressCallback,
+    ReleaseData,
+    ReleaseVersion,
+)
 from protondl.util.archive import extract_zip_with_tar
 from protondl.util.download import fetch_github_artifact_data, fetch_github_project_workflows
 
@@ -46,8 +53,14 @@ class ProtonTkgInstaller(CtInstaller):
         archive_path: Path,
         extract_to: Path,
         progress_callback: ProgressCallback | None = None,
+        cancel_token: CancelToken | None = None,
     ) -> None:
         """
         Extracts the downloaded archive, which is a .zip containing either a .tar.zst or .tar.
         """
-        extract_zip_with_tar(archive_path, extract_to, progress_callback=progress_callback)
+        extract_zip_with_tar(
+            archive_path,
+            extract_to,
+            progress_callback=progress_callback,
+            cancel_token=cancel_token,
+        )

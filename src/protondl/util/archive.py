@@ -6,7 +6,13 @@ from pathlib import Path
 
 import zstandard
 
-from protondl.core.models import InstallProgress, InstallStep, ProgressCallback
+from protondl.core.models import (
+    CancelToken,
+    InstallCancelledError,
+    InstallProgress,
+    InstallStep,
+    ProgressCallback,
+)
 
 
 class ArchiveError(Exception):
@@ -21,6 +27,12 @@ def _report_progress(progress_callback: ProgressCallback | None, current: int, t
         progress_callback(
             InstallProgress(step=InstallStep.EXTRACTING, current=current, total=total)
         )
+
+
+def _check_cancelled(cancel_token: CancelToken | None) -> None:
+    """Raises InstallCancelledError if the given cancel token is cancelled."""
+    if cancel_token is not None:
+        cancel_token.raise_if_cancelled()
 
 
 def _validate_paths(archive_path: Path, extract_path: Path) -> None:
@@ -43,7 +55,10 @@ def _validate_paths(archive_path: Path, extract_path: Path) -> None:
 
 
 def extract_zip(
-    zip_path: Path, extract_path: Path, progress_callback: ProgressCallback | None = None
+    zip_path: Path,
+    extract_path: Path,
+    progress_callback: ProgressCallback | None = None,
+    cancel_token: CancelToken | None = None,
 ) -> None:
     """
     Extracts a Zip archive to the specified path.
@@ -53,9 +68,11 @@ def extract_zip(
         extract_path: The path where the archive should be extracted.
         progress_callback: Optional callback receiving EXTRACTING progress events
             with the number of files extracted and the total number of files.
+        cancel_token: Optional token checked before each extracted member.
 
     Raises:
         ArchiveError: If the archive file is invalid or if extraction fails.
+        InstallCancelledError: If the cancel_token is cancelled during extraction.
     """
     _validate_paths(zip_path, extract_path)
     try:
@@ -63,8 +80,11 @@ def extract_zip(
             members = zf.infolist()
             total = len(members)
             for current, member in enumerate(members, start=1):
+                _check_cancelled(cancel_token)
                 zf.extract(member, extract_path)
                 _report_progress(progress_callback, current, total)
+    except InstallCancelledError:
+        raise
     except zipfile.BadZipFile as e:
         raise ArchiveError(f"Zip file '{zip_path}' is invalid or corrupted.") from e
     except Exception as e:
@@ -76,6 +96,7 @@ def extract_tar(
     extract_path: Path,
     compression: str = "",
     progress_callback: ProgressCallback | None = None,
+    cancel_token: CancelToken | None = None,
 ) -> None:
     """
     Extracts a Tar archive.
@@ -87,9 +108,11 @@ def extract_tar(
                     Defaults to "" (auto-detect or regular tar).
         progress_callback: Optional callback receiving EXTRACTING progress events
             with the number of files extracted and the total number of files.
+        cancel_token: Optional token checked before each extracted member.
 
     Raises:
         ArchiveError: If the archive file is invalid or if extraction fails.
+        InstallCancelledError: If the cancel_token is cancelled during extraction.
     """
     _validate_paths(tar_path, extract_path)
 
@@ -100,8 +123,11 @@ def extract_tar(
             members = tf.getmembers()
             total = len(members)
             for current, member in enumerate(members, start=1):
+                _check_cancelled(cancel_token)
                 tf.extract(member, extract_path, filter="data")
                 _report_progress(progress_callback, current, total)
+    except InstallCancelledError:
+        raise
     except tarfile.ReadError as e:
         raise ArchiveError(f"Could not read tar file '{tar_path}': {e}") from e
     except Exception as e:
@@ -109,7 +135,10 @@ def extract_tar(
 
 
 def extract_tar_zst(
-    zst_path: Path, extract_path: Path, progress_callback: ProgressCallback | None = None
+    zst_path: Path,
+    extract_path: Path,
+    progress_callback: ProgressCallback | None = None,
+    cancel_token: CancelToken | None = None,
 ) -> None:
     """
     Extracts a .tar.zst file using zstandard.
@@ -120,9 +149,11 @@ def extract_tar_zst(
         progress_callback: Optional callback receiving EXTRACTING progress events
             with the number of files extracted so far. The total is unknown for
             streamed archives and reported as 0.
+        cancel_token: Optional token checked before each extracted member.
 
     Raises:
         ArchiveError: If the archive file is invalid or if extraction fails.
+        InstallCancelledError: If the cancel_token is cancelled during extraction.
     """
     _validate_paths(zst_path, extract_path)
 
@@ -133,15 +164,21 @@ def extract_tar_zst(
                 with tarfile.open(fileobj=reader, mode="r|") as tf:
                     current = 0
                     for member in tf:
+                        _check_cancelled(cancel_token)
                         tf.extract(member, extract_path, filter="data")
                         current += 1
                         _report_progress(progress_callback, current, 0)
+    except InstallCancelledError:
+        raise
     except Exception as e:
         raise ArchiveError(f"Could not extract .zst archive '{zst_path}': {e}") from e
 
 
 def extract_zip_with_tar(
-    zip_path: Path, extract_path: Path, progress_callback: ProgressCallback | None = None
+    zip_path: Path,
+    extract_path: Path,
+    progress_callback: ProgressCallback | None = None,
+    cancel_token: CancelToken | None = None,
 ) -> None:
     """
     Extracts a .zip file that contains either a .tar.zst or .tar archive.
@@ -152,23 +189,38 @@ def extract_zip_with_tar(
         zip_path: The path to the .zip file.
         extract_path: The path where the archive should be extracted.
         progress_callback: Optional callback receiving EXTRACTING progress events.
+        cancel_token: Optional token checked before each extracted member.
 
     Raises:
         ArchiveError: If the archive file is invalid or if extraction fails.
+        InstallCancelledError: If the cancel_token is cancelled during extraction.
     """
     archive_str = str(zip_path)
 
     if archive_str.endswith(".tar.gz"):
-        extract_tar(zip_path, extract_path, compression="gz", progress_callback=progress_callback)
+        extract_tar(
+            zip_path,
+            extract_path,
+            compression="gz",
+            progress_callback=progress_callback,
+            cancel_token=cancel_token,
+        )
     elif archive_str.endswith(".zip"):
         tmp_dir = extract_path / "extract_tmp"
         tmp_dir.mkdir(parents=True, exist_ok=True)
         try:
-            extract_zip(zip_path, tmp_dir, progress_callback=progress_callback)
+            extract_zip(
+                zip_path, tmp_dir, progress_callback=progress_callback, cancel_token=cancel_token
+            )
 
             if zst_files := glob.glob(f"{tmp_dir}/*.tar.zst"):
                 zst_file = Path(zst_files[0])
-                extract_tar_zst(zst_file, extract_path, progress_callback=progress_callback)
+                extract_tar_zst(
+                    zst_file,
+                    extract_path,
+                    progress_callback=progress_callback,
+                    cancel_token=cancel_token,
+                )
                 if (extract_path / "usr").exists():
                     (extract_path / "usr").rename(extract_path / zst_file.stem.replace(".tar", ""))
                 for dotfile in [".BUILDINFO", ".INSTALL", ".MTREE", ".PKGINFO"]:
@@ -176,8 +228,16 @@ def extract_zip_with_tar(
                 zst_file.unlink(missing_ok=True)
             elif tar_files := glob.glob(f"{tmp_dir}/*.tar*"):
                 tar_file = Path(tar_files[0])
-                extract_tar(tar_file, extract_path, progress_callback=progress_callback)
+                extract_tar(
+                    tar_file,
+                    extract_path,
+                    progress_callback=progress_callback,
+                    cancel_token=cancel_token,
+                )
                 tar_file.unlink(missing_ok=True)
+        except InstallCancelledError:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise
         except Exception as e:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             raise ArchiveError(f"Failed to extract zip with tar '{zip_path}': {e}") from e

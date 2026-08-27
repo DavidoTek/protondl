@@ -9,9 +9,11 @@ import pytest
 from protondl.core.models import (
     AlreadyInstalledError,
     Arch,
+    CancelToken,
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
+    InstallCancelledError,
     InstallMode,
     InstallProgress,
     InstallStep,
@@ -23,13 +25,14 @@ from protondl.launchers.lutris import LutrisLauncher
 from protondl.util.version_file import read_version_file, write_version_file
 
 
-def _make_tar_gz(tool_folder: str) -> bytes:
+def _make_tar_gz(tool_folder: str, file_count: int = 1) -> bytes:
     buffer = BytesIO()
     content = b"test"
     with tarfile.open(fileobj=buffer, mode="w:gz") as tf:
-        info = tarfile.TarInfo(f"{tool_folder}/file.txt")
-        info.size = len(content)
-        tf.addfile(info, BytesIO(content))
+        for i in range(file_count):
+            info = tarfile.TarInfo(f"{tool_folder}/file{i}.txt")
+            info.size = len(content)
+            tf.addfile(info, BytesIO(content))
     return buffer.getvalue()
 
 
@@ -57,6 +60,7 @@ def _mock_install(
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         calls["downloads"] += 1
         destination.write_bytes(archive_bytes[calls["current_arch"]])
@@ -189,6 +193,7 @@ def test_install_writes_version_file(tmp_path: Path, monkeypatch: pytest.MonkeyP
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -240,6 +245,7 @@ def test_install_returns_version_info(tmp_path: Path, monkeypatch: pytest.Monkey
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
 
@@ -287,6 +293,7 @@ def test_install_reports_progress_steps(tmp_path: Path, monkeypatch: pytest.Monk
         client: Any,
         progress_callback: Any = None,
         known_size: int = 0,
+        cancel_token: Any = None,
     ) -> None:
         destination.write_bytes(archive_bytes)
         if progress_callback is not None:
@@ -326,6 +333,103 @@ def test_install_reports_progress_steps(tmp_path: Path, monkeypatch: pytest.Monk
     extract_events = [e for e in events if e.step == InstallStep.EXTRACTING]
     assert extract_events[-1].current == 1
     assert extract_events[-1].total == 1
+
+
+def test_install_cancelled_before_start_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+    archive_bytes = _make_tar_gz(version)
+
+    calls = _mock_install(
+        monkeypatch, installer, version, {Arch.X86_64: archive_bytes, Arch.AARCH64: archive_bytes}
+    )
+
+    cancel_token = CancelToken()
+    cancel_token.cancel()
+
+    with pytest.raises(InstallCancelledError):
+        asyncio.run(
+            installer.install(version, launcher, arch=Arch.AARCH64, cancel_token=cancel_token)
+        )
+
+    assert calls["downloads"] == 0
+
+
+def test_install_cancelled_during_download_removes_temp_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+    cancel_token = CancelToken()
+    seen_paths: list[Path] = []
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version=v, date="2026-08-03", download="https://example.com/tool.tar.gz", size=4
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+        cancel_token: Any = None,
+    ) -> None:
+        seen_paths.append(destination)
+        destination.write_bytes(b"te")  # partially downloaded
+        if cancel_token is not None:
+            cancel_token.cancel()
+            cancel_token.raise_if_cancelled()
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+
+    with pytest.raises(InstallCancelledError):
+        asyncio.run(
+            installer.install(version, launcher, arch=Arch.AARCH64, cancel_token=cancel_token)
+        )
+
+    assert seen_paths and not seen_paths[0].exists()
+    assert not (tmp_path / "runners" / "wine" / version).exists()
+
+
+def test_install_cancelled_during_extraction_cleans_up(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+    archive_bytes = _make_tar_gz(version, file_count=5)
+    cancel_token = CancelToken()
+
+    calls = _mock_install(
+        monkeypatch, installer, version, {Arch.X86_64: archive_bytes, Arch.AARCH64: archive_bytes}
+    )
+
+    def cancel_on_extract(event: InstallProgress) -> None:
+        if event.step == InstallStep.EXTRACTING:
+            cancel_token.cancel()
+
+    with pytest.raises(InstallCancelledError):
+        asyncio.run(
+            installer.install(
+                version,
+                launcher,
+                arch=Arch.AARCH64,
+                progress_callback=cancel_on_extract,
+                cancel_token=cancel_token,
+            )
+        )
+
+    assert calls["downloads"] == 1
+    install_dir = tmp_path / "runners" / "wine"
+    assert not (install_dir / version).exists()
+    assert list(install_dir.iterdir()) == []
 
 
 def test_resolve_arch_uses_host_if_supported(monkeypatch: pytest.MonkeyPatch) -> None:
