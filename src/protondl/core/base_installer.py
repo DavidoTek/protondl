@@ -10,14 +10,19 @@ import httpx
 
 from protondl.core.base_launcher import Launcher
 from protondl.core.config import RequestConfig
-from protondl.core.models import (
+from protondl.core.errors import (
     AlreadyInstalledError,
+    ChecksumMismatchError,
+    InstallCancelledError,
+    raise_for_httpx_error,
+    raise_for_os_error,
+)
+from protondl.core.models import (
     Arch,
     CancelToken,
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
-    InstallCancelledError,
     InstallProgress,
     InstallStep,
     ProgressCallback,
@@ -100,7 +105,10 @@ class CtInstaller(ABC):
             page (int): The page number for paginated APIs.
 
         Raises:
-            ConnectionError: If the remote API or source is unreachable.
+            NoInternetConnectionError: If the remote API or source is unreachable.
+            LinkNotFoundError: If the releases endpoint returns HTTP 404.
+            APIRateLimitError: If the GitHub/GitLab API rate limit was exceeded.
+            DownloadError: If the request fails for any other HTTP reason.
         """
         return await fetch_project_releases(
             releases_url=self.api_url,
@@ -156,8 +164,20 @@ class CtInstaller(ABC):
                 installation completes.
             ValueError: If the version string is invalid or no build exists for the
                 requested architecture.
-            PermissionError: If the library lacks write access to the launcher's
-                compatibility tools directory.
+            LinkNotFoundError: If the requested version/release cannot be found
+                on the remote source (HTTP 404).
+            NoInternetConnectionError: If the remote source is unreachable.
+            APIRateLimitError: If the GitHub/GitLab API rate limit was exceeded.
+            DownloadError: If fetching the release info or the download fails for
+                another HTTP reason.
+            ChecksumMismatchError: If the downloaded archive fails checksum
+                verification.
+            ArchiveExtractionError: If the downloaded archive cannot be extracted.
+            NoWritePermissionError: If the library lacks write access to the
+                launcher's compatibility tools directory. Also a PermissionError
+                for backwards compatibility.
+            NoDiskSpaceError: If the filesystem runs out of space during download
+                or extraction.
         """
         arch = self.resolve_arch(arch)
 
@@ -215,8 +235,11 @@ class CtInstaller(ABC):
                     if force:
                         self._remove_installed_tool(launcher, release_data.version, arch)
 
-                    install_dir = self._get_extract_dir(launcher)
-                    before = set(install_dir.iterdir())
+                    try:
+                        install_dir = self._get_extract_dir(launcher)
+                        before = set(install_dir.iterdir())
+                    except OSError as e:
+                        raise_for_os_error(e)
                     report(InstallStep.EXTRACTING)
                     try:
                         self._extract_archive(
@@ -368,9 +391,13 @@ class CtInstaller(ABC):
 
         Raises:
             FileNotFoundError: If the tool's installation directory does not exist.
-            PermissionError: If the tool's installation directory cannot be deleted.
+            NoWritePermissionError: If the tool's installation directory cannot be
+                deleted. Also a PermissionError for backwards compatibility.
         """
-        shutil.rmtree(tool.install_dir)
+        try:
+            shutil.rmtree(tool.install_dir)
+        except OSError as e:
+            raise_for_os_error(e)
 
     def _get_extract_dir(self, launcher: Launcher) -> Path:
         """
@@ -534,17 +561,23 @@ class CtInstaller(ABC):
             file_path (Path): The path to the downloaded file.
 
         Raises:
-            ValueError: If the checksum verification fails.
+            ChecksumMismatchError: If the checksum verification fails. Also a
+                ValueError for backwards compatibility.
+            NoInternetConnectionError: If the checksum file cannot be downloaded.
+            DownloadError: If downloading the checksum file fails for another reason.
         """
         if release_data.checksum:
-            sha_resp = await client.get(release_data.checksum)
-            sha_resp.raise_for_status()
+            try:
+                sha_resp = await client.get(release_data.checksum)
+                sha_resp.raise_for_status()
+            except httpx.HTTPError as e:
+                raise_for_httpx_error(e)
 
             expected_sha = sha_resp.text.split()[0].strip()
             actual_sha = calculate_sha512(file_path, self.buffer_size)
 
             if actual_sha != expected_sha:
-                raise ValueError("Checksum verification failed! File corrupted.")
+                raise ChecksumMismatchError("Checksum verification failed! File corrupted.")
 
     def _extract_archive(
         self,

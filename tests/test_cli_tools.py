@@ -6,8 +6,8 @@ from typer.testing import CliRunner
 
 from protondl.cli import app
 from protondl.core.base_launcher import Launcher
+from protondl.core.errors import AlreadyInstalledError
 from protondl.core.models import (
-    AlreadyInstalledError,
     Arch,
     CancelToken,
     CompatToolVersionInfo,

@@ -1,11 +1,18 @@
 import hashlib
-from collections.abc import Callable, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 from protondl.core.config import RequestConfig
+from protondl.core.errors import (
+    APIRateLimitError,
+    NetworkError,
+    raise_for_httpx_error,
+    raise_for_os_error,
+)
 from protondl.core.models import (
     Arch,
     CancelToken,
@@ -23,11 +30,28 @@ GITEA_APIS = ["https://codeberg.org/api/v1/", "https://dawn.wine/api/v1/"]
 
 GITLAB_RATELIMIT_MSGS = ["Retry later", "rate limit exceeded"]
 
+#: Backwards-compatible alias. Use :class:`protondl.core.errors.APIRateLimitError`.
+RateLimitError = APIRateLimitError
 
-class RateLimitError(Exception):
-    """Raised when GitHub or GitLab API rate limits are hit."""
 
-    pass
+@asynccontextmanager
+async def _translate_network_errors() -> AsyncIterator[None]:
+    """
+    Async context manager that converts raw :mod:`httpx` errors into protondl
+    :class:`~protondl.core.errors.NetworkError` subclasses.
+
+    Raises:
+        NoInternetConnectionError: On connection failures and timeouts.
+        LinkNotFoundError: On HTTP 404 responses.
+        APIRateLimitError: On HTTP 403/429 responses (rate limiting).
+        DownloadError: On any other httpx error.
+    """
+    try:
+        yield
+    except NetworkError:
+        raise
+    except httpx.HTTPError as e:
+        raise_for_httpx_error(e)
 
 
 def is_gitlab_instance(url: str) -> bool:
@@ -133,6 +157,13 @@ async def fetch_project_release_data(
 
     Returns:
         ReleaseData: A dataclass containing release metadata and asset URLs.
+
+    Raises:
+        NoInternetConnectionError: If the release API host is unreachable.
+        LinkNotFoundError: If the release/tag does not exist (HTTP 404).
+        APIRateLimitError: If the GitHub/GitLab API rate limit was exceeded.
+        DownloadError: If the request fails for any other HTTP reason.
+        ValueError: If the release URL is not a supported GitHub/GitLab/Gitea API URL.
     """
     is_gl = is_gitlab_instance(release_url)
     is_gitea = is_gitea_instance(release_url)
@@ -146,7 +177,10 @@ async def fetch_project_release_data(
         date_key, tag_key = "published_at", "tag_name"
 
     headers = config.get_headers(fetch_url)
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
+    async with (
+        _translate_network_errors(),
+        httpx.AsyncClient(headers=headers, follow_redirects=True) as client,
+    ):
         resp = await client.get(fetch_url)
         data = check_rate_limits(resp.json())
 
@@ -204,6 +238,12 @@ async def fetch_project_releases(
     Returns:
         list[ReleaseVersion]: A list of release versions with their supported
             architectures, sorted by newest first.
+
+    Raises:
+        NoInternetConnectionError: If the release API host is unreachable.
+        LinkNotFoundError: If the releases endpoint does not exist (HTTP 404).
+        APIRateLimitError: If the GitHub/GitLab API rate limit was exceeded.
+        DownloadError: If the request fails for any other HTTP reason.
     """
     is_gl = is_gitlab_instance(releases_url)
     tag_key = "name" if is_gl else "tag_name"
@@ -215,7 +255,10 @@ async def fetch_project_releases(
     )
 
     headers = config.get_headers(releases_url)
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
+    async with (
+        _translate_network_errors(),
+        httpx.AsyncClient(headers=headers, follow_redirects=True) as client,
+    ):
         response = await client.get(releases_url, params=params)
 
         data = check_rate_limits(response.json())
@@ -261,9 +304,18 @@ async def fetch_github_project_workflows(
     Returns:
         list[str]: A list of workflow run IDs that match
             the specified package name, sorted by newest first.
+
+    Raises:
+        NoInternetConnectionError: If the GitHub API host is unreachable.
+        LinkNotFoundError: If the workflow endpoint does not exist (HTTP 404).
+        APIRateLimitError: If the GitHub API rate limit was exceeded.
+        DownloadError: If the request fails for any other HTTP reason.
     """
     headers = config.get_headers(ct_workflow_url)
-    async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
+    async with (
+        _translate_network_errors(),
+        httpx.AsyncClient(headers=headers, follow_redirects=True) as client,
+    ):
         tags = []
         wf_resp = await client.get(f"{ct_workflow_url}?per_page={str(count)}&page={str(page)}")
         for wf in wf_resp.json().get("workflows", []):
@@ -308,8 +360,17 @@ async def fetch_github_artifact_data(
 
     Returns:
         A ReleaseData object containing the release information.
+
+    Raises:
+        NoInternetConnectionError: If the GitHub API host is unreachable.
+        APIRateLimitError: If the GitHub API rate limit was exceeded.
+        DownloadError: If the request fails for any other HTTP reason.
+        ValueError: If no artifact and no matching release asset exists for the version.
     """
-    async with httpx.AsyncClient(headers=config.get_headers(api_url)) as client:
+    async with (
+        _translate_network_errors(),
+        httpx.AsyncClient(headers=config.get_headers(api_url)) as client,
+    ):
         resp = await client.get(f"{ct_artifact_url.format(version)}?per_page=100")
         artifact_info: GitHubArtifactResponse = resp.json()
         if artifact_info.get("total_count") != 1:
@@ -398,29 +459,42 @@ async def download_file(
 
     Raises:
         InstallCancelledError: If the cancel_token is cancelled during the download.
+        NoInternetConnectionError: If the connection drops or times out.
+        LinkNotFoundError: If the download URL returns HTTP 404.
+        APIRateLimitError: If the host responds with HTTP 403/429.
+        DownloadError: If the download fails for any other HTTP reason.
+        NoWritePermissionError: If the destination cannot be written to.
+        NoDiskSpaceError: If the filesystem runs out of space during the download.
     """
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise_for_os_error(e)
 
-    async with client.stream("GET", url) as response:
-        response.raise_for_status()
+    async with _translate_network_errors():
+        async with client.stream("GET", url) as response:
+            response.raise_for_status()
 
-        total_size = known_size
-        if not total_size:
-            total_size = int(response.headers.get("Content-Length", 0))
+            total_size = known_size
+            if not total_size:
+                total_size = int(response.headers.get("Content-Length", 0))
 
-        with open(destination, "wb") as f:
-            downloaded = 0
-            async for chunk in response.aiter_bytes(chunk_size=buffer_size):
-                if cancel_token is not None:
-                    cancel_token.raise_if_cancelled()
-                f.write(chunk)
-                downloaded += len(chunk)
-                if progress_callback:
-                    progress_callback(
-                        InstallProgress(
-                            step=InstallStep.DOWNLOADING,
-                            current=downloaded,
-                            total=total_size,
-                        )
-                    )
-            f.flush()
+            try:
+                with open(destination, "wb") as f:
+                    downloaded = 0
+                    async for chunk in response.aiter_bytes(chunk_size=buffer_size):
+                        if cancel_token is not None:
+                            cancel_token.raise_if_cancelled()
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if progress_callback:
+                            progress_callback(
+                                InstallProgress(
+                                    step=InstallStep.DOWNLOADING,
+                                    current=downloaded,
+                                    total=total_size,
+                                )
+                            )
+                    f.flush()
+            except OSError as e:
+                raise_for_os_error(e)

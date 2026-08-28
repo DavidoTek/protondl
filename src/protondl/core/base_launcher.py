@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from protondl.core.errors import raise_for_os_error
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
 from protondl.util.version_file import read_version_file
 
@@ -150,7 +151,8 @@ class Launcher(ABC):
             ValueError: If the tool's directory is not inside a supported
                 compatibility tools directory.
             FileNotFoundError: If the tool's directory does not exist.
-            PermissionError: If the tool's directory cannot be deleted.
+            NoWritePermissionError: If the tool's directory cannot be deleted.
+                Also a PermissionError for backwards compatibility.
         """
         install_dir = tool.install_dir
         tools_path = self.get_compatibility_tools_path(tool.tool_type).resolve()
@@ -171,7 +173,10 @@ class Launcher(ABC):
         if installer is not None:
             installer.remove(tool, self)
         else:
-            shutil.rmtree(install_dir)
+            try:
+                shutil.rmtree(install_dir)
+            except OSError as e:
+                raise_for_os_error(e)
 
     @abstractmethod
     def get_game_list(self) -> Sequence[Game]:

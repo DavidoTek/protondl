@@ -96,7 +96,8 @@ GUI's cancel button next to a progress bar.
 import asyncio
 import threading
 
-from protondl.core.models import CancelToken, InstallCancelledError
+from protondl.core.models import CancelToken
+from protondl.core.errors import InstallCancelledError
 
 cancel_token = CancelToken()
 

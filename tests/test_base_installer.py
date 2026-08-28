@@ -6,14 +6,13 @@ from typing import Any
 
 import pytest
 
+from protondl.core.errors import AlreadyInstalledError, InstallCancelledError
 from protondl.core.models import (
-    AlreadyInstalledError,
     Arch,
     CancelToken,
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
-    InstallCancelledError,
     InstallMode,
     InstallProgress,
     InstallStep,

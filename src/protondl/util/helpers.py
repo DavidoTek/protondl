@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from protondl.core.config import RequestConfig
+from protondl.core.errors import AlreadyInstalledError
 from protondl.core.models import (
-    AlreadyInstalledError,
     Arch,
     CancelToken,
     CompatTool,
@@ -178,6 +178,12 @@ async def check_for_updates(
             version providing that architecture and variant), the tools that
             are already at the newest version, and the tools that could not be
             checked.
+
+    Raises:
+        This function is best-effort and does not raise for network or API
+        failures: tools whose newest version cannot be fetched (no connection,
+        HTTP errors, rate limits) are reported in ``UpdateCheckResult.unchecked``
+        instead.
     """
     from protondl.installers import get_installer_by_name
     from protondl.util.version_file import read_version_file
@@ -389,6 +395,13 @@ async def update_compatibility_tools(
         ValueError: If no CtInstaller exists for one of the compatibility tools.
         InstallCancelledError: If the cancel_token is cancelled before the
             update run completes.
+        NetworkError: If a tool's release info or download fails
+            (NoInternetConnectionError, LinkNotFoundError, APIRateLimitError,
+            DownloadError). The tools updated before the failure stay installed.
+        ChecksumMismatchError: If a downloaded archive fails checksum verification.
+        ArchiveExtractionError: If a downloaded archive cannot be extracted.
+        FileSystemError: If a write fails (NoWritePermissionError,
+            NoDiskSpaceError).
     """
     from protondl.installers import get_installer_by_name
 

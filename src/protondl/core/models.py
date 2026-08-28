@@ -5,24 +5,13 @@ from enum import Enum
 from pathlib import Path
 from typing import TypedDict
 
+from protondl.core.errors import InstallCancelledError
+
 
 class InstallMode(Enum):
     NATIVE = "native"
     FLATPAK = "flatpak"
     SNAP = "snap"
-
-
-class InstallCancelledError(Exception):
-    """
-    Raised when a compatibility tool install or update was cancelled.
-
-    Cancellation is requested through a CancelToken passed to
-    CtInstaller.install() or update_compatibility_tools(). Partially
-    downloaded and extracted files are cleaned up before this is raised.
-    """
-
-    def __init__(self, message: str = "The operation was cancelled.") -> None:
-        super().__init__(message)
 
 
 class CancelToken:
@@ -68,26 +57,6 @@ class CancelToken:
         """
         if self._event.is_set():
             raise InstallCancelledError()
-
-
-class AlreadyInstalledError(Exception):
-    """
-    Raised when a compatibility tool version is already installed.
-
-    The requested version and architecture are already installed for the
-    launcher. Use the force option of install() to re-install the tool.
-
-    Attributes:
-        tool_name (str): The name of the compatibility tool.
-        version (str): The already installed version.
-        arch (Arch): The already installed architecture.
-    """
-
-    def __init__(self, tool_name: str, version: str, arch: "Arch") -> None:
-        self.tool_name = tool_name
-        self.version = version
-        self.arch = arch
-        super().__init__(f"{tool_name} {version} ({arch.value}) is already installed.")
 
 
 class CompatToolType(Enum):

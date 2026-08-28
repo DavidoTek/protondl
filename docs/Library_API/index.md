@@ -20,3 +20,4 @@ pip install "protondl @ git+https://github.com/DavidoTek/protondl@main"
 - [Manage Tools API](20_manage_tools_api.md): Install and update compatibility tools.
 - [Manage Games API](30_manage_games_api.md): List installed games, set tool a game uses.
 - [External Services API](40_external_services_api.md): Interface AWACY and ProtonDB.
+- [Errors](50_errors.md): The exception hierarchy raised by the library.

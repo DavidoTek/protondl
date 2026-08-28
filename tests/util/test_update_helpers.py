@@ -6,13 +6,13 @@ import pytest
 
 from protondl.core.base_launcher import Game, Launcher
 from protondl.core.config import RequestConfig
+from protondl.core.errors import InstallCancelledError
 from protondl.core.models import (
     Arch,
     CancelToken,
     CompatTool,
     CompatToolType,
     CompatToolVersionInfo,
-    InstallCancelledError,
     InstallMode,
     InstallProgress,
     InstallStep,

@@ -21,13 +21,12 @@ from protondl.cli.helpers import (
     update_install_progress,
 )
 from protondl.core.base_launcher import Launcher
+from protondl.core.errors import AlreadyInstalledError, InstallCancelledError
 from protondl.core.models import (
-    AlreadyInstalledError,
     Arch,
     CancelToken,
     CompatTool,
     CompatToolType,
-    InstallCancelledError,
     InstallProgress,
     InstallStep,
     ToolUpdate,

@@ -6,19 +6,35 @@ from pathlib import Path
 
 import zstandard
 
+from protondl.core.errors import (
+    ArchiveExtractionError,
+    InstallCancelledError,
+    raise_for_os_error,
+)
 from protondl.core.models import (
     CancelToken,
-    InstallCancelledError,
     InstallProgress,
     InstallStep,
     ProgressCallback,
 )
 
 
-class ArchiveError(Exception):
-    """Custom exception for archive-related failures."""
+def _reraise_extraction_error(exc: Exception, message: str) -> None:
+    """
+    Re-raises a low-level extraction failure as a specific protondl error.
 
-    pass
+    Args:
+        exc (Exception): The original exception raised during extraction.
+        message (str): Context message for the resulting ArchiveExtractionError.
+
+    Raises:
+        NoWritePermissionError: If the target directory is not writable.
+        NoDiskSpaceError: If the filesystem ran out of space.
+        ArchiveExtractionError: For any other extraction failure.
+    """
+    if isinstance(exc, OSError):
+        raise_for_os_error(exc)
+    raise ArchiveExtractionError(message) from exc
 
 
 def _report_progress(progress_callback: ProgressCallback | None, current: int, total: int) -> None:
@@ -44,14 +60,16 @@ def _validate_paths(archive_path: Path, extract_path: Path) -> None:
         extract_path: The path where the archive should be extracted.
 
     Raises:
-        ArchiveError: If the archive file does not exist or if the destination
-            parent directory does not exist.
+        ArchiveExtractionError: If the archive file does not exist or if the
+            destination parent directory does not exist.
     """
     if not archive_path.is_file():
-        raise ArchiveError(f"Archive file does not exist: {archive_path}")
+        raise ArchiveExtractionError(f"Archive file does not exist: {archive_path}")
 
     if not extract_path.parent.exists():
-        raise ArchiveError(f"Destination parent directory does not exist: {extract_path.parent}")
+        raise ArchiveExtractionError(
+            f"Destination parent directory does not exist: {extract_path.parent}"
+        )
 
 
 def extract_zip(
@@ -71,7 +89,9 @@ def extract_zip(
         cancel_token: Optional token checked before each extracted member.
 
     Raises:
-        ArchiveError: If the archive file is invalid or if extraction fails.
+        ArchiveExtractionError: If the archive is missing, invalid, or extraction fails.
+        NoWritePermissionError: If the destination directory is not writable.
+        NoDiskSpaceError: If the filesystem runs out of space during extraction.
         InstallCancelledError: If the cancel_token is cancelled during extraction.
     """
     _validate_paths(zip_path, extract_path)
@@ -86,9 +106,9 @@ def extract_zip(
     except InstallCancelledError:
         raise
     except zipfile.BadZipFile as e:
-        raise ArchiveError(f"Zip file '{zip_path}' is invalid or corrupted.") from e
+        raise ArchiveExtractionError(f"Zip file '{zip_path}' is invalid or corrupted.") from e
     except Exception as e:
-        raise ArchiveError(f"Failed to extract zip '{zip_path}': {e}") from e
+        _reraise_extraction_error(e, f"Failed to extract zip '{zip_path}': {e}")
 
 
 def extract_tar(
@@ -111,7 +131,9 @@ def extract_tar(
         cancel_token: Optional token checked before each extracted member.
 
     Raises:
-        ArchiveError: If the archive file is invalid or if extraction fails.
+        ArchiveExtractionError: If the archive is missing, invalid, or extraction fails.
+        NoWritePermissionError: If the destination directory is not writable.
+        NoDiskSpaceError: If the filesystem runs out of space during extraction.
         InstallCancelledError: If the cancel_token is cancelled during extraction.
     """
     _validate_paths(tar_path, extract_path)
@@ -129,9 +151,9 @@ def extract_tar(
     except InstallCancelledError:
         raise
     except tarfile.ReadError as e:
-        raise ArchiveError(f"Could not read tar file '{tar_path}': {e}") from e
+        raise ArchiveExtractionError(f"Could not read tar file '{tar_path}': {e}") from e
     except Exception as e:
-        raise ArchiveError(f"Failed to extract tar '{tar_path}': {e}") from e
+        _reraise_extraction_error(e, f"Failed to extract tar '{tar_path}': {e}")
 
 
 def extract_tar_zst(
@@ -152,7 +174,9 @@ def extract_tar_zst(
         cancel_token: Optional token checked before each extracted member.
 
     Raises:
-        ArchiveError: If the archive file is invalid or if extraction fails.
+        ArchiveExtractionError: If the archive is missing, invalid, or extraction fails.
+        NoWritePermissionError: If the destination directory is not writable.
+        NoDiskSpaceError: If the filesystem runs out of space during extraction.
         InstallCancelledError: If the cancel_token is cancelled during extraction.
     """
     _validate_paths(zst_path, extract_path)
@@ -171,7 +195,7 @@ def extract_tar_zst(
     except InstallCancelledError:
         raise
     except Exception as e:
-        raise ArchiveError(f"Could not extract .zst archive '{zst_path}': {e}") from e
+        _reraise_extraction_error(e, f"Could not extract .zst archive '{zst_path}': {e}")
 
 
 def extract_zip_with_tar(
@@ -192,7 +216,9 @@ def extract_zip_with_tar(
         cancel_token: Optional token checked before each extracted member.
 
     Raises:
-        ArchiveError: If the archive file is invalid or if extraction fails.
+        ArchiveExtractionError: If the archive is missing, invalid, or extraction fails.
+        NoWritePermissionError: If the destination directory is not writable.
+        NoDiskSpaceError: If the filesystem runs out of space during extraction.
         InstallCancelledError: If the cancel_token is cancelled during extraction.
     """
     archive_str = str(zip_path)
@@ -240,8 +266,8 @@ def extract_zip_with_tar(
             raise
         except Exception as e:
             shutil.rmtree(tmp_dir, ignore_errors=True)
-            raise ArchiveError(f"Failed to extract zip with tar '{zip_path}': {e}") from e
+            _reraise_extraction_error(e, f"Failed to extract zip with tar '{zip_path}': {e}")
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
     else:
-        raise ArchiveError(f"Unsupported archive format for file: {zip_path}")
+        raise ArchiveExtractionError(f"Unsupported archive format for file: {zip_path}")
