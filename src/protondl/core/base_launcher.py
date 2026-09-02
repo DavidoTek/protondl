@@ -95,6 +95,15 @@ class Launcher(ABC):
         Returns a list of installed compatibility tools for this launcher by checking the
         compatibility tools directory.
 
+        Note:
+            This performs blocking filesystem I/O on the calling thread: it scans
+            every supported compatibility tools directory and reads a
+            protondl_version.json from each installed tool. From an async or GUI
+            event loop, offload it to a thread pool, e.g.
+            ``await loop.run_in_executor(None, launcher.get_installed_tools)`` or
+            ``await asyncio.to_thread(launcher.get_installed_tools)``, so the
+            calling thread (and a GUI's UI) stays responsive.
+
         Args:
             tool_types (list[CompatToolType] | None):
                 An optional list of tool types to filter by.
@@ -182,6 +191,15 @@ class Launcher(ABC):
     def get_game_list(self) -> Sequence[Game]:
         """
         Returns a list of games installed in this launcher.
+
+        Note:
+            This performs blocking filesystem I/O on the calling thread: it reads
+            and parses the launcher's configuration and database files (e.g.
+            Steam's appinfo.vdf, Lutris' pga.db). From an async or GUI event loop,
+            offload it to a thread pool, e.g.
+            ``await loop.run_in_executor(None, launcher.get_game_list)`` or
+            ``await asyncio.to_thread(launcher.get_game_list)``, so the calling
+            thread (and a GUI's UI) stays responsive.
 
         Returns:
             Sequence[Game]: A list of Game instances representing the installed games.

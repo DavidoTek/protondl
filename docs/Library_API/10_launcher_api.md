@@ -59,6 +59,22 @@ all_tools = launcher.get_installed_tools()
 proton_tools = launcher.get_installed_tools([CompatToolType.PROTON])
 ```
 
+> **Blocking I/O:** `get_installed_tools()` (and `get_game_list()`, see
+> [Manage Games](30_manage_games_api.md)) perform blocking filesystem I/O on the
+> calling thread — scanning the compatibility-tool directories and reading a
+> `protondl_version.json` per tool, respectively parsing the launcher's
+> config/database files. Calling them directly from an async or GUI event loop
+> freezes it. Offload them to a thread pool:
+>
+> ```python
+> import asyncio
+>
+> tools = await asyncio.to_thread(launcher.get_installed_tools)
+> games = await asyncio.to_thread(launcher.get_game_list)
+> # or, without asyncio:
+> # loop.run_in_executor(None, launcher.get_installed_tools)
+> ```
+
 ## protondl_version.json
 
 When a compatibility tool is installed via an installer (see the installers API),

@@ -19,6 +19,13 @@ for game in games:
     print(f"{game.id}: {game.name} ({game.compat_tool_name})")
 ```
 
+> **Blocking I/O:** `get_game_list()` reads and parses the launcher's
+> configuration and database files (e.g. Steam's `appinfo.vdf`, Lutris' `pga.db`)
+> on the calling thread. From an async or GUI event loop, offload it to a thread
+> pool with `await asyncio.to_thread(launcher.get_game_list)` (or
+> `loop.run_in_executor(None, launcher.get_game_list)`) so the UI stays
+> responsive.
+
 ### Set compatibility tool for a specific game
 
 Set a specific compatibility tool for one or more games using `set_games_tools()`.

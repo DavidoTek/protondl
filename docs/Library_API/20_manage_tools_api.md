@@ -87,6 +87,19 @@ of the same version and architecture and re-install it.
 
 For a complete workflow with launcher/tool selection, see the CLI implementation in `src/protondl/cli/main.py`.
 
+### Threading and the progress callback
+
+`install()` keeps the event loop responsive: the network download runs on the loop,
+and the CPU/disk-bound work (checksum hashing, archive extraction, and the scans of
+the launcher's installed-tool directories) is offloaded to a thread pool via
+`asyncio.to_thread()`. You do not need to wrap `install()` yourself.
+
+One consequence: `progress_callback` is invoked from a **worker thread** for the
+`VERIFYING` and `EXTRACTING` steps, and from the calling thread for the others. The
+callback must be thread-safe and must not block. A GUI callback must marshal the
+update onto the UI thread (e.g. `GLib.idle_add` for GTK, a queued signal for Qt).
+The same applies to `update_compatibility_tools()`.
+
 ### Cancelling an installation
 
 Pass a `CancelToken` to `install()` to make a running installation abortable, e.g. from a
@@ -237,7 +250,7 @@ Argument | Type | Description
 `launcher` | `Launcher` |  The launcher the tools are installed for.
 `updates` | `list[ToolUpdate]` |  The `ToolUpdate` list from `check_for_updates()`.
 `keep_old` | `bool` |  Whether to keep older versions of the tools. If `False` (the default), all older versions are deleted after the new version was installed successfully.
-`progress_callback` | `ProgressCallback \| None` |  An optional callback receiving `InstallProgress` events for the currently installed tool. Each event carries the current `step` (`InstallStep`: fetching release info, downloading, verifying checksum, extracting, finalizing, installed) with the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted files), plus the tool's name and its index within the update run (`tool`, `tool_index`, `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully processed (after old versions were removed).
+`progress_callback` | `ProgressCallback \| None` |  An optional callback receiving `InstallProgress` events for the currently installed tool. Each event carries the current `step` (`InstallStep`: fetching release info, downloading, verifying checksum, extracting, finalizing, installed) with the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted files), plus the tool's name and its index within the update run (`tool`, `tool_index`, `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully processed (after old versions were removed). As with `install()`, `VERIFYING`/`EXTRACTING` events are delivered from a worker thread (see [Threading and the progress callback](#threading-and-the-progress-callback)).
 `request_config` | `RequestConfig \| None` |  An optional `RequestConfig` for authenticated API requests. Takes precedence over the `GITHUB_TOKEN`/`GITLAB_TOKEN` environment variables; see [API tokens](#api-tokens).
 `cancel_token` | `CancelToken \| None` |  An optional `CancelToken` to abort the update run. It is checked before each tool and forwarded to the running `install()` (see [Cancelling an installation](#cancelling-an-installation)), so a cancel also takes effect during the current download or extraction. Raises `InstallCancelledError` when cancelled.
 

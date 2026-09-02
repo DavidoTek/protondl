@@ -34,7 +34,12 @@ Bottles).
   `vdf`, `zstandard`. CLI-only dependencies (`rich`, `typer`) live behind the
   `cli` optional-dependency group and must never be imported from library code.
 - **Async-first.** All network I/O is `async` (`httpx.AsyncClient`). Do not add
-  blocking network calls or hidden threads to the library.
+  blocking network calls or long-lived background threads to the library. An
+  `async` method must not block the event loop: unavoidable CPU/disk-bound work
+  (archive extraction, hashing, filesystem scans, `rmtree`) is offloaded with
+  `asyncio.to_thread()`. Synchronous methods that block on I/O
+  (`Launcher.get_game_list()`, `get_installed_tools()`) must document it so
+  callers can offload them.
 - **Strongly typed.** The package ships `py.typed` and passes `mypy --strict`.
 - **Explicitly documented behavior.** Every public function documents its
   arguments, return value, and the exceptions it raises. Callers should never be
@@ -175,7 +180,7 @@ best-effort (catches and degrades instead of raising), say so.
 | **`protondl_version.json`** | Metadata file protondl writes into each tool directory it installs (tool name, version, install time, arch, translation details). Used to identify and update protondl-managed tools. |
 | **Translation details** | The guest→host mapping a build performs (`from_os`/`from_arch` → `to_os`/`to_arch`), e.g. Windows/x86_64 → Linux/aarch64. |
 | **`CancelToken`** | Cooperative cancellation token passed to `install()` / `update_compatibility_tools()`; `cancel()` aborts and cleans up partial files, raising `InstallCancelledError`. |
-| **`ProgressCallback`** | `Callable[[InstallProgress], None]` invoked during install with step (`InstallStep`), byte/file counts, and multi-tool run position. |
+| **`ProgressCallback`** | `Callable[[InstallProgress], None]` invoked during install with step (`InstallStep`), byte/file counts, and multi-tool run position. Called from a worker thread for the `VERIFYING`/`EXTRACTING` steps (offloaded via `asyncio.to_thread`), from the calling thread otherwise; must be thread-safe and non-blocking. |
 | **`RequestConfig`** | Holds optional GitHub/GitLab API tokens (from args or `GITHUB_TOKEN`/`GITLAB_TOKEN` env vars). Tokens are sent only to their matching host. |
 | **AWACY** | areweanticheatyet.com — crowd-sourced Linux anti-cheat support tracker (`services/awacy.py`). |
 | **ProtonDB** | protondb.com — crowd-sourced Linux game compatibility ratings, tiers `borked`…`platinum` (`services/protondb.py`). |
