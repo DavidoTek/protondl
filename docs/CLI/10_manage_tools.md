@@ -86,7 +86,7 @@ protondl install 1 GE-Proton GE-Proton11-3 --arch aarch64 --force
 When protondl installs a compatibility tool, it writes a `protondl_version.json` file into the
 tool's folder that stores metadata about the installation, including the compatibility tool's
 name, version, install timestamp, and the installed architecture with translation details.
-See the [Library API](../Library_API/30_launcher_api.md#protondl_versionjson) docs for details.
+See the [Library API](../Library_API/10_launcher_api.md#protondl_versionjson) docs for details.
 
 Press `Ctrl+C` during the download or extraction to cancel the installation. protondl removes
 the partially downloaded archive and any files already extracted, so no half-installed tool is

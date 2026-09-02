@@ -1,3 +1,4 @@
+import asyncio
 import shutil
 import tempfile
 import time
@@ -145,7 +146,11 @@ class CtInstaller(ABC):
             progress_callback (ProgressCallback | None, optional):
                 A callback function to report progress as InstallProgress events,
                 covering the fetch, download, verification, extraction and
-                finalization steps.
+                finalization steps. The checksum and extraction work is offloaded
+                to a thread pool, so events for the VERIFYING and EXTRACTING steps
+                are delivered from a worker thread while the others come from the
+                calling thread. The callback must be thread-safe and must not
+                block; a GUI callback should marshal the update to its UI thread.
             cancel_token (CancelToken | None, optional): A token whose cancel()
                 method aborts the installation. It is checked between the steps
                 and during the download (per chunk) and extraction (per archive
@@ -181,7 +186,7 @@ class CtInstaller(ABC):
         """
         arch = self.resolve_arch(arch)
 
-        self._check_not_installed(launcher, version, arch, force)
+        await asyncio.to_thread(self._check_not_installed, launcher, version, arch, force)
 
         def report(step: InstallStep, current: int = 0, total: int = 0) -> None:
             if progress_callback is not None:
@@ -199,7 +204,9 @@ class CtInstaller(ABC):
         if not release_data.download:
             raise ValueError(f"No {arch.value} asset found for version '{version}' of {self.name}.")
 
-        self._check_not_installed(launcher, release_data.version, arch, force)
+        await asyncio.to_thread(
+            self._check_not_installed, launcher, release_data.version, arch, force
+        )
 
         info = CompatToolVersionInfo(
             compat_tool=self.name,
@@ -233,27 +240,35 @@ class CtInstaller(ABC):
 
                     check_cancelled()
                     if force:
-                        self._remove_installed_tool(launcher, release_data.version, arch)
+                        await asyncio.to_thread(
+                            self._remove_installed_tool, launcher, release_data.version, arch
+                        )
+
+                    def snapshot_extract_dir() -> tuple[Path, set[Path]]:
+                        extract_dir = self._get_extract_dir(launcher)
+                        return extract_dir, set(extract_dir.iterdir())
 
                     try:
-                        install_dir = self._get_extract_dir(launcher)
-                        before = set(install_dir.iterdir())
+                        install_dir, before = await asyncio.to_thread(snapshot_extract_dir)
                     except OSError as e:
                         raise_for_os_error(e)
                     report(InstallStep.EXTRACTING)
                     try:
-                        self._extract_archive(
+                        await asyncio.to_thread(
+                            self._extract_archive,
                             tmp_path,
                             install_dir,
                             progress_callback=progress_callback,
                             cancel_token=cancel_token,
                         )
                     except InstallCancelledError:
-                        self._cleanup_partial_extraction(install_dir, before)
+                        await asyncio.to_thread(
+                            self._cleanup_partial_extraction, install_dir, before
+                        )
                         raise
 
-                    installed_dir = self._find_installed_dir(
-                        install_dir, before, release_data.version
+                    installed_dir = await asyncio.to_thread(
+                        self._find_installed_dir, install_dir, before, release_data.version
                     )
                     report(InstallStep.FINISHING)
                     if installed_dir is None:
@@ -263,7 +278,7 @@ class CtInstaller(ABC):
                         )
                     else:
                         try:
-                            write_version_file(installed_dir, info)
+                            await asyncio.to_thread(write_version_file, installed_dir, info)
                         except OSError as e:
                             print(f"Warning: Could not write the version file for {self.name}: {e}")
                 except Exception as e:
@@ -555,6 +570,9 @@ class CtInstaller(ABC):
         """
         Verifies the checksum of a downloaded file against the expected checksum.
 
+        The hashing is CPU-bound and is run in a thread pool so it does not block
+        the event loop.
+
         Args:
             client (httpx.AsyncClient): The HTTP client for making requests.
             release_data (ReleaseData): The release data containing the checksum.
@@ -574,7 +592,7 @@ class CtInstaller(ABC):
                 raise_for_httpx_error(e)
 
             expected_sha = sha_resp.text.split()[0].strip()
-            actual_sha = calculate_sha512(file_path, self.buffer_size)
+            actual_sha = await asyncio.to_thread(calculate_sha512, file_path, self.buffer_size)
 
             if actual_sha != expected_sha:
                 raise ChecksumMismatchError("Checksum verification failed! File corrupted.")
@@ -588,6 +606,10 @@ class CtInstaller(ABC):
     ) -> None:
         """
         Helper method to extract an archive file to the specified directory.
+
+        This is CPU- and disk-bound and is run in a thread pool by install() so it
+        does not block the event loop; a progress_callback passed here is therefore
+        invoked from a worker thread.
 
         Args:
             archive_path (Path): The path to the archive file.

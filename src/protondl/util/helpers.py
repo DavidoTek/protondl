@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import platform
 from collections.abc import Sequence
@@ -168,6 +169,9 @@ async def check_for_updates(
     per architecture (e.g. fshack or wow64 builds); it means the
     architectures and variants of a tool may be updated to different versions.
 
+    The blocking scan of the launcher's installed compatibility tools is run in a
+    thread pool so it does not block the event loop.
+
     Args:
         launcher: The game launcher instance to operate on.
         request_config: Optional configuration for API requests, including auth tokens.
@@ -188,32 +192,37 @@ async def check_for_updates(
     from protondl.installers import get_installer_by_name
     from protondl.util.version_file import read_version_file
 
-    installed_tools = launcher.get_installed_tools()
     unchecked: list[str] = []
     groups: dict[tuple[str, Arch, str], list[CompatTool]] = {}
     versions_by_group: dict[tuple[str, Arch, str], list[str]] = {}
     installers: dict[str, CtInstaller] = {}
     installer_order: list[str] = []
 
-    for tool in installed_tools:
-        info = read_version_file(tool.install_dir)
-        if info is None:
-            unchecked.append(tool.full_name)
-            continue
+    def scan_installed_tools() -> None:
+        # Enumerating the tools scans the launcher's compatibility-tool
+        # directories and reads a protondl_version.json from each; run it off the
+        # event loop.
+        for tool in launcher.get_installed_tools():
+            info = read_version_file(tool.install_dir)
+            if info is None:
+                unchecked.append(tool.full_name)
+                continue
 
-        installer = get_installer_by_name(info.compat_tool, request_config=request_config)
-        if installer is None:
-            unchecked.append(tool.full_name)
-            continue
+            installer = get_installer_by_name(info.compat_tool, request_config=request_config)
+            if installer is None:
+                unchecked.append(tool.full_name)
+                continue
 
-        arch = _resolve_tool_arch(installer, info)
-        variant = installer.variant_of(info.version)
-        group = (installer.name, arch, variant)
-        if installer.name not in installers:
-            installers[installer.name] = installer
-            installer_order.append(installer.name)
-        groups.setdefault(group, []).append(tool)
-        versions_by_group.setdefault(group, []).append(info.version)
+            arch = _resolve_tool_arch(installer, info)
+            variant = installer.variant_of(info.version)
+            group = (installer.name, arch, variant)
+            if installer.name not in installers:
+                installers[installer.name] = installer
+                installer_order.append(installer.name)
+            groups.setdefault(group, []).append(tool)
+            versions_by_group.setdefault(group, []).append(info.version)
+
+    await asyncio.to_thread(scan_installed_tools)
 
     updates: list[ToolUpdate] = []
     up_to_date: list[str] = []
@@ -376,7 +385,11 @@ async def update_compatibility_tools(
         keep_old: Whether to keep older versions of the compatibility tools.
         progress_callback: Optional callback receiving InstallProgress events of the
             currently installed tool, enriched with the tool's name and its index
-            within the update run (tool, tool_index, tool_total).
+            within the update run (tool, tool_index, tool_total). As in
+            CtInstaller.install(), the VERIFYING and EXTRACTING events are
+            delivered from a worker thread, so the callback must be thread-safe,
+            must not block, and a GUI callback should marshal the update to its
+            UI thread.
         request_config: Optional configuration for API requests, including auth tokens.
         cancel_token: Optional token whose cancel() method aborts the update run.
             It is checked before each tool and forwarded to the running
@@ -448,9 +461,9 @@ async def update_compatibility_tools(
 
         if not keep_old:
             for tool in update.installed_tools:
-                launcher.remove_tool(tool)
+                await asyncio.to_thread(launcher.remove_tool, tool)
 
-        new_tool = _find_installed_tool(launcher, info)
+        new_tool = await asyncio.to_thread(_find_installed_tool, launcher, info)
         if new_tool is not None:
             installed_new_tools[(update.compat_tool_name, update.arch, update.variant)] = new_tool
 

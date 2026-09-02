@@ -266,4 +266,9 @@ class InstallProgress:
     tool_total: int = 0
 
 
+# The callback may be invoked from a worker thread: install() and
+# update_compatibility_tools() offload the checksum and extraction steps to a
+# thread pool, so VERIFYING and EXTRACTING events arrive from a worker thread
+# while the others come from the calling thread. Implementations must be
+# thread-safe, must not block, and should marshal any GUI update to the UI thread.
 ProgressCallback = Callable[[InstallProgress], None]
