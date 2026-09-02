@@ -1,0 +1,1430 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation of the protondl library.
+Modern, headless, and async-first Python library and CLI for managing Steam & Linux gaming compatibility tools.
+">
+      
+      
+      
+        <link rel="canonical" href="https://davidotek.github.io/protondl/Library_API/20_manage_tools_api/">
+      
+      
+        <link rel="prev" href="../10_launcher_api/">
+      
+      
+        <link rel="next" href="../30_manage_games_api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Manage Compatibility Tools (Library) - protondl Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        
+        <link rel="stylesheet" href="../../assets/external/fonts.googleapis.com/css.49ea35f2.css">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/launcher_badges.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#manage-compatibility-tools-library" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="protondl Documentation" class="md-header__button md-logo" aria-label="protondl Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            protondl Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Manage Compatibility Tools (Library)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/DavidoTek/protondl" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    DavidoTek/protondl
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  protondl
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../CLI/" class="md-tabs__link">
+          
+  
+  
+  CLI
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Library API
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="protondl Documentation" class="md-nav__button md-logo" aria-label="protondl Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    protondl Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/DavidoTek/protondl" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    DavidoTek/protondl
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    protondl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CLI/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CLI/10_manage_tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage Tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CLI/20_manage_games/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage Games
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CLI/40_external_services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Library API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../10_launcher_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Launchers (Library)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage Compatibility Tools (Library)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage Compatibility Tools (Library)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#list-available-compatibility-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List available compatibility tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fetch-versions-for-a-tool-and-install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fetch versions for a tool and install
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fetch versions for a tool and install">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#threading-and-the-progress-callback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Threading and the progress callback
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cancelling-an-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cancelling an installation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#automatic-tool-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic tool updates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Automatic tool updates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#check-for-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Check for updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#install-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-update-games" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch update games
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#end-to-end-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End-to-end example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API tokens
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../30_manage_games_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage Games (Library)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../40_external_services_api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    External Services (Library)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../50_errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    protondl
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Library API
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="manage-compatibility-tools-library">Manage Compatibility Tools (Library)</h1>
+<p>Managing compatibility tools is currently supported for the following launchers:
+<span class="badge steam">Steam</span> <span class="badge lutris">Lutris</span>
+<span class="badge heroic">Heroic</span> <span class="badge bottles">Bottles</span></p>
+<p>This page documents the API for fetching compatibility tools releases, installing tools, and updating tools.</p>
+<h2 id="list-available-compatibility-tools">List available compatibility tools</h2>
+<p>After determining the available launchers, the next step is to determine which compatibility tools
+can be installed for a specific launcher.
+The function <code>get_tools_for_launcher</code> returns all compatibility tools supported by the launcher.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.installers</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_tools_for_launcher</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">compatible_tools</span> <span class="o">=</span> <span class="n">get_tools_for_launcher</span><span class="p">(</span><span class="n">launchers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">for</span> <span class="n">tool_installer</span> <span class="ow">in</span> <span class="n">compatible_tools</span><span class="p">:</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tool_installer</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">tool_installer</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="fetch-versions-for-a-tool-and-install">Fetch versions for a tool and install</h2>
+<p>Once you pick an installer, fetch available versions and install one into a selected launcher.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.installers</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_tools_for_launcher</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.launchers</span><span class="w"> </span><span class="kn">import</span> <span class="n">detect_all_launchers</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">launchers</span> <span class="o">=</span> <span class="n">detect_all_launchers</span><span class="p">()</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">launchers</span><span class="p">:</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"No supported launcher found"</span><span class="p">)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">compatible_tools</span> <span class="o">=</span> <span class="n">get_tools_for_launcher</span><span class="p">(</span><span class="n">launchers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">compatible_tools</span><span class="p">:</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"No installers available for selected launcher"</span><span class="p">)</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">tool_installer</span> <span class="o">=</span> <span class="n">compatible_tools</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="n">versions</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">tool_installer</span><span class="o">.</span><span class="n">fetch_releases</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">page</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Available versions of </span><span class="si">{</span><span class="n">tool_installer</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:"</span><span class="p">)</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="k">for</span> <span class="n">release</span> <span class="ow">in</span> <span class="n">versions</span><span class="p">:</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">release</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">arch</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">arch</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">release</span><span class="o">.</span><span class="n">archs</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">versions</span><span class="p">:</span>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"No releases returned"</span><span class="p">)</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">tool_installer</span><span class="o">.</span><span class="n">supports_launcher</span><span class="p">(</span><span class="n">launchers</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">"Selected launcher is not supported by this installer"</span><span class="p">)</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="c1"># Install the newest release for the given architecture.</span>
+</span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="c1"># Omitting `arch` selects the host architecture if supported, else x86_64.</span>
+</span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Arch</span>
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>
+</span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+</span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>    <span class="n">tool_installer</span><span class="o">.</span><span class="n">install</span><span class="p">(</span>
+</span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>        <span class="n">versions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>        <span class="n">launchers</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>        <span class="n">arch</span><span class="o">=</span><span class="n">Arch</span><span class="o">.</span><span class="n">AARCH64</span><span class="p">,</span>  <span class="c1"># Optional</span>
+</span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>        <span class="c1"># force=True removes an already installed build of the same version</span>
+</span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>        <span class="c1"># and architecture before re-installing it (default: False)</span>
+</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>        <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-1-40"><a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>        <span class="c1"># Optional: receive step-based progress (fetch, download, verify, extract)</span>
+</span><span id="__span-1-41"><a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>        <span class="n">progress_callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span>
+</span><span id="__span-1-42"><a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">current</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">total</span><span class="si">}</span><span class="s2">"</span>
+</span><span id="__span-1-43"><a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>        <span class="p">),</span>
+</span><span id="__span-1-44"><a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>        <span class="c1"># Optional: a CancelToken to abort the download/extraction (see below)</span>
+</span><span id="__span-1-45"><a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>        <span class="n">cancel_token</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-1-46"><a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>    <span class="p">)</span>
+</span><span id="__span-1-47"><a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a><span class="p">)</span>
+</span></code></pre></div>
+<p><code>fetch_releases()</code> returns a list of <code>ReleaseVersion</code> objects with a <code>version</code> string and an
+<code>archs</code> tuple of <code>Arch</code> values. <code>install()</code> returns the <code>CompatToolVersionInfo</code> written to the
+tool's <code>protondl_version.json</code>, which includes the installed architecture.</p>
+<p>If the requested version and architecture are already installed for the launcher,
+<code>install()</code> raises <code>AlreadyInstalledError</code> instead of downloading and extracting it
+again. The check is architecture-aware, so installing a different architecture of an
+already installed version is allowed. Pass <code>force=True</code> to remove the existing build
+of the same version and architecture and re-install it.</p>
+<p>For a complete workflow with launcher/tool selection, see the CLI implementation in <code>src/protondl/cli/main.py</code>.</p>
+<h3 id="threading-and-the-progress-callback">Threading and the progress callback</h3>
+<p><code>install()</code> keeps the event loop responsive: the network download runs on the loop,
+and the CPU/disk-bound work (checksum hashing, archive extraction, and the scans of
+the launcher's installed-tool directories) is offloaded to a thread pool via
+<code>asyncio.to_thread()</code>. You do not need to wrap <code>install()</code> yourself.</p>
+<p>One consequence: <code>progress_callback</code> is invoked from a <strong>worker thread</strong> for the
+<code>VERIFYING</code> and <code>EXTRACTING</code> steps, and from the calling thread for the others. The
+callback must be thread-safe and must not block. A GUI callback must marshal the
+update onto the UI thread (e.g. <code>GLib.idle_add</code> for GTK, a queued signal for Qt).
+The same applies to <code>update_compatibility_tools()</code>.</p>
+<h3 id="cancelling-an-installation">Cancelling an installation</h3>
+<p>Pass a <code>CancelToken</code> to <code>install()</code> to make a running installation abortable, e.g. from a
+GUI's cancel button next to a progress bar.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.core.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">CancelToken</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.core.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">InstallCancelledError</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">cancel_token</span> <span class="o">=</span> <span class="n">CancelToken</span><span class="p">()</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Cancel from anywhere - another thread, a signal handler, a GUI callback.</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Here: cancel automatically after 10 seconds.</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">threading</span><span class="o">.</span><span class="n">Timer</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">cancel_token</span><span class="o">.</span><span class="n">cancel</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">tool_installer</span><span class="o">.</span><span class="n">install</span><span class="p">(</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>            <span class="n">versions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">version</span><span class="p">,</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>            <span class="n">launchers</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>            <span class="n">progress_callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">current</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">total</span><span class="si">}</span><span class="s2">"</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>            <span class="p">),</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>            <span class="n">cancel_token</span><span class="o">=</span><span class="n">cancel_token</span><span class="p">,</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="p">)</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>    <span class="p">)</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="k">except</span> <span class="n">InstallCancelledError</span><span class="p">:</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">"Installation cancelled."</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Things to consider:</p>
+<ul>
+<li>Cancellation is <strong>cooperative</strong>: the token is checked between the install steps and during
+  the two long-running steps - the download (before every downloaded chunk) and the
+  extraction (before every extracted archive member). <code>cancel()</code> therefore takes effect
+  within a fraction of a second, not instantly.</li>
+<li>On cancellation, the partially downloaded archive and any files already extracted into the
+  launcher's compatibility tools directory are removed before <code>InstallCancelledError</code> is
+  raised, so no half-installed tool is left behind.</li>
+<li><code>CancelToken</code> is single use. Once <code>cancel()</code> has been called the token stays cancelled;
+  create a new token for each installation.</li>
+<li><code>cancel()</code> and the <code>cancelled</code> property are safe to call from a different thread than the
+  one running <code>install()</code>.</li>
+<li>A token that is already cancelled when passed to <code>install()</code> aborts it before the release
+  info is fetched.</li>
+</ul>
+<h2 id="automatic-tool-updates">Automatic tool updates</h2>
+<p>protondl provides helper functions that check whether updates are available for currently installed
+tools, installing the newest version of the tools and optionally removing old versions, and finally,
+changing the compatibility tool a game uses to the latest installed version.</p>
+<h3 id="check-for-updates">Check for updates</h3>
+<p><code>check_for_updates(launcher)</code> scans all compatibility tools installed for a launcher,
+determines the corresponding <code>CtInstaller</code> for each of them, and fetches the newest
+available version using that installer.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.launchers</span><span class="w"> </span><span class="kn">import</span> <span class="n">detect_all_launchers</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.util.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_for_updates</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">launcher</span> <span class="o">=</span> <span class="n">detect_all_launchers</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">check_for_updates</span><span class="p">(</span><span class="n">launcher</span><span class="p">))</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">for</span> <span class="n">update</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">updates</span><span class="p">:</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="nb">print</span><span class="p">(</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">update</span><span class="o">.</span><span class="n">compat_tool_name</span><span class="si">}</span><span class="s2">: "</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">update</span><span class="o">.</span><span class="n">installed_versions</span><span class="p">)</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">update</span><span class="o">.</span><span class="n">latest_version</span><span class="si">}</span><span class="s2">"</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="p">)</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not check: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">unchecked</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The function is async and returns an <code>UpdateCheckResult</code> with three fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>updates</code></td>
+<td><code>list[ToolUpdate]</code></td>
+<td>A list of <code>ToolUpdate</code> objects, one per (compatibility tool, architecture, build variant) that has an available update. Each entry contains the tool name (<code>compat_tool_name</code>), the newest available version providing that architecture and variant (<code>latest_version</code>), the currently installed versions of that architecture and variant (<code>installed_versions</code>), the installed <code>CompatTool</code> objects (<code>installed_tools</code>), the architecture (<code>arch</code>), and the build variant (<code>variant</code>).</td>
+</tr>
+<tr>
+<td><code>up_to_date</code></td>
+<td><code>list[str]</code></td>
+<td>A list of compatibility tools that are already at the newest available version. Tools providing multiple architectures or build variants are labeled with them (e.g. <code>GE-Proton (x86_64)</code>, <code>GE-Proton (x86_64) (fshack)</code>).</td>
+</tr>
+<tr>
+<td><code>unchecked</code></td>
+<td><code>list[str]</code></td>
+<td>A list of names of installed tools for which no update check was possible.</td>
+</tr>
+</tbody>
+</table>
+<p>Things to consider:</p>
+<ul>
+<li>Only tools that carry a <code>protondl_version.json</code> file (i.e. tools installed by protondl)
+  can be checked. All other installed tools are reported in <code>unchecked</code>.</li>
+<li>Installed tools are grouped by compatibility tool class, architecture and build
+  variant. For each (architecture, variant) combination the release history is walked
+  back (up to a few pages) until a release providing a build of that variant and
+  architecture is found. The architecture is taken from the tool's version file (<code>arch</code>,
+  falling back to its translation details), and finally from the installer's default
+  resolution.</li>
+<li>A release may only ship a subset of a tool's architectures (e.g. an architecture-specific
+  patch). The newest release for each architecture is therefore determined independently,
+  so the two architectures of one tool can be updated to <em>different</em> versions when the
+  newest release does not provide both.</li>
+<li>Tools that ship multiple build variants per architecture (e.g. fshack or wow64 builds)
+  are handled the same way: each installed variant is updated to the newest release that
+  provides it, so the variants of a tool may also be updated to different versions.</li>
+<li>The release history is fetched once per compatibility tool class; it is only paginated
+  further when an installed (architecture, variant) combination has not found a matching
+  release yet.</li>
+<li>If fetching the newest version fails (e.g. the remote API is unreachable), the affected
+  tools are reported in <code>unchecked</code> instead of raising.</li>
+<li>Pass an optional <code>RequestConfig</code> as <code>request_config</code> to authenticate API requests and
+  raise the rate limits (see <a href="#api-tokens">API tokens</a>). A <code>RequestConfig()</code> created
+  without arguments picks up the <code>GITHUB_TOKEN</code> and <code>GITLAB_TOKEN</code> environment variables
+  automatically; an explicitly passed config takes precedence.</li>
+</ul>
+<h3 id="install-updates">Install updates</h3>
+<p><code>update_compatibility_tools(launcher, updates)</code> installs the newest version of each
+compatibility tool in the given list of updates. The list returned by
+<code>check_for_updates()</code> can be passed directly.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.launchers</span><span class="w"> </span><span class="kn">import</span> <span class="n">detect_all_launchers</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.util.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_for_updates</span><span class="p">,</span> <span class="n">update_compatibility_tools</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">launcher</span> <span class="o">=</span> <span class="n">detect_all_launchers</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">result</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">check_for_updates</span><span class="p">(</span><span class="n">launcher</span><span class="p">))</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">update_compatibility_tools</span><span class="p">(</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="n">launcher</span><span class="p">,</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>        <span class="n">result</span><span class="o">.</span><span class="n">updates</span><span class="p">,</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        <span class="n">keep_old</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>        <span class="n">progress_callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>            <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">tool_index</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">tool_total</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">tool</span><span class="si">}</span><span class="s2">: "</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">current</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">total</span><span class="si">}</span><span class="s2">"</span>
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>        <span class="p">),</span>
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>    <span class="p">)</span>
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>The function is async and accepts the following arguments:</p>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>launcher</code></td>
+<td><code>Launcher</code></td>
+<td>The launcher the tools are installed for.</td>
+</tr>
+<tr>
+<td><code>updates</code></td>
+<td><code>list[ToolUpdate]</code></td>
+<td>The <code>ToolUpdate</code> list from <code>check_for_updates()</code>.</td>
+</tr>
+<tr>
+<td><code>keep_old</code></td>
+<td><code>bool</code></td>
+<td>Whether to keep older versions of the tools. If <code>False</code> (the default), all older versions are deleted after the new version was installed successfully.</td>
+</tr>
+<tr>
+<td><code>progress_callback</code></td>
+<td><code>ProgressCallback \| None</code></td>
+<td>An optional callback receiving <code>InstallProgress</code> events for the currently installed tool. Each event carries the current <code>step</code> (<code>InstallStep</code>: fetching release info, downloading, verifying checksum, extracting, finalizing, installed) with the progress within that step (<code>current</code>/<code>total</code>, e.g. downloaded bytes or extracted files), plus the tool's name and its index within the update run (<code>tool</code>, <code>tool_index</code>, <code>tool_total</code>). A <code>COMPLETED</code> step with <code>tool_index</code>/<code>tool_total</code> marks a tool as fully processed (after old versions were removed). As with <code>install()</code>, <code>VERIFYING</code>/<code>EXTRACTING</code> events are delivered from a worker thread (see <a href="#threading-and-the-progress-callback">Threading and the progress callback</a>).</td>
+</tr>
+<tr>
+<td><code>request_config</code></td>
+<td><code>RequestConfig \| None</code></td>
+<td>An optional <code>RequestConfig</code> for authenticated API requests. Takes precedence over the <code>GITHUB_TOKEN</code>/<code>GITLAB_TOKEN</code> environment variables; see <a href="#api-tokens">API tokens</a>.</td>
+</tr>
+<tr>
+<td><code>cancel_token</code></td>
+<td><code>CancelToken \| None</code></td>
+<td>An optional <code>CancelToken</code> to abort the update run. It is checked before each tool and forwarded to the running <code>install()</code> (see <a href="#cancelling-an-installation">Cancelling an installation</a>), so a cancel also takes effect during the current download or extraction. Raises <code>InstallCancelledError</code> when cancelled.</td>
+</tr>
+</tbody>
+</table>
+<p>Things to consider:</p>
+<ul>
+<li>Each update is installed for its own architecture (<code>ToolUpdate.arch</code>) and build variant
+  (<code>ToolUpdate.variant</code>), i.e. the architecture and variant of the installed builds it
+  replaces. When both architectures or both variants of a tool are installed and updated,
+  multiple builds (one per combination) are installed, possibly at different versions.</li>
+<li>The function returns a dict mapping <code>(compat_tool_name, arch, variant)</code> to the newly
+  installed <code>CompatTool</code> for every update whose installation directory could be determined.
+  Use these to point games at the new build (see <code>batch_update_games_tools()</code> below).</li>
+<li>If <code>keep_old=False</code>, the old versions are deleted. Games of the launcher that still
+  reference an old version would then point to a missing tool, so follow up with
+  <code>batch_update_games_tools()</code> (see below). With <code>keep_old=True</code> the batch update is
+  optional because the old versions remain usable.</li>
+<li>A <code>ValueError</code> is raised if no <code>CtInstaller</code> exists for one of the tools.</li>
+<li>When cancelled through <code>cancel_token</code>, tools already updated before the cancel stay
+  installed, the current tool's partial download and extraction are cleaned up, and
+  <code>InstallCancelledError</code> propagates out of <code>update_compatibility_tools()</code>.</li>
+</ul>
+<h3 id="batch-update-games">Batch update games</h3>
+<p><code>batch_update_games_tools(launcher, from_tool, to_tool)</code> changes the compatibility tool
+of all games that currently use <code>from_tool</code> to <code>to_tool</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.launchers</span><span class="w"> </span><span class="kn">import</span> <span class="n">detect_all_launchers</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.util.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_update_games_tools</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">launcher</span> <span class="o">=</span> <span class="n">detect_all_launchers</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">new_tool</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">tool</span> <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">launcher</span><span class="o">.</span><span class="n">get_installed_tools</span><span class="p">()</span> <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">full_name</span> <span class="o">==</span> <span class="s2">"GE-Proton11-3"</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1"># Match all games whose compatibility tool name contains "GE-Proton"</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">count</span> <span class="o">=</span> <span class="n">batch_update_games_tools</span><span class="p">(</span><span class="n">launcher</span><span class="p">,</span> <span class="s2">"GE-Proton"</span><span class="p">,</span> <span class="n">new_tool</span><span class="p">)</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Updated </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> games"</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>from_tool</code> can be:</p>
+<ul>
+<li>A <code>CompatTool</code> instance to match games using that exact tool, or</li>
+<li>A string to match all games whose tool name contains the string (e.g. <code>"GE-Proton"</code>
+  matches every installed GE-Proton version).</li>
+</ul>
+<p>The function returns the number of games that were updated. It raises a <code>RuntimeError</code>
+if updating the games' compatibility tools failed (e.g. for launchers that do not
+implement <code>set_games_tools()</code>, such as Lutris).</p>
+<h3 id="end-to-end-example">End-to-end example</h3>
+<p>The following example combines all three functions to update every compatibility tool of
+a launcher and move all games to the newest versions:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.launchers</span><span class="w"> </span><span class="kn">import</span> <span class="n">detect_all_launchers</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.util.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">batch_update_games_tools</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">check_for_updates</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">update_compatibility_tools</span><span class="p">,</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">)</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="n">launcher</span> <span class="o">=</span> <span class="n">detect_all_launchers</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="c1"># 1. Check which compatibility tools can be updated</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">check_for_updates</span><span class="p">(</span><span class="n">launcher</span><span class="p">)</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>
+</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">unchecked</span><span class="p">:</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not check: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">unchecked</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-6-19"><a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a>
+</span><span id="__span-6-20"><a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a>    <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">up_to_date</span><span class="p">:</span>
+</span><span id="__span-6-21"><a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Up to date: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">up_to_date</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-6-22"><a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a>
+</span><span id="__span-6-23"><a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">updates</span><span class="p">:</span>
+</span><span id="__span-6-24"><a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">"No updates available."</span><span class="p">)</span>
+</span><span id="__span-6-25"><a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a>        <span class="k">return</span>
+</span><span id="__span-6-26"><a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a>
+</span><span id="__span-6-27"><a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a>    <span class="c1"># 2. Install the newest versions and delete the old ones</span>
+</span><span id="__span-6-28"><a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">on_progress</span><span class="p">(</span><span class="n">event</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-6-29"><a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a>        <span class="nb">print</span><span class="p">(</span>
+</span><span id="__span-6-30"><a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a>            <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">tool_index</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">tool_total</span><span class="si">}</span><span class="s2">] </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">tool</span><span class="si">}</span><span class="s2">: "</span>
+</span><span id="__span-6-31"><a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">current</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">total</span><span class="si">}</span><span class="s2">"</span>
+</span><span id="__span-6-32"><a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a>        <span class="p">)</span>
+</span><span id="__span-6-33"><a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a>
+</span><span id="__span-6-34"><a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a>    <span class="n">new_tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">update_compatibility_tools</span><span class="p">(</span>
+</span><span id="__span-6-35"><a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a>        <span class="n">launcher</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">updates</span><span class="p">,</span> <span class="n">keep_old</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">progress_callback</span><span class="o">=</span><span class="n">on_progress</span>
+</span><span id="__span-6-36"><a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a>    <span class="p">)</span>
+</span><span id="__span-6-37"><a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a>
+</span><span id="__span-6-38"><a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a>    <span class="c1"># 3. Point all games to the newest version. As the old versions were deleted</span>
+</span><span id="__span-6-39"><a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a>    <span class="c1">#    in step 2, games still referencing them would break without this step.</span>
+</span><span id="__span-6-40"><a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a>    <span class="c1">#    Each update is migrated to its own architecture- and variant-specific new build.</span>
+</span><span id="__span-6-41"><a id="__codelineno-6-41" name="__codelineno-6-41" href="#__codelineno-6-41"></a>    <span class="k">for</span> <span class="n">update</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">updates</span><span class="p">:</span>
+</span><span id="__span-6-42"><a id="__codelineno-6-42" name="__codelineno-6-42" href="#__codelineno-6-42"></a>        <span class="n">new_tool</span> <span class="o">=</span> <span class="n">new_tools</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">update</span><span class="o">.</span><span class="n">compat_tool_name</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">arch</span><span class="p">,</span> <span class="n">update</span><span class="o">.</span><span class="n">variant</span><span class="p">))</span>
+</span><span id="__span-6-43"><a id="__codelineno-6-43" name="__codelineno-6-43" href="#__codelineno-6-43"></a>        <span class="k">if</span> <span class="n">new_tool</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-6-44"><a id="__codelineno-6-44" name="__codelineno-6-44" href="#__codelineno-6-44"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not find the newly installed </span><span class="si">{</span><span class="n">update</span><span class="o">.</span><span class="n">compat_tool_name</span><span class="si">}</span><span class="s2">; skipping"</span><span class="p">)</span>
+</span><span id="__span-6-45"><a id="__codelineno-6-45" name="__codelineno-6-45" href="#__codelineno-6-45"></a>            <span class="k">continue</span>
+</span><span id="__span-6-46"><a id="__codelineno-6-46" name="__codelineno-6-46" href="#__codelineno-6-46"></a>        <span class="k">for</span> <span class="n">old_tool</span> <span class="ow">in</span> <span class="n">update</span><span class="o">.</span><span class="n">installed_tools</span><span class="p">:</span>
+</span><span id="__span-6-47"><a id="__codelineno-6-47" name="__codelineno-6-47" href="#__codelineno-6-47"></a>            <span class="n">count</span> <span class="o">=</span> <span class="n">batch_update_games_tools</span><span class="p">(</span><span class="n">launcher</span><span class="p">,</span> <span class="n">old_tool</span><span class="p">,</span> <span class="n">new_tool</span><span class="p">)</span>
+</span><span id="__span-6-48"><a id="__codelineno-6-48" name="__codelineno-6-48" href="#__codelineno-6-48"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Updated </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> games to </span><span class="si">{</span><span class="n">new_tool</span><span class="o">.</span><span class="n">full_name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span id="__span-6-49"><a id="__codelineno-6-49" name="__codelineno-6-49" href="#__codelineno-6-49"></a>
+</span><span id="__span-6-50"><a id="__codelineno-6-50" name="__codelineno-6-50" href="#__codelineno-6-50"></a>
+</span><span id="__span-6-51"><a id="__codelineno-6-51" name="__codelineno-6-51" href="#__codelineno-6-51"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span></code></pre></div>
+<p>The three functions play together as follows: <code>check_for_updates()</code> determines <em>what</em>
+can be updated and returns the <code>ToolUpdate</code> list. <code>update_compatibility_tools()</code>
+installs those updates, and optionally removes the old versions. <code>batch_update_games_tools()</code>
+then reconciles the games with the new state. When old versions are deleted
+(<code>keep_old=False</code>), running the batch update is strongly recommended so that no game
+references a deleted tool.</p>
+<p>The user should be presented with a list of available updates and for which compatibility tools no
+updates could be fetched. The user should optionally be able to select which of the compatibility
+tools should be updated. Furthermore, the user should have the choice whether old compatibility
+tools are deleted and whether a batch update for the installed games should be performed.</p>
+<h2 id="api-tokens">API tokens</h2>
+<p>protondl queries GitHub's API to fetch releases and artifacts.
+Unauthenticated requests are subject to API rate limits; a token raises them.</p>
+<p>API requests are configured via a <code>RequestConfig</code>:</p>
+<ul>
+<li><code>RequestConfig()</code> reads the <code>GITHUB_TOKEN</code> and <code>GITLAB_TOKEN</code> environment variables automatically.</li>
+<li><code>RequestConfig(github_token="...", gitlab_token="...")</code> sets the tokens explicitly.</li>
+</ul>
+<p>The token is only sent to the matching host, as an <code>Authorization</code> header (<code>token ...</code> for GitHub,
+<code>Bearer ...</code> for GitLab). Set it via an environment variable:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GITHUB_TOKEN</span><span class="o">=</span>&lt;your<span class="w"> </span>GitHub<span class="w"> </span>token&gt;
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">GITLAB_TOKEN</span><span class="o">=</span>&lt;your<span class="w"> </span>GitLab<span class="w"> </span>token&gt;
+</span></code></pre></div>
+<p>or directly in code:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">protondl.core.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">RequestConfig</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">config</span> <span class="o">=</span> <span class="n">RequestConfig</span><span class="p">(</span><span class="n">github_token</span><span class="o">=</span><span class="s2">"&lt;your GitHub token&gt;"</span><span class="p">)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># For tool installers:</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">installer</span><span class="o">.</span><span class="n">request_config</span> <span class="o">=</span> <span class="n">config</span>  <span class="c1"># used by fetch_releases()/install()</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="c1"># For the update helpers:</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">result</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">check_for_updates</span><span class="p">(</span><span class="n">launcher</span><span class="p">,</span> <span class="n">request_config</span><span class="o">=</span><span class="n">config</span><span class="p">))</span>
+</span></code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.path", "navigation.instant", "navigation.instant.prefetch", "toc.follow", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
