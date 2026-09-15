@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import httpx
 import pytest
 
+from protondl.core.errors import LinkNotFoundError, NoInternetConnectionError
 from protondl.services.protondb import (
     ProtonDBSummary,
     ProtonDBTier,
@@ -135,12 +136,27 @@ def test_fetch_protondb_summary_and_tier_from_mocked_http() -> None:
     assert tier is ProtonDBTier.GOLD
 
 
-def test_fetch_protondb_summary_raises_for_unknown_appid() -> None:
+def test_fetch_protondb_summary_raises_link_not_found_for_unknown_appid() -> None:
     async def _run() -> None:
         async with _make_mock_client({}) as client:
             await fetch_protondb_summary(999999, client=client)
 
-    with pytest.raises(httpx.HTTPStatusError):
+    with pytest.raises(LinkNotFoundError):
+        asyncio.run(_run())
+
+
+def test_fetch_protondb_summary_raises_no_internet_on_connection_failure() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    async def _run() -> None:
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="https://www.protondb.com"
+        ) as client:
+            await fetch_protondb_summary(123, client=client)
+
+    with pytest.raises(NoInternetConnectionError):
         asyncio.run(_run())
 
 

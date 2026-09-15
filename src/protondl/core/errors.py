@@ -15,6 +15,8 @@ the standard library keeps working.
 from __future__ import annotations
 
 import errno
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, NoReturn
 
 import httpx
@@ -25,6 +27,18 @@ if TYPE_CHECKING:
 
 class ProtondlError(Exception):
     """Base class for all errors raised on purpose by protondl."""
+
+
+class NotSupportedError(ProtondlError, NotImplementedError):
+    """
+    Raised when a launcher does not implement a given operation.
+
+    Some launchers only support a subset of the Launcher interface (e.g.
+    Lutris does not support per-game or global compatibility tool selection).
+    Check the launcher's ``supports_*`` properties before calling a method
+    that may raise this. Also a :class:`NotImplementedError` for backwards
+    compatibility with code that expects the historical exception type.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -219,3 +233,24 @@ def raise_for_httpx_error(exc: httpx.HTTPError) -> NoReturn:
             ) from exc
         raise DownloadError(f"Request to {exc.request.url} failed with HTTP {status}.") from exc
     raise DownloadError(str(exc) or exc.__class__.__name__) from exc
+
+
+@asynccontextmanager
+async def translate_network_errors() -> AsyncIterator[None]:
+    """
+    Async context manager that converts raw :mod:`httpx` errors raised in its
+    body into protondl :class:`NetworkError` subclasses via
+    :func:`raise_for_httpx_error`.
+
+    Raises:
+        NoInternetConnectionError: On connection failures and timeouts.
+        LinkNotFoundError: On HTTP 404 responses.
+        APIRateLimitError: On HTTP 403/429 responses (rate limiting).
+        DownloadError: On any other httpx error.
+    """
+    try:
+        yield
+    except NetworkError:
+        raise
+    except httpx.HTTPError as e:
+        raise_for_httpx_error(e)

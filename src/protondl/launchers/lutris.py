@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from protondl.core.base_launcher import Game, Launcher
+from protondl.core.errors import NotSupportedError
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
 from protondl.util.lutris import get_lutris_game_list
 
@@ -273,10 +274,35 @@ class LutrisLauncher(Launcher):
         return ""
 
     def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
-        raise NotImplementedError()
+        """
+        Not supported by LutrisLauncher.
+
+        Raises:
+            NotSupportedError: Always. Lutris does not support setting
+                per-game compatibility tools. Also a NotImplementedError for
+                backwards compatibility. Check supports_per_game_tools before
+                calling.
+        """
+        raise NotSupportedError("Lutris does not support setting per-game compatibility tools.")
 
     def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:
-        raise NotImplementedError()
+        """
+        Not supported by LutrisLauncher.
+
+        Raises:
+            NotSupportedError: Always. Lutris does not support a global
+                compatibility tool. Also a NotImplementedError for backwards
+                compatibility. Check supports_global_tool before calling.
+        """
+        raise NotSupportedError("Lutris does not support a global compatibility tool.")
 
     def set_global_tool(self, tool: CompatTool) -> None:
-        raise NotImplementedError()
+        """
+        Not supported by LutrisLauncher.
+
+        Raises:
+            NotSupportedError: Always. Lutris does not support a global
+                compatibility tool. Also a NotImplementedError for backwards
+                compatibility. Check supports_global_tool before calling.
+        """
+        raise NotSupportedError("Lutris does not support a global compatibility tool.")

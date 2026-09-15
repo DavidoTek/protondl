@@ -1,6 +1,5 @@
 import hashlib
-from collections.abc import AsyncIterator, Callable, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -9,9 +8,8 @@ import httpx
 from protondl.core.config import RequestConfig
 from protondl.core.errors import (
     APIRateLimitError,
-    NetworkError,
-    raise_for_httpx_error,
     raise_for_os_error,
+    translate_network_errors,
 )
 from protondl.core.models import (
     Arch,
@@ -32,26 +30,6 @@ GITLAB_RATELIMIT_MSGS = ["Retry later", "rate limit exceeded"]
 
 #: Backwards-compatible alias. Use :class:`protondl.core.errors.APIRateLimitError`.
 RateLimitError = APIRateLimitError
-
-
-@asynccontextmanager
-async def _translate_network_errors() -> AsyncIterator[None]:
-    """
-    Async context manager that converts raw :mod:`httpx` errors into protondl
-    :class:`~protondl.core.errors.NetworkError` subclasses.
-
-    Raises:
-        NoInternetConnectionError: On connection failures and timeouts.
-        LinkNotFoundError: On HTTP 404 responses.
-        APIRateLimitError: On HTTP 403/429 responses (rate limiting).
-        DownloadError: On any other httpx error.
-    """
-    try:
-        yield
-    except NetworkError:
-        raise
-    except httpx.HTTPError as e:
-        raise_for_httpx_error(e)
 
 
 def is_gitlab_instance(url: str) -> bool:
@@ -178,7 +156,7 @@ async def fetch_project_release_data(
 
     headers = config.get_headers(fetch_url)
     async with (
-        _translate_network_errors(),
+        translate_network_errors(),
         httpx.AsyncClient(headers=headers, follow_redirects=True) as client,
     ):
         resp = await client.get(fetch_url)
@@ -256,7 +234,7 @@ async def fetch_project_releases(
 
     headers = config.get_headers(releases_url)
     async with (
-        _translate_network_errors(),
+        translate_network_errors(),
         httpx.AsyncClient(headers=headers, follow_redirects=True) as client,
     ):
         response = await client.get(releases_url, params=params)
@@ -313,7 +291,7 @@ async def fetch_github_project_workflows(
     """
     headers = config.get_headers(ct_workflow_url)
     async with (
-        _translate_network_errors(),
+        translate_network_errors(),
         httpx.AsyncClient(headers=headers, follow_redirects=True) as client,
     ):
         tags = []
@@ -368,7 +346,7 @@ async def fetch_github_artifact_data(
         ValueError: If no artifact and no matching release asset exists for the version.
     """
     async with (
-        _translate_network_errors(),
+        translate_network_errors(),
         httpx.AsyncClient(headers=config.get_headers(api_url)) as client,
     ):
         resp = await client.get(f"{ct_artifact_url.format(version)}?per_page=100")
@@ -471,7 +449,7 @@ async def download_file(
     except OSError as e:
         raise_for_os_error(e)
 
-    async with _translate_network_errors():
+    async with translate_network_errors():
         async with client.stream("GET", url) as response:
             response.raise_for_status()
 

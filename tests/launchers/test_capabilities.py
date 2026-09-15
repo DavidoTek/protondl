@@ -4,12 +4,14 @@ from pathlib import Path
 import pytest
 
 from protondl.core.base_launcher import Launcher
+from protondl.core.errors import NotSupportedError
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
 from protondl.launchers import SUPPORTED_LAUNCHER_CLASSES
 
 # Capabilities that map 1:1 onto Launcher's abstract methods: when declared
 # unsupported, the base class's subclass override must raise
-# NotImplementedError; when declared supported, calling it must not.
+# NotSupportedError (also a NotImplementedError, for backwards compatibility);
+# when declared supported, calling it must not.
 CAPABILITY_CALLS: dict[str, Callable[[Launcher], object]] = {
     "supports_game_list": lambda launcher: launcher.get_game_list(),
     "supports_per_game_tools": lambda launcher: launcher.set_games_tools({}),
@@ -27,7 +29,7 @@ def test_capability_flag_matches_method_behavior(
     launcher_cls: type[Launcher], capability: str, tmp_path: Path
 ) -> None:
     """
-    A declared-unsupported capability must raise NotImplementedError; a
+    A declared-unsupported capability must raise NotSupportedError; a
     declared-supported one must not (other errors, e.g. from missing launcher
     files in tmp_path, are expected and ignored here).
     """
@@ -38,15 +40,15 @@ def test_capability_flag_matches_method_behavior(
     if supported:
         try:
             call(launcher)
-        except NotImplementedError:
+        except NotSupportedError:
             pytest.fail(
                 f"{launcher_cls.__name__}.{capability} is True but the method "
-                "raised NotImplementedError"
+                "raised NotSupportedError"
             )
         except Exception:
             pass
     else:
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(NotSupportedError):
             call(launcher)
 
 
@@ -60,15 +62,15 @@ def test_supports_global_tool_covers_set_global_tool(
     if launcher.supports_global_tool:
         try:
             launcher.set_global_tool(tool)
-        except NotImplementedError:
+        except NotSupportedError:
             pytest.fail(
                 f"{launcher_cls.__name__}.supports_global_tool is True but "
-                "set_global_tool() raised NotImplementedError"
+                "set_global_tool() raised NotSupportedError"
             )
         except Exception:
             pass
     else:
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(NotSupportedError):
             launcher.set_global_tool(tool)
 
 

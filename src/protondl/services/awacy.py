@@ -4,6 +4,8 @@ from typing import Any, TypedDict
 
 import httpx
 
+from protondl.core.errors import translate_network_errors
+
 AWACY_GAME_LIST_URL = (
     "https://raw.githubusercontent.com/AreWeAntiCheatYet/AreWeAntiCheatYet/master/games.json"
 )
@@ -109,13 +111,17 @@ async def fetch_awacy_index(
 
     Raises:
         ValueError: If the JSON payload is not a list.
-        httpx.HTTPError: If the request fails.
+        NoInternetConnectionError: If the AWACY host is unreachable.
+        LinkNotFoundError: If the endpoint does not exist (HTTP 404).
+        APIRateLimitError: If the host responds with HTTP 403/429.
+        DownloadError: If the request fails for any other HTTP reason.
     """
 
     async def _fetch(active_client: httpx.AsyncClient) -> AWACYIndex:
-        response = await active_client.get(url, timeout=timeout)
-        response.raise_for_status()
-        payload: Any = response.json()
+        async with translate_network_errors():
+            response = await active_client.get(url, timeout=timeout)
+            response.raise_for_status()
+            payload: Any = response.json()
         if not isinstance(payload, list):
             raise ValueError("AWACY payload is not a list of games")
         return _build_awacy_index(payload)

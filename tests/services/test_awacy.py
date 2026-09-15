@@ -1,7 +1,9 @@
 import asyncio
 
+import httpx
 import pytest
 
+from protondl.core.errors import LinkNotFoundError, NoInternetConnectionError
 from protondl.services.awacy import (
     AWACY_GAME_LIST_URL,
     AWACYIndex,
@@ -77,6 +79,32 @@ def test_fetch_awacy_index_raises_value_error_for_non_list_payload(
 
     with pytest.raises(ValueError, match="AWACY payload is not a list of games"):
         asyncio.run(fetch_awacy_index())
+
+
+def test_fetch_awacy_index_translates_http_errors_to_network_errors() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, request=request)
+
+    async def _run() -> None:
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            await fetch_awacy_index(url="https://example.invalid/games.json", client=client)
+
+    with pytest.raises(LinkNotFoundError):
+        asyncio.run(_run())
+
+
+def test_fetch_awacy_index_translates_connection_errors() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    async def _run() -> None:
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            await fetch_awacy_index(url="https://example.invalid/games.json", client=client)
+
+    with pytest.raises(NoInternetConnectionError):
+        asyncio.run(_run())
 
 
 @pytest.mark.parametrize(

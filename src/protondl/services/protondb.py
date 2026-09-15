@@ -6,6 +6,8 @@ from typing import Any, Protocol
 
 import httpx
 
+from protondl.core.errors import LinkNotFoundError, NetworkError, translate_network_errors
+
 PROTONDB_SUMMARY_API_URL = "https://www.protondb.com/api/v1/reports/summaries/{game_id}.json"
 
 
@@ -159,14 +161,20 @@ async def fetch_protondb_summary(
 
     Raises:
         ValueError: If ProtonDB returns an unexpected payload shape.
-        httpx.HTTPError: If the request fails.
+        NoInternetConnectionError: If the ProtonDB host is unreachable.
+        LinkNotFoundError: If the AppID has no ProtonDB report (HTTP 404).
+        APIRateLimitError: If the host responds with HTTP 403/429.
+        DownloadError: If the request fails for any other HTTP reason.
     """
 
     async def _fetch(active_client: httpx.AsyncClient) -> ProtonDBSummary:
         game_id = resolve_steam_appid(target)
-        response = await active_client.get(url_template.format(game_id=game_id), timeout=timeout)
-        response.raise_for_status()
-        payload: Any = response.json()
+        async with translate_network_errors():
+            response = await active_client.get(
+                url_template.format(game_id=game_id), timeout=timeout
+            )
+            response.raise_for_status()
+            payload: Any = response.json()
         if not isinstance(payload, dict):
             raise ValueError("ProtonDB summary payload is not an object")
         return parse_protondb_summary(game_id, payload)
@@ -195,6 +203,13 @@ async def fetch_protondb_tier(
 
     Returns:
         ProtonDBTier: Parsed ProtonDB tier.
+
+    Raises:
+        ValueError: If ProtonDB returns an unexpected payload shape.
+        NoInternetConnectionError: If the ProtonDB host is unreachable.
+        LinkNotFoundError: If the AppID has no ProtonDB report (HTTP 404).
+        APIRateLimitError: If the host responds with HTTP 403/429.
+        DownloadError: If the request fails for any other HTTP reason.
     """
     summary = await fetch_protondb_summary(target, url_template, timeout, client)
     return summary.tier
@@ -281,9 +296,7 @@ async def _fetch_tier_safe(
     """
     try:
         return await fetch_protondb_tier(target, url_template, timeout, client)
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            return ProtonDBTier.UNKNOWN
-        return None
-    except (httpx.HTTPError, ValueError):
+    except LinkNotFoundError:
+        return ProtonDBTier.UNKNOWN
+    except (NetworkError, ValueError):
         return None

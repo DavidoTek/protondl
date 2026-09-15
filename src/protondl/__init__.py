@@ -24,6 +24,7 @@ from protondl.core.errors import LinkNotFoundError as LinkNotFoundError
 from protondl.core.errors import NetworkError as NetworkError
 from protondl.core.errors import NoDiskSpaceError as NoDiskSpaceError
 from protondl.core.errors import NoInternetConnectionError as NoInternetConnectionError
+from protondl.core.errors import NotSupportedError as NotSupportedError
 from protondl.core.errors import NoWritePermissionError as NoWritePermissionError
 from protondl.core.errors import ProtondlError as ProtondlError
 from protondl.core.models import Arch as Arch
@@ -101,4 +102,5 @@ __all__ = [
     "ArchiveExtractionError",
     "InstallCancelledError",
     "AlreadyInstalledError",
+    "NotSupportedError",
 ]

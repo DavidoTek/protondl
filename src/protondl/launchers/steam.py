@@ -314,6 +314,15 @@ class SteamLauncher(Launcher):
         Returns:
             Sequence[SteamGame]: A list of Steam apps.
 
+        Note:
+            Failing to load the main library (libraryfolders.vdf) raises
+            ValueError. Failing to enrich the list afterwards - the
+            compatibility tool mapping, shortcuts, or Steam's cached app
+            info - is best-effort: a warning is printed and the list is
+            returned without that enrichment (games may be missing their
+            compat_tool_name, shortcuts, or extra metadata) rather than
+            raising.
+
         Raises:
             ValueError: If loading the game list failed.
         """

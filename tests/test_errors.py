@@ -13,13 +13,17 @@ from protondl.core.errors import (
     DownloadError,
     InstallCancelledError,
     LinkNotFoundError,
+    NetworkError,
     NoDiskSpaceError,
     NoInternetConnectionError,
+    NotSupportedError,
     NoWritePermissionError,
     ProtondlError,
     raise_for_httpx_error,
     raise_for_os_error,
+    translate_network_errors,
 )
+from protondl.core.models import Arch
 
 
 def test_lifecycle_errors_are_protondl_errors() -> None:
@@ -97,6 +101,40 @@ def test_download_file_translates_connection_error() -> None:
     client: Any = _FailingClient()
     with pytest.raises(NoInternetConnectionError):
         asyncio.run(download_file("https://example.com/f", Path("/tmp/x"), client))
+
+
+def test_not_supported_error_is_protondl_and_not_implemented_error() -> None:
+    assert issubclass(NotSupportedError, ProtondlError)
+    assert issubclass(NotSupportedError, NotImplementedError)
+    with pytest.raises(NotImplementedError):
+        raise NotSupportedError("Lutris does not support this.")
+
+
+async def _run_translate_network_errors(exc: Exception) -> None:
+    async with translate_network_errors():
+        raise exc
+
+
+def test_translate_network_errors_converts_httpx_errors() -> None:
+    import asyncio
+
+    with pytest.raises(NoInternetConnectionError):
+        asyncio.run(_run_translate_network_errors(httpx.ConnectError("nope")))
+    with pytest.raises(LinkNotFoundError):
+        asyncio.run(_run_translate_network_errors(_status_error(404)))
+
+
+def test_translate_network_errors_passes_through_protondl_errors() -> None:
+    import asyncio
+
+    with pytest.raises(AlreadyInstalledError):
+        asyncio.run(
+            _run_translate_network_errors(AlreadyInstalledError("Tool", "1.0", Arch.X86_64))
+        )
+
+
+def test_translate_network_errors_is_a_network_error_helper() -> None:
+    assert issubclass(LinkNotFoundError, NetworkError)
 
 
 def test_extract_tar_translates_permission_error(

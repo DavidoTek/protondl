@@ -65,7 +65,7 @@ class Launcher(ABC):
         Whether get_game_list() returns real data for this launcher.
 
         Check this before rendering a "Games" view: False means
-        get_game_list() raises NotImplementedError instead of listing games.
+        get_game_list() raises NotSupportedError instead of listing games.
         """
         return False
 
@@ -75,7 +75,7 @@ class Launcher(ABC):
         Whether set_games_tools() is implemented for this launcher.
 
         Check this before offering a per-game compatibility-tool selector:
-        False means set_games_tools() raises NotImplementedError.
+        False means set_games_tools() raises NotSupportedError.
         """
         return False
 
@@ -85,7 +85,7 @@ class Launcher(ABC):
         Whether get_global_tool()/set_global_tool() are implemented for this launcher.
 
         Check this before offering a global/default compatibility-tool
-        selector: False means both methods raise NotImplementedError.
+        selector: False means both methods raise NotSupportedError.
         """
         return False
 
@@ -248,6 +248,9 @@ class Launcher(ABC):
                 since Sequence is immutable and allows for covariant return types.
 
         Raises:
+            NotSupportedError: If the launcher does not support listing games
+                (check supports_game_list). Also a NotImplementedError for
+                backwards compatibility.
             ValueError: If loading the game list failed
         """
         pass
@@ -262,6 +265,9 @@ class Launcher(ABC):
                 Maps the game to the compatibility tool name or None to use the global tool.
 
         Raises:
+            NotSupportedError: If the launcher does not support setting
+                per-game compatibility tools (check supports_per_game_tools).
+                Also a NotImplementedError for backwards compatibility.
             RuntimeError: If setting the compatibility tools failed.
         """
         pass
@@ -279,6 +285,9 @@ class Launcher(ABC):
                 the specified type, or None if not set.
 
         Raises:
+            NotSupportedError: If the launcher does not support a global
+                compatibility tool (check supports_global_tool). Also a
+                NotImplementedError for backwards compatibility.
             ValueError: If the launcher does not support the specified tool type.
             RuntimeError: If retrieving the global compatibility tool failed.
         """
@@ -294,6 +303,9 @@ class Launcher(ABC):
             tool (CompatTool): The compatibility tool to set as the global default.
 
         Raises:
+            NotSupportedError: If the launcher does not support a global
+                compatibility tool (check supports_global_tool). Also a
+                NotImplementedError for backwards compatibility.
             ValueError: If the launcher does not support the specified tool type.
             RuntimeError: If setting the global compatibility tool failed.
         """

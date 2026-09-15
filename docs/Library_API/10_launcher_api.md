@@ -18,7 +18,7 @@ for launcher in launchers:
 Launchers implement different subsets of the `Launcher` interface. Check the
 `supports_*` properties before rendering GUI elements that depend on a
 method actually being implemented, instead of calling the method and
-catching `NotImplementedError`:
+catching `NotSupportedError` (see [Errors](50_errors.md#unsupported-launcher-operations)):
 
 ```python
 from protondl.launchers import detect_all_launchers
@@ -43,8 +43,9 @@ Current values, kept in sync with the launchers by `tests/launchers/test_capabil
 | `Heroic`    | ✅          | ✅                | ✅             | ❌          |
 | `Bottles`   | ❌          | ❌                | ❌             | ❌          |
 
-A `False` property means the corresponding method(s) raise `NotImplementedError`
-when called; `supported_tools_folders`, `get_compatibility_tools_path()`,
+A `False` property means the corresponding method(s) raise `NotSupportedError`
+(also a `NotImplementedError`, for backwards compatibility) when called;
+`supported_tools_folders`, `get_compatibility_tools_path()`,
 `get_installed_tools()` and `remove_tool()` (compatibility-tool filesystem
 management) are unaffected by these flags and work for every launcher.
 
