@@ -20,7 +20,8 @@ from protondl.core.models import (
     ReleaseVersion,
     ToolUpdate,
 )
-from protondl.util.helpers import check_for_updates, detect_host_arch, update_compatibility_tools
+from protondl.manage import check_for_updates, update_compatibility_tools
+from protondl.util.helpers import detect_host_arch
 
 
 class _FakeLauncher(Launcher):

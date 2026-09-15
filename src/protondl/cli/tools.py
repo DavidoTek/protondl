@@ -32,12 +32,8 @@ from protondl.core.models import (
     ToolUpdate,
 )
 from protondl.installers import get_installer_index, get_tools_for_launcher
-from protondl.util.helpers import (
-    batch_update_games_tools,
-    check_for_updates,
-    detect_host_arch,
-    update_compatibility_tools,
-)
+from protondl.manage import batch_update_games_tools, check_for_updates, update_compatibility_tools
+from protondl.util.helpers import detect_host_arch
 
 
 @app.command(name="list-tools")

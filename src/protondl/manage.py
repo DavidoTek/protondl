@@ -1,0 +1,397 @@
+"""
+Orchestration functions for checking, installing and batch-applying
+compatibility tool updates - the high-level "product" API described in
+AGENTS.md, as opposed to the cross-cutting host helpers in
+:mod:`protondl.util.helpers`.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
+
+from protondl.core.config import RequestConfig
+from protondl.core.errors import AlreadyInstalledError
+from protondl.core.models import (
+    Arch,
+    CancelToken,
+    CompatTool,
+    CompatToolVersionInfo,
+    InstallProgress,
+    InstallStep,
+    ProgressCallback,
+    ReleaseVersion,
+    ToolUpdate,
+    UpdateCheckResult,
+)
+from protondl.util.helpers import _resolve_tool_arch
+
+if TYPE_CHECKING:
+    from protondl.core.base_installer import CtInstaller
+    from protondl.core.base_launcher import Launcher
+
+MAX_UPDATE_RELEASES_PAGES = 5
+UPDATE_RELEASES_PAGE_SIZE = 30
+
+
+def batch_update_games_tools(
+    launcher: Launcher, from_tool: CompatTool | str, to_tool: CompatTool
+) -> int:
+    """
+    Updates the compatibility tool for multiple games in batch.
+    The from_tool can be specified as a CompatTool instance (exact version match)
+    or as a string (matches any tool name containing the string).
+
+    Args:
+        launcher: The game launcher instance to operate on.
+        from_tool: The compatibility tool to replace.
+            Can be a CompatTool instance (exact version) or a string (tool name, e.g., "GE-Proton").
+        to_tool: The new compatibility tool to set for the affected games.
+
+    Returns:
+        int: The number of games that were updated.
+
+    Raises:
+        RuntimeError: If updating the games' compatibility tools failed.
+    """
+    games = launcher.get_game_list()
+
+    if isinstance(from_tool, str):
+        games_to_update = [game for game in games if from_tool in game.compat_tool_name]
+    else:
+        games_to_update = [game for game in games if game.compat_tool_name == from_tool.full_name]
+
+    game_tool_map = {game: to_tool.full_name for game in games_to_update}
+
+    try:
+        launcher.set_games_tools(game_tool_map)
+    except RuntimeError as e:
+        raise RuntimeError(f"Batch update of games' compatibility tools failed: {e}") from e
+
+    return len(games_to_update)
+
+
+async def check_for_updates(
+    launcher: Launcher, request_config: RequestConfig | None = None
+) -> UpdateCheckResult:
+    """
+    Checks all installed compatibility tools of a launcher for available updates.
+
+    The newest available version is determined per (compatibility tool,
+    architecture, build variant): for each installed architecture and variant
+    of a tool, the release history is walked back until a release providing a
+    build of that variant and architecture is found. This handles releases
+    that only ship a subset of the tool's architectures (e.g. an
+    architecture-specific patch) and tools that ship multiple build variants
+    per architecture (e.g. fshack or wow64 builds); it means the
+    architectures and variants of a tool may be updated to different versions.
+
+    The blocking scan of the launcher's installed compatibility tools is run in a
+    thread pool so it does not block the event loop.
+
+    Args:
+        launcher: The game launcher instance to operate on.
+        request_config: Optional configuration for API requests, including auth tokens.
+
+    Returns:
+        UpdateCheckResult: The compatibility tools with an available update
+            (one entry per architecture and build variant, including the newest
+            version providing that architecture and variant), the tools that
+            are already at the newest version, and the tools that could not be
+            checked.
+
+    Raises:
+        This function is best-effort and does not raise for network or API
+        failures: tools whose newest version cannot be fetched (no connection,
+        HTTP errors, rate limits) are reported in ``UpdateCheckResult.unchecked``
+        instead.
+    """
+    from protondl.installers import get_installer_by_name
+    from protondl.util.version_file import read_version_file
+
+    unchecked: list[str] = []
+    groups: dict[tuple[str, Arch, str], list[CompatTool]] = {}
+    versions_by_group: dict[tuple[str, Arch, str], list[str]] = {}
+    installers: dict[str, CtInstaller] = {}
+    installer_order: list[str] = []
+
+    def scan_installed_tools() -> None:
+        # Enumerating the tools scans the launcher's compatibility-tool
+        # directories and reads a protondl_version.json from each; run it off the
+        # event loop.
+        for tool in launcher.get_installed_tools():
+            info = read_version_file(tool.install_dir)
+            if info is None:
+                unchecked.append(tool.full_name)
+                continue
+
+            installer = get_installer_by_name(info.compat_tool, request_config=request_config)
+            if installer is None:
+                unchecked.append(tool.full_name)
+                continue
+
+            arch = _resolve_tool_arch(installer, info)
+            variant = installer.variant_of(info.version)
+            group = (installer.name, arch, variant)
+            if installer.name not in installers:
+                installers[installer.name] = installer
+                installer_order.append(installer.name)
+            groups.setdefault(group, []).append(tool)
+            versions_by_group.setdefault(group, []).append(info.version)
+
+    await asyncio.to_thread(scan_installed_tools)
+
+    updates: list[ToolUpdate] = []
+    up_to_date: list[str] = []
+    for tool_name in installer_order:
+        installer = installers[tool_name]
+        group_variants = [(arch, variant) for (name, arch, variant) in groups if name == tool_name]
+
+        try:
+            candidates = await _newest_releases_for_archs(installer, group_variants)
+        except Exception:
+            unchecked.extend(tool.full_name for tool in _group_tools(groups, tool_name))
+            continue
+
+        for arch, variant in group_variants:
+            candidate = candidates.get((arch, variant))
+            tools = groups[(tool_name, arch, variant)]
+            if candidate is None:
+                unchecked.extend(tool.full_name for tool in tools)
+                continue
+
+            latest_version = candidate.version
+            installed_versions = versions_by_group[(tool_name, arch, variant)]
+            if latest_version in installed_versions:
+                up_to_date.append(_tool_label(installer, arch, variant))
+            else:
+                updates.append(
+                    ToolUpdate(
+                        compat_tool_name=tool_name,
+                        latest_version=latest_version,
+                        installed_versions=installed_versions,
+                        installed_tools=tools,
+                        arch=arch,
+                        variant=variant,
+                    )
+                )
+
+    return UpdateCheckResult(updates=updates, up_to_date=up_to_date, unchecked=unchecked)
+
+
+async def _newest_releases_for_archs(
+    installer: CtInstaller, arch_variants: Sequence[tuple[Arch, str]]
+) -> dict[tuple[Arch, str], ReleaseVersion]:
+    """
+    Finds the newest release providing a build for each of the given
+    (architecture, variant) combinations.
+
+    The release history is walked back page by page until a release providing
+    each requested combination is found or the release history is exhausted
+    (bounded by MAX_UPDATE_RELEASES_PAGES).
+
+    Args:
+        installer: The compatibility tool installer to query.
+        arch_variants: The (architecture, variant) combinations to find the
+            newest release for.
+
+    Returns:
+        dict[tuple[Arch, str], ReleaseVersion]: The newest release providing a
+            build for each requested combination, keyed by the combination.
+            Combinations without a matching release within the fetched history
+            are omitted.
+    """
+    arch_variants = [
+        (arch, variant) for arch, variant in arch_variants if arch in installer.supported_archs
+    ]
+    if not arch_variants:
+        return {}
+    found: dict[tuple[Arch, str], ReleaseVersion] = {}
+    for page in range(1, MAX_UPDATE_RELEASES_PAGES + 1):
+        releases = await installer.fetch_releases(count=UPDATE_RELEASES_PAGE_SIZE, page=page)
+        for release in releases:
+            release_variant = installer.variant_of(release.version)
+            for arch, variant in arch_variants:
+                key = (arch, variant)
+                if key not in found and arch in release.archs and release_variant == variant:
+                    found[key] = release
+        if len(found) == len(arch_variants):
+            break
+        if len(releases) < UPDATE_RELEASES_PAGE_SIZE:
+            break
+    return found
+
+
+def _tool_label(installer: CtInstaller, arch: Arch, variant: str = "") -> str:
+    """
+    Returns the display label of a tool for a given architecture.
+
+    For tools that provide multiple architectures the label includes the
+    architecture, single-architecture tools keep their plain name. A non-empty
+    build variant is appended to the label.
+
+    Args:
+        installer: The compatibility tool installer of the tool.
+        arch: The architecture to label.
+        variant: The build variant of the tool, or an empty string for the
+            default variant.
+
+    Returns:
+        str: The display label.
+    """
+    if len(installer.supported_archs) > 1:
+        label = f"{installer.name} ({arch.value})"
+    else:
+        label = installer.name
+    if variant:
+        return f"{label} ({variant})"
+    return label
+
+
+def _group_tools(
+    groups: dict[tuple[str, Arch, str], list[CompatTool]], tool_name: str
+) -> list[CompatTool]:
+    """Returns all installed tools of the given compatibility tool name."""
+    return [tool for (name, _, _), tools in groups.items() if name == tool_name for tool in tools]
+
+
+async def update_compatibility_tools(
+    launcher: Launcher,
+    updates: list[ToolUpdate],
+    keep_old: bool = False,
+    progress_callback: ProgressCallback | None = None,
+    request_config: RequestConfig | None = None,
+    cancel_token: CancelToken | None = None,
+) -> dict[tuple[str, Arch | None, str], CompatTool]:
+    """
+    Installs the newest version of all given compatibility tools.
+
+    Each update is installed for its own architecture (the architecture of the
+    installed builds it replaces). If keep_old is False, all older versions of
+    the compatibility tool for that architecture and build variant are removed
+    after the new version was installed successfully.
+
+    Args:
+        launcher: The game launcher instance to operate on.
+        updates: The compatibility tools to update, including the latest version.
+        keep_old: Whether to keep older versions of the compatibility tools.
+        progress_callback: Optional callback receiving InstallProgress events of the
+            currently installed tool, enriched with the tool's name and its index
+            within the update run (tool, tool_index, tool_total). As in
+            CtInstaller.install(), the VERIFYING and EXTRACTING events are
+            delivered from a worker thread, so the callback must be thread-safe,
+            must not block, and a GUI callback should marshal the update to its
+            UI thread.
+        request_config: Optional configuration for API requests, including auth tokens.
+        cancel_token: Optional token whose cancel() method aborts the update run.
+            It is checked before each tool and forwarded to the running
+            installation (see CtInstaller.install()), so a cancel takes effect
+            during the current download or extraction. Tools already updated
+            before the cancel stay installed; the current tool's partial
+            download and extraction are removed.
+
+    Returns:
+        dict[(str, Arch | None, str), CompatTool]: A mapping of compatibility
+            tool name, architecture and build variant to the newly installed
+            tool for every update whose installation directory could be
+            determined.
+
+    Raises:
+        ValueError: If no CtInstaller exists for one of the compatibility tools.
+        InstallCancelledError: If the cancel_token is cancelled before the
+            update run completes.
+        NetworkError: If a tool's release info or download fails
+            (NoInternetConnectionError, LinkNotFoundError, APIRateLimitError,
+            DownloadError). The tools updated before the failure stay installed.
+        ChecksumMismatchError: If a downloaded archive fails checksum verification.
+        ArchiveExtractionError: If a downloaded archive cannot be extracted.
+        FileSystemError: If a write fails (NoWritePermissionError,
+            NoDiskSpaceError).
+    """
+    from protondl.installers import get_installer_by_name
+
+    installed_new_tools: dict[tuple[str, Arch | None, str], CompatTool] = {}
+    total = len(updates)
+    for index, update in enumerate(updates):
+        if cancel_token is not None:
+            cancel_token.raise_if_cancelled()
+
+        installer = get_installer_by_name(update.compat_tool_name, request_config=request_config)
+        if installer is None:
+            raise ValueError(
+                f"No installer found for compatibility tool '{update.compat_tool_name}'."
+            )
+
+        def report_progress(
+            event: InstallProgress,
+            tool_name: str = update.compat_tool_name,
+            tool_index: int = index + 1,
+        ) -> None:
+            if progress_callback is not None:
+                progress_callback(
+                    InstallProgress(
+                        step=event.step,
+                        current=event.current,
+                        total=event.total,
+                        tool=tool_name,
+                        tool_index=tool_index,
+                        tool_total=total,
+                    )
+                )
+
+        try:
+            info = await installer.install(
+                update.latest_version,
+                launcher,
+                arch=update.arch,
+                progress_callback=report_progress,
+                cancel_token=cancel_token,
+            )
+        except AlreadyInstalledError:
+            report_progress(InstallProgress(step=InstallStep.COMPLETED))
+            continue
+
+        if not keep_old:
+            for tool in update.installed_tools:
+                await asyncio.to_thread(launcher.remove_tool, tool)
+
+        new_tool = await asyncio.to_thread(_find_installed_tool, launcher, info)
+        if new_tool is not None:
+            installed_new_tools[(update.compat_tool_name, update.arch, update.variant)] = new_tool
+
+        report_progress(InstallProgress(step=InstallStep.COMPLETED))
+
+    return installed_new_tools
+
+
+def _find_installed_tool(launcher: Launcher, info: CompatToolVersionInfo) -> CompatTool | None:
+    """
+    Finds the installed tool matching the given version file metadata.
+
+    The tool's installation directory is identified by the metadata written to
+    its protondl_version.json (compat tool name, version, installed_at and
+    architecture), which is independent of the directory name.
+
+    Args:
+        launcher: The game launcher instance to search.
+        info: The metadata of the installed tool to find.
+
+    Returns:
+        CompatTool | None: The matching installed tool, or None if no installed
+            tool carries the given metadata.
+    """
+    from protondl.util.version_file import read_version_file
+
+    for tool in launcher.get_installed_tools():
+        installed_info = read_version_file(tool.install_dir)
+        if installed_info is None:
+            continue
+        if (
+            installed_info.compat_tool == info.compat_tool
+            and installed_info.version == info.version
+            and installed_info.installed_at == info.installed_at
+            and installed_info.arch == info.arch
+        ):
+            return tool
+    return None

@@ -164,8 +164,7 @@ available version using that installer.
 ```python
 import asyncio
 
-from protondl.launchers import detect_all_launchers
-from protondl.util.helpers import check_for_updates
+from protondl import check_for_updates, detect_all_launchers
 
 launcher = detect_all_launchers()[0]
 
@@ -224,8 +223,7 @@ compatibility tool in the given list of updates. The list returned by
 ```python
 import asyncio
 
-from protondl.launchers import detect_all_launchers
-from protondl.util.helpers import check_for_updates, update_compatibility_tools
+from protondl import check_for_updates, detect_all_launchers, update_compatibility_tools
 
 launcher = detect_all_launchers()[0]
 result = asyncio.run(check_for_updates(launcher))
@@ -278,8 +276,7 @@ Things to consider:
 of all games that currently use `from_tool` to `to_tool`.
 
 ```python
-from protondl.launchers import detect_all_launchers
-from protondl.util.helpers import batch_update_games_tools
+from protondl import batch_update_games_tools, detect_all_launchers
 
 launcher = detect_all_launchers()[0]
 
@@ -310,10 +307,10 @@ a launcher and move all games to the newest versions:
 ```python
 import asyncio
 
-from protondl.launchers import detect_all_launchers
-from protondl.util.helpers import (
+from protondl import (
     batch_update_games_tools,
     check_for_updates,
+    detect_all_launchers,
     update_compatibility_tools,
 )
 
