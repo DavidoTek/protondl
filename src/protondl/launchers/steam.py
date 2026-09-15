@@ -168,6 +168,22 @@ class SteamLauncher(Launcher):
         CompatToolType.PROTON: Path("compatibilitytools.d"),
     }
 
+    @property
+    def supports_game_list(self) -> bool:
+        return True
+
+    @property
+    def supports_per_game_tools(self) -> bool:
+        return True
+
+    @property
+    def supports_global_tool(self) -> bool:
+        return True
+
+    @property
+    def supports_shortcuts(self) -> bool:
+        return True
+
     @classmethod
     def discover(cls) -> list[Launcher]:
         found: list[Launcher] = []

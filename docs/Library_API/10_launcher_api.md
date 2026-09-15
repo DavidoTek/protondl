@@ -13,6 +13,41 @@ for launcher in launchers:
     print(launcher.name, launcher.install_mode.value, launcher.root_path)
 ```
 
+## Capabilities
+
+Launchers implement different subsets of the `Launcher` interface. Check the
+`supports_*` properties before rendering GUI elements that depend on a
+method actually being implemented, instead of calling the method and
+catching `NotImplementedError`:
+
+```python
+from protondl.launchers import detect_all_launchers
+
+for launcher in detect_all_launchers():
+    print(launcher.name, launcher.supports_per_game_tools)
+```
+
+| Property                    | Enables                                         |
+|------------------------------|-------------------------------------------------|
+| `supports_game_list`         | `get_game_list()`                               |
+| `supports_per_game_tools`    | `set_games_tools()`                             |
+| `supports_global_tool`       | `get_global_tool()` / `set_global_tool()`       |
+| `supports_shortcuts`         | `get_shortcuts()` / `add_shortcut()` / `update_shortcuts()` / `remove_shortcuts()` (Steam only, see [Manage Games](30_manage_games_api.md)) |
+
+Current values, kept in sync with the launchers by `tests/launchers/test_capabilities.py`:
+
+| Launcher    | `game_list` | `per_game_tools` | `global_tool` | `shortcuts` |
+|-------------|:-----------:|:----------------:|:-------------:|:-----------:|
+| `Steam`     | ✅          | ✅                | ✅             | ✅          |
+| `Lutris`    | ✅          | ❌                | ❌             | ❌          |
+| `Heroic`    | ✅          | ✅                | ✅             | ❌          |
+| `Bottles`   | ❌          | ❌                | ❌             | ❌          |
+
+A `False` property means the corresponding method(s) raise `NotImplementedError`
+when called; `supported_tools_folders`, `get_compatibility_tools_path()`,
+`get_installed_tools()` and `remove_tool()` (compatibility-tool filesystem
+management) are unaffected by these flags and work for every launcher.
+
 ## Custom launcher paths
 
 Launchers installed at non-standard locations (e.g. a Steam installation in `~/mySteam` instead of
@@ -164,10 +199,4 @@ if available_tools:
 
 ## Current implementation status
 
-- `SteamLauncher`: game list, per-game tool mapping, global tool management, Steam Deck compatibility metadata, shortcut management.
-- `LutrisLauncher`: launcher discovery, compatibility-tool filesystem management, and game list.
-- `HeroicLauncher`: launcher discovery, game list, per-game tool mapping, and global tool management.
-- `BottlesLauncher`: launcher discovery and compatibility-tool filesystem management.
-
-Game management APIs are currently implemented for Steam and Heroic launchers, and listing
-games is implemented for Lutris.
+See [Capabilities](#capabilities) above for which methods each launcher implements.

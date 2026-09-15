@@ -142,6 +142,22 @@ class HeroicLauncher(Launcher):
         CompatToolType.VKD3D: Path("tools/vkd3d"),
     }
 
+    @property
+    def supports_game_list(self) -> bool:
+        return True
+
+    @property
+    def supports_per_game_tools(self) -> bool:
+        return True
+
+    @property
+    def supports_global_tool(self) -> bool:
+        return True
+
+    @property
+    def supports_shortcuts(self) -> bool:
+        return False
+
     @classmethod
     def discover(cls) -> list[Launcher]:
         found: list[Launcher] = []

@@ -59,6 +59,47 @@ class Launcher(ABC):
         self.install_mode = install_mode
         super().__init__()
 
+    @property
+    def supports_game_list(self) -> bool:
+        """
+        Whether get_game_list() returns real data for this launcher.
+
+        Check this before rendering a "Games" view: False means
+        get_game_list() raises NotImplementedError instead of listing games.
+        """
+        return False
+
+    @property
+    def supports_per_game_tools(self) -> bool:
+        """
+        Whether set_games_tools() is implemented for this launcher.
+
+        Check this before offering a per-game compatibility-tool selector:
+        False means set_games_tools() raises NotImplementedError.
+        """
+        return False
+
+    @property
+    def supports_global_tool(self) -> bool:
+        """
+        Whether get_global_tool()/set_global_tool() are implemented for this launcher.
+
+        Check this before offering a global/default compatibility-tool
+        selector: False means both methods raise NotImplementedError.
+        """
+        return False
+
+    @property
+    def supports_shortcuts(self) -> bool:
+        """
+        Whether this launcher supports managing non-Steam shortcuts
+        (get_shortcuts()/add_shortcut()/update_shortcuts()/remove_shortcuts()).
+
+        These methods are not part of the base Launcher interface; check this
+        before showing shortcut management in a GUI.
+        """
+        return False
+
     @classmethod
     @abstractmethod
     def discover(cls) -> list["Launcher"]:

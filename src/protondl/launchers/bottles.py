@@ -18,6 +18,22 @@ class BottlesLauncher(Launcher):
         CompatToolType.WINE: Path("runners"),
     }
 
+    @property
+    def supports_game_list(self) -> bool:
+        return False
+
+    @property
+    def supports_per_game_tools(self) -> bool:
+        return False
+
+    @property
+    def supports_global_tool(self) -> bool:
+        return False
+
+    @property
+    def supports_shortcuts(self) -> bool:
+        return False
+
     @classmethod
     def discover(cls) -> list[Launcher]:
         """
