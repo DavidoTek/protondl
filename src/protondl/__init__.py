@@ -8,6 +8,7 @@ This module re-exports the supported public API surface. Everything listed in
 considered an implementation detail and may change without notice.
 """
 
+import logging
 from importlib.metadata import PackageNotFoundError, version
 
 from protondl.core.base_installer import CtInstaller as CtInstaller
@@ -55,6 +56,8 @@ try:
     __version__ = version("protondl")
 except PackageNotFoundError:  # editable checkout without metadata
     __version__ = "0.0.0.dev0"
+
+logging.getLogger("protondl").addHandler(logging.NullHandler())
 
 __all__ = [
     "__version__",

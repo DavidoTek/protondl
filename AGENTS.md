@@ -107,9 +107,13 @@ uv run pytest tests
   it exists.
 - **Async:** library network code is `async`. Bound concurrent requests with a
   semaphore (see `fetch_protondb_tiers`). Never block the event loop.
-- **No prints for control flow.** Library code may emit `print("Warning: …")`
-  for best-effort/degraded paths (existing convention), but errors that the
-  caller must handle are raised, not printed.
+- **No prints for control flow.** Library code uses the `protondl` logger
+  (`logger = logging.getLogger(__name__)`, `logger.warning(...)` /
+  `logger.error(...)` with `%`-style lazy args) for best-effort/degraded paths;
+  no `print()` in library code. Errors that the caller must handle are raised,
+  not logged. The library never adds handlers or calls
+  `logging.basicConfig()` — the CLI attaches a `RichHandler` to the
+  `"protondl"` logger.
 
 ### Docstrings — required on every public function/method/class
 

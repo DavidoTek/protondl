@@ -1,3 +1,4 @@
+import logging
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from enum import Enum
@@ -21,6 +22,8 @@ from protondl.util.steam import (
     vdf_safe_load,
     write_steam_shortcuts,
 )
+
+logger = logging.getLogger(__name__)
 
 PROTON_NEXT_APPID = 2230260
 PROTON_EAC_RUNTIME_APPID = 1826330
@@ -345,7 +348,7 @@ class SteamLauncher(Launcher):
             config_data = vdf_safe_load(config_vdf_file)
             compat_tool_mapping = get_steam_vdf_compat_tool_mapping(config_data)
         except Exception as e:
-            print(f"Warning: Could not load the compatibility tool mapping: {e}")
+            logger.warning("Could not load the compatibility tool mapping: %s", e)
 
         for fid in libraryfolders_data.get("libraryfolders", {}):
             fentry = libraryfolders_data.get("libraryfolders", {}).get(fid)
@@ -371,7 +374,7 @@ class SteamLauncher(Launcher):
                         if not full_path.is_dir():
                             continue
                     except Exception as e:
-                        print(f"Error: Could not load the app manifest for {appid}: {e}")
+                        logger.error("Could not load the app manifest for %s: %s", appid, e)
                         continue
 
                 game = SteamGame(int(appid), full_path.name, full_path)
@@ -384,12 +387,12 @@ class SteamLauncher(Launcher):
             try:
                 games.extend(self._get_steam_shortcuts_list(compat_tool_mapping))
             except Exception as e:
-                print(f"Warning: Could not fetch the shortcut list: {e}")
+                logger.warning("Could not fetch the shortcut list: %s", e)
 
         try:
             games = self._update_steam_game_list_with_app_info(games)
         except Exception as e:
-            print(f"Warning: Could not update the game info: {e}")
+            logger.warning("Could not update the game info: %s", e)
 
         self._cached_game_list = games
         return games
@@ -689,7 +692,7 @@ class SteamLauncher(Launcher):
             config_data = vdf_safe_load(config_vdf_file)
             return get_steam_vdf_compat_tool_mapping(config_data)
         except Exception as e:
-            print(f"Warning: Could not load the compatibility tool mapping: {e}")
+            logger.warning("Could not load the compatibility tool mapping: %s", e)
             return {}
 
     def _determine_shortcut_user(self) -> str:
@@ -731,7 +734,7 @@ class SteamLauncher(Launcher):
                 if tool.full_name in compat_tool_mapping.get("0", {}).get("name", ""):  # type: ignore
                     return tool
         except Exception as e:
-            print(f"Warning: Could not load the compatibility tool mapping: {e}")
+            logger.warning("Could not load the compatibility tool mapping: %s", e)
 
         return None
 

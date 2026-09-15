@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ from protondl.util.heroic import (
     get_heroic_sideload_games,
     resolve_heroic_install_path,
 )
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_WINE_NAME = "Default Wine - Not Found"
 
@@ -229,7 +232,7 @@ class HeroicLauncher(Launcher):
             try:
                 entries = fetch(self.root_path)
             except Exception as e:
-                print(f"Warning: Could not load the {runner} game list: {e}")
+                logger.warning("Could not load the %s game list: %s", runner, e)
                 continue
             for entry in entries:
                 game = self._build_game(entry, runner, default_install_path)

@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -148,7 +149,7 @@ def test_get_game_list_returns_installed_games(tmp_path: Path) -> None:
 
 
 def test_get_game_list_continues_when_one_store_is_broken(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     launcher = _create_launcher(tmp_path)
 
@@ -161,11 +162,11 @@ def test_get_game_list_continues_when_one_store_is_broken(
     broken.parent.mkdir(parents=True)
     broken.write_text("{broken", encoding="utf-8")
 
-    games = launcher.get_game_list(cached=False)
+    with caplog.at_level(logging.WARNING, logger="protondl"):
+        games = launcher.get_game_list(cached=False)
 
     assert [game.id for game in games] == ["Hornbill"]
-    captured = capsys.readouterr()
-    assert "Could not load the nile game list" in captured.out
+    assert "Could not load the nile game list" in caplog.text
 
 
 def test_get_game_list_caches_and_rescans(tmp_path: Path) -> None:

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import shutil
 import tempfile
 import time
@@ -40,6 +41,8 @@ from protondl.util.download import (
 )
 from protondl.util.helpers import _resolve_tool_arch, detect_host_arch
 from protondl.util.version_file import read_version_file, write_version_file
+
+logger = logging.getLogger(__name__)
 
 
 class CtInstaller(ABC):
@@ -272,15 +275,18 @@ class CtInstaller(ABC):
                     )
                     report(InstallStep.FINISHING)
                     if installed_dir is None:
-                        print(
-                            f"Warning: Could not determine the installation directory of "
-                            f"{self.name}; skipping version file creation."
+                        logger.warning(
+                            "Could not determine the installation directory of %s; "
+                            "skipping version file creation.",
+                            self.name,
                         )
                     else:
                         try:
                             await asyncio.to_thread(write_version_file, installed_dir, info)
                         except OSError as e:
-                            print(f"Warning: Could not write the version file for {self.name}: {e}")
+                            logger.warning(
+                                "Could not write the version file for %s: %s", self.name, e
+                            )
                 except Exception as e:
                     if tmp_path.exists():
                         tmp_path.unlink()
