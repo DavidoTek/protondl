@@ -263,6 +263,7 @@ async def update_compatibility_tools(
     progress_callback: ProgressCallback | None = None,
     request_config: RequestConfig | None = None,
     cancel_token: CancelToken | None = None,
+    progress_loop: asyncio.AbstractEventLoop | None = None,
 ) -> dict[tuple[str, Arch | None, str], CompatTool]:
     """
     Installs the newest version of all given compatibility tools.
@@ -278,11 +279,11 @@ async def update_compatibility_tools(
         keep_old: Whether to keep older versions of the compatibility tools.
         progress_callback: Optional callback receiving InstallProgress events of the
             currently installed tool, enriched with the tool's name and its index
-            within the update run (tool, tool_index, tool_total). As in
-            CtInstaller.install(), the VERIFYING and EXTRACTING events are
-            delivered from a worker thread, so the callback must be thread-safe,
-            must not block, and a GUI callback should marshal the update to its
-            UI thread.
+            within the update run (tool, tool_index, tool_total), ending with a
+            terminal COMPLETED event per tool. As in CtInstaller.install(), the
+            EXTRACTING events are delivered from a worker thread unless
+            progress_loop is set, so the callback must be thread-safe and must
+            not block.
         request_config: Optional configuration for API requests, including auth tokens.
         cancel_token: Optional token whose cancel() method aborts the update run.
             It is checked before each tool and forwarded to the running
@@ -290,6 +291,11 @@ async def update_compatibility_tools(
             during the current download or extraction. Tools already updated
             before the cancel stay installed; the current tool's partial
             download and extraction are removed.
+        progress_loop: Optional event loop forwarded to CtInstaller.install() for
+            every tool, so every progress_callback invocation is re-dispatched
+            onto it via call_soon_threadsafe and the callback only ever runs on
+            that one thread. Pass asyncio.get_running_loop() so a GUI callback
+            only needs one loop-to-UI-thread marshal.
 
     Returns:
         dict[(str, Arch | None, str), CompatTool]: A mapping of compatibility
@@ -347,8 +353,10 @@ async def update_compatibility_tools(
                 arch=update.arch,
                 progress_callback=report_progress,
                 cancel_token=cancel_token,
+                progress_loop=progress_loop,
             )
         except AlreadyInstalledError:
+            # install() never ran, so it never emitted its own terminal event.
             report_progress(InstallProgress(step=InstallStep.COMPLETED))
             continue
 
@@ -359,8 +367,6 @@ async def update_compatibility_tools(
         new_tool = await asyncio.to_thread(_find_installed_tool, launcher, info)
         if new_tool is not None:
             installed_new_tools[(update.compat_tool_name, update.arch, update.variant)] = new_tool
-
-        report_progress(InstallProgress(step=InstallStep.COMPLETED))
 
     return installed_new_tools
 

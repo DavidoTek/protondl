@@ -45,6 +45,29 @@ from protondl.util.version_file import read_version_file, write_version_file
 logger = logging.getLogger(__name__)
 
 
+def _wrap_progress_callback(
+    progress_callback: ProgressCallback | None,
+    progress_loop: asyncio.AbstractEventLoop | None,
+) -> ProgressCallback | None:
+    """
+    Wraps a progress callback so every event is delivered on progress_loop.
+
+    Without a progress_loop, the callback is returned unchanged and keeps
+    firing from whichever thread reports the event (the calling thread for
+    most steps, a worker thread for EXTRACTING). With a progress_loop, every
+    event - including ones already on that thread - is re-dispatched via
+    call_soon_threadsafe, so the callback only ever runs on that one thread
+    and a GUI needs exactly one thread-marshal point.
+    """
+    if progress_callback is None or progress_loop is None:
+        return progress_callback
+
+    def dispatch(event: InstallProgress) -> None:
+        progress_loop.call_soon_threadsafe(progress_callback, event)
+
+    return dispatch
+
+
 class CtInstaller(ABC):
     """
     Abstract base class for compatibility tool installers.
@@ -130,6 +153,7 @@ class CtInstaller(ABC):
         force: bool = False,
         progress_callback: ProgressCallback | None = None,
         cancel_token: CancelToken | None = None,
+        progress_loop: asyncio.AbstractEventLoop | None = None,
     ) -> CompatToolVersionInfo:
         """
         Downloads and extracts a specific version of the tool into the launcher's directory.
@@ -148,18 +172,28 @@ class CtInstaller(ABC):
                 same version and architecture and re-install it. Defaults to False.
             progress_callback (ProgressCallback | None, optional):
                 A callback function to report progress as InstallProgress events,
-                covering the fetch, download, verification, extraction and
-                finalization steps. The checksum and extraction work is offloaded
-                to a thread pool, so events for the VERIFYING and EXTRACTING steps
-                are delivered from a worker thread while the others come from the
-                calling thread. The callback must be thread-safe and must not
-                block; a GUI callback should marshal the update to its UI thread.
+                covering the fetch, download, verification, extraction, finalization
+                and completion steps, ending with a terminal COMPLETED event. The
+                first DOWNLOADING event carries the release's known size as its
+                total (0 if the remote API did not report one), before any bytes
+                are downloaded. The checksum and extraction work is offloaded to a
+                thread pool, so events for the EXTRACTING step are delivered from
+                a worker thread while the others come from the calling thread,
+                unless progress_loop is set. The callback must be thread-safe and
+                must not block.
             cancel_token (CancelToken | None, optional): A token whose cancel()
                 method aborts the installation. It is checked between the steps
                 and during the download (per chunk) and extraction (per archive
                 member). On cancellation, the partially downloaded archive and
                 any files extracted so far are removed and InstallCancelledError
                 is raised.
+            progress_loop (asyncio.AbstractEventLoop | None, optional): When set,
+                every progress_callback invocation is re-dispatched onto this
+                loop via call_soon_threadsafe, so the callback always runs on a
+                single, known thread regardless of which step reported it. Pass
+                asyncio.get_running_loop() so a GUI callback only needs one
+                loop-to-UI-thread marshal. Left unset, the callback keeps firing
+                from whichever thread reports the event (see progress_callback).
 
         Returns:
             CompatToolVersionInfo: The metadata written to the tool's version file,
@@ -188,6 +222,7 @@ class CtInstaller(ABC):
                 or extraction.
         """
         arch = self.resolve_arch(arch)
+        progress_callback = _wrap_progress_callback(progress_callback, progress_loop)
 
         await asyncio.to_thread(self._check_not_installed, launcher, version, arch, force)
 
@@ -228,6 +263,7 @@ class CtInstaller(ABC):
 
                 try:
                     check_cancelled()
+                    report(InstallStep.DOWNLOADING, current=0, total=release_data.size or 0)
                     await download_file(
                         url=release_data.download,
                         destination=tmp_path,
@@ -295,6 +331,7 @@ class CtInstaller(ABC):
                     if tmp_path.exists():
                         tmp_path.unlink()
 
+        report(InstallStep.COMPLETED)
         return info
 
     def supports_launcher(self, launcher: Launcher) -> bool:

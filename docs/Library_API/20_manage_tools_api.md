@@ -65,7 +65,8 @@ asyncio.run(
         # force=True removes an already installed build of the same version
         # and architecture before re-installing it (default: False)
         force=False,
-        # Optional: receive step-based progress (fetch, download, verify, extract)
+        # Optional: receive step-based progress, ending with a terminal
+        # COMPLETED event (fetch, download, verify, extract, finish, complete)
         progress_callback=lambda event: print(
             f"{event.step.value}: {event.current} / {event.total}"
         ),
@@ -78,6 +79,13 @@ asyncio.run(
 `fetch_releases()` returns a list of `ReleaseVersion` objects with a `version` string and an
 `archs` tuple of `Arch` values. `install()` returns the `CompatToolVersionInfo` written to the
 tool's `protondl_version.json`, which includes the installed architecture.
+
+`progress_callback` is driven through every step of the install, from `FETCHING_RELEASE` to a
+terminal `COMPLETED` event once the tool is fully in place - a single `install()` call is enough
+to drive a progress bar from start to finish. The first `DOWNLOADING` event carries the release's
+known size as `total` (0 if the remote API did not report one), reported before any bytes are
+downloaded, so a determinate progress bar can be shown immediately instead of only once the first
+chunk arrives.
 
 If the requested version and architecture are already installed for the launcher,
 `install()` raises `AlreadyInstalledError` instead of downloading and extracting it
@@ -94,11 +102,34 @@ and the CPU/disk-bound work (checksum hashing, archive extraction, and the scans
 the launcher's installed-tool directories) is offloaded to a thread pool via
 `asyncio.to_thread()`. You do not need to wrap `install()` yourself.
 
-One consequence: `progress_callback` is invoked from a **worker thread** for the
-`VERIFYING` and `EXTRACTING` steps, and from the calling thread for the others. The
-callback must be thread-safe and must not block. A GUI callback must marshal the
-update onto the UI thread (e.g. `GLib.idle_add` for GTK, a queued signal for Qt).
-The same applies to `update_compatibility_tools()`.
+One consequence: without further setup, `progress_callback` is invoked from a
+**worker thread** for the `EXTRACTING` step, and from the calling thread for the
+others. The callback must be thread-safe and must not block. The same applies to
+`update_compatibility_tools()`.
+
+Pass `progress_loop` to get delivery on a single, known thread for every step instead:
+when set, every `progress_callback` invocation - including ones that would already run
+on the calling thread - is re-dispatched onto that loop via `call_soon_threadsafe()`.
+A GUI passes its own running loop and only ever needs one thread-marshal point, in the
+callback itself, regardless of which step fired:
+
+```python
+import asyncio
+
+
+# Inside the coroutine driving the install, e.g. scheduled on the GUI's asyncio loop:
+async def install_tool() -> None:
+    await tool_installer.install(
+        versions[0].version,
+        launchers[0],
+        progress_callback=lambda event: GLib.idle_add(update_progress_bar, event),  # GTK
+        # progress_callback=lambda event: update_progress_signal.emit(event),  # Qt
+        progress_loop=asyncio.get_running_loop(),
+    )
+```
+
+Here `GLib.idle_add`/the Qt signal is the *only* place that marshals onto the UI thread -
+`progress_loop` already guarantees the lambda itself always runs on the GUI's asyncio loop.
 
 ### Cancelling an installation
 
@@ -248,9 +279,10 @@ Argument | Type | Description
 `launcher` | `Launcher` |  The launcher the tools are installed for.
 `updates` | `list[ToolUpdate]` |  The `ToolUpdate` list from `check_for_updates()`.
 `keep_old` | `bool` |  Whether to keep older versions of the tools. If `False` (the default), all older versions are deleted after the new version was installed successfully.
-`progress_callback` | `ProgressCallback \| None` |  An optional callback receiving `InstallProgress` events for the currently installed tool. Each event carries the current `step` (`InstallStep`: fetching release info, downloading, verifying checksum, extracting, finalizing, installed) with the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted files), plus the tool's name and its index within the update run (`tool`, `tool_index`, `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully processed (after old versions were removed). As with `install()`, `VERIFYING`/`EXTRACTING` events are delivered from a worker thread (see [Threading and the progress callback](#threading-and-the-progress-callback)).
+`progress_callback` | `ProgressCallback \| None` |  An optional callback receiving `InstallProgress` events for the currently installed tool. Each event carries the current `step` (`InstallStep`: fetching release info, downloading, verifying checksum, extracting, finalizing, installed) with the progress within that step (`current`/`total`, e.g. downloaded bytes or extracted files), plus the tool's name and its index within the update run (`tool`, `tool_index`, `tool_total`). A `COMPLETED` step with `tool_index`/`tool_total` marks a tool as fully processed (already installed tools that are skipped also get one; tools that were newly installed emit it before old versions are removed). As with `install()`, `EXTRACTING` events are delivered from a worker thread unless `progress_loop` is set (see [Threading and the progress callback](#threading-and-the-progress-callback)).
 `request_config` | `RequestConfig \| None` |  An optional `RequestConfig` for authenticated API requests. Takes precedence over the `GITHUB_TOKEN`/`GITLAB_TOKEN` environment variables; see [API tokens](#api-tokens).
 `cancel_token` | `CancelToken \| None` |  An optional `CancelToken` to abort the update run. It is checked before each tool and forwarded to the running `install()` (see [Cancelling an installation](#cancelling-an-installation)), so a cancel also takes effect during the current download or extraction. Raises `InstallCancelledError` when cancelled.
+`progress_loop` | `asyncio.AbstractEventLoop \| None` |  An optional event loop forwarded to `CtInstaller.install()` for every tool (see [Threading and the progress callback](#threading-and-the-progress-callback)).
 
 Things to consider:
 

@@ -6,7 +6,7 @@ import pytest
 
 from protondl.core.base_launcher import Game, Launcher
 from protondl.core.config import RequestConfig
-from protondl.core.errors import InstallCancelledError
+from protondl.core.errors import AlreadyInstalledError, InstallCancelledError
 from protondl.core.models import (
     Arch,
     CancelToken,
@@ -96,6 +96,7 @@ class _FakeInstaller:
         arch: Arch | None = None,
         progress_callback: ProgressCallback | None = None,
         cancel_token: CancelToken | None = None,
+        progress_loop: asyncio.AbstractEventLoop | None = None,
     ) -> CompatToolVersionInfo:
         if cancel_token is not None:
             cancel_token.raise_if_cancelled()
@@ -103,6 +104,7 @@ class _FakeInstaller:
         self.install_archs.append(arch)
         if progress_callback is not None:
             progress_callback(InstallProgress(step=InstallStep.FINISHING, current=1, total=1))
+            progress_callback(InstallProgress(step=InstallStep.COMPLETED))
         if self.new_tool is not None:
             launcher._installed_tools.append(self.new_tool)
         if self.new_info is not None:
@@ -325,6 +327,39 @@ def test_update_compatibility_tools_installs_latest_and_removes_old(
     ]
 
 
+def test_update_compatibility_tools_already_installed_still_reports_completed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old = _tool("GE-Proton10-5")
+    launcher = _FakeLauncher([old])
+    update = ToolUpdate(
+        compat_tool_name="GE-Proton",
+        latest_version="GE-Proton11-3",
+        installed_versions=["GE-Proton10-5"],
+        installed_tools=[old],
+    )
+    installer = _FakeInstaller("GE-Proton")
+
+    async def already_installed(
+        version: str,
+        launcher: _FakeLauncher,
+        arch: Arch | None = None,
+        progress_callback: ProgressCallback | None = None,
+        cancel_token: CancelToken | None = None,
+        progress_loop: asyncio.AbstractEventLoop | None = None,
+    ) -> CompatToolVersionInfo:
+        raise AlreadyInstalledError("GE-Proton", version, arch or Arch.X86_64)
+
+    monkeypatch.setattr(installer, "install", already_installed)
+    _mock_installer_lookup(monkeypatch, installer)
+
+    progress: list[InstallProgress] = []
+    asyncio.run(update_compatibility_tools(launcher, [update], progress_callback=progress.append))
+
+    assert [p.step for p in progress] == [InstallStep.COMPLETED]
+    assert [(p.tool, p.tool_index, p.tool_total) for p in progress] == [("GE-Proton", 1, 1)]
+
+
 def test_update_compatibility_tools_cancel_before_first_tool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -376,6 +411,7 @@ def test_update_compatibility_tools_cancel_stops_before_remaining_tools(
         arch: Arch | None = None,
         progress_callback: ProgressCallback | None = None,
         cancel_token: CancelToken | None = None,
+        progress_loop: asyncio.AbstractEventLoop | None = None,
     ) -> CompatToolVersionInfo:
         installer.install_calls.append(version)
         if cancel_token is not None:
@@ -891,6 +927,7 @@ class _VariantInstaller(_FakeInstaller):
         arch: Arch | None = None,
         progress_callback: ProgressCallback | None = None,
         cancel_token: CancelToken | None = None,
+        progress_loop: asyncio.AbstractEventLoop | None = None,
     ) -> CompatToolVersionInfo:
         launcher._installed_tools.append(_tool(version))
         return CompatToolVersionInfo(

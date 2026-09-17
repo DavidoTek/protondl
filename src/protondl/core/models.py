@@ -246,6 +246,12 @@ class InstallProgress:
     """
     A progress event reported during a compatibility tool install or update.
 
+    A COMPLETED event is the terminal event of a successful install: install()
+    emits it after FINISHING, once the tool is fully in place. There is no
+    dedicated field for transfer rate or elapsed time; a consumer that wants
+    one computes it from successive DOWNLOADING events' (current, wall-clock)
+    deltas.
+
     Attributes:
         step: The current step of the operation.
         current: The progress within the step. For DOWNLOADING this is the number
@@ -267,8 +273,16 @@ class InstallProgress:
 
 
 # The callback may be invoked from a worker thread: install() and
-# update_compatibility_tools() offload the checksum and extraction steps to a
-# thread pool, so VERIFYING and EXTRACTING events arrive from a worker thread
-# while the others come from the calling thread. Implementations must be
-# thread-safe, must not block, and should marshal any GUI update to the UI thread.
+# update_compatibility_tools() offload the archive extraction to a thread
+# pool, so EXTRACTING events arrive from a worker thread while the others
+# come from the calling thread. Implementations must be thread-safe and must
+# not block.
+#
+# Pass the event loop the callback should run on as install()'s or
+# update_compatibility_tools()'s `progress_loop` argument to get delivery on a
+# single, known thread (the loop's) for every step; the callback is then
+# re-dispatched via `progress_loop.call_soon_threadsafe()` when it would
+# otherwise fire from a worker thread. A GUI can pass
+# `asyncio.get_running_loop()` and only needs one loop-to-UI-thread marshal,
+# in the callback itself.
 ProgressCallback = Callable[[InstallProgress], None]

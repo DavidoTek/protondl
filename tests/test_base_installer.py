@@ -1,5 +1,6 @@
 import asyncio
 import tarfile
+import threading
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -323,15 +324,131 @@ def test_install_reports_progress_steps(tmp_path: Path, monkeypatch: pytest.Monk
         InstallStep.VERIFYING,
         InstallStep.EXTRACTING,
         InstallStep.FINISHING,
+        InstallStep.COMPLETED,
     ]
 
     download_events = [e for e in events if e.step == InstallStep.DOWNLOADING]
+    assert download_events[0].current == 0
+    assert download_events[0].total == len(archive_bytes)
     assert download_events[-1].current == len(archive_bytes)
     assert download_events[-1].total == len(archive_bytes)
 
     extract_events = [e for e in events if e.step == InstallStep.EXTRACTING]
     assert extract_events[-1].current == 1
     assert extract_events[-1].total == 1
+
+    assert events[-1].step == InstallStep.COMPLETED
+
+
+def test_install_early_download_total_is_zero_when_size_unknown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+    archive_bytes = _make_tar_gz(version)
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version=v,
+            date="2026-08-03",
+            download="https://example.com/GE-Proton11-3.tar.gz",
+            size=None,
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+        cancel_token: Any = None,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    events: list[InstallProgress] = []
+    asyncio.run(
+        installer.install(version, launcher, arch=Arch.AARCH64, progress_callback=events.append)
+    )
+
+    first_download_event = next(e for e in events if e.step == InstallStep.DOWNLOADING)
+    assert first_download_event.current == 0
+    assert first_download_event.total == 0
+
+
+def test_install_progress_loop_dispatches_all_events_on_one_thread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = LutrisLauncher("Lutris", tmp_path, InstallMode.NATIVE)
+    installer = GEProtonInstaller()
+    version = "GE-Proton11-3"
+    archive_bytes = _make_tar_gz(version)
+
+    async def mock_fetch_release_data(v: str, arch: Arch) -> ReleaseData:
+        return ReleaseData(
+            version=v,
+            date="2026-08-03",
+            download="https://example.com/GE-Proton11-3.tar.gz",
+            size=len(archive_bytes),
+        )
+
+    async def mock_download_file(
+        url: str,
+        destination: Path,
+        client: Any,
+        progress_callback: Any = None,
+        known_size: int = 0,
+        cancel_token: Any = None,
+    ) -> None:
+        destination.write_bytes(archive_bytes)
+        if progress_callback is not None:
+            progress_callback(
+                InstallProgress(
+                    step=InstallStep.DOWNLOADING,
+                    current=len(archive_bytes),
+                    total=len(archive_bytes),
+                )
+            )
+
+    async def mock_verify_checksum(client: Any, release_data: ReleaseData, file_path: Path) -> None:
+        pass
+
+    monkeypatch.setattr(installer, "_fetch_release_data", mock_fetch_release_data)
+    monkeypatch.setattr("protondl.core.base_installer.download_file", mock_download_file)
+    monkeypatch.setattr(installer, "_verify_checksum", mock_verify_checksum)
+
+    threads_seen: set[int] = set()
+    steps_seen: list[InstallStep] = []
+
+    def on_progress(event: InstallProgress) -> None:
+        threads_seen.add(threading.get_ident())
+        steps_seen.append(event.step)
+
+    async def run() -> None:
+        await installer.install(
+            version,
+            launcher,
+            arch=Arch.AARCH64,
+            progress_callback=on_progress,
+            progress_loop=asyncio.get_running_loop(),
+        )
+
+    main_thread = threading.get_ident()
+    asyncio.run(run())
+
+    # EXTRACTING events normally fire from a worker thread (asyncio.to_thread);
+    # with progress_loop set every event must land on the loop's thread instead.
+    assert threads_seen == {main_thread}
+    assert InstallStep.VERIFYING in steps_seen
+    assert InstallStep.EXTRACTING in steps_seen
+    assert steps_seen[-1] == InstallStep.COMPLETED
 
 
 def test_install_cancelled_before_start_raises(
