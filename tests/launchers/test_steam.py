@@ -182,6 +182,43 @@ def test_set_games_tools(tmp_path: Path) -> None:
     assert "0" not in compat_tool_mapping
 
 
+def test_set_games_tools_invalidates_cached_game_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Test that set_games_tools() invalidates the cached game list so a
+    subsequent get_game_list() call reflects the new tool mapping instead of
+    returning the stale, pre-update SteamGame objects.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    config_path = tmp_path / "config"
+    config_path.mkdir(parents=True, exist_ok=True)
+
+    fixtures_dir = Path(__file__).parent
+    libraryfolders_fixture = (fixtures_dir / "libraryfolders.vdf").read_text(encoding="utf-8")
+    (config_path / "libraryfolders.vdf").write_text(
+        libraryfolders_fixture.replace("/home/user/.local/share/Steam", tmp_path.as_posix()),
+        encoding="utf-8",
+    )
+    (config_path / "config.vdf").write_text(
+        (fixtures_dir / "config.vdf").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(launcher, "_update_steam_game_list_with_app_info", lambda games: games)
+
+    first = launcher.get_game_list(shortcuts=False, cached=False)
+    mapped_game = next(game for game in first if game.appid == 275850)
+    assert mapped_game.compat_tool_name == "GE-Proton10-14"
+
+    launcher.set_games_tools({mapped_game: "GE-Proton10-99"})
+
+    refreshed = launcher.get_game_list(shortcuts=False)
+    assert refreshed is not first
+    updated_game = next(game for game in refreshed if game.appid == 275850)
+    assert updated_game.compat_tool_name == "GE-Proton10-99"
+
+
 def test_get_global_tool_returns_matching_tool(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -421,6 +421,8 @@ class SteamLauncher(Launcher):
         except Exception as e:
             raise RuntimeError(f"Setting the compatibility tools for games failed: {e}") from e
 
+        self._cached_game_list = []
+
     def _update_steam_game_list_with_app_info(self, games: list[SteamGame]) -> list[SteamGame]:
         """
         Enrich existing SteamGame entries with appinfo.vdf metadata.

@@ -264,6 +264,12 @@ class Launcher(ABC):
             game_tool_map (Mapping[Game, str|None]):
                 Maps the game to the compatibility tool name or None to use the global tool.
 
+        Note:
+            If the implementation caches its game list (as an optimization for
+            get_game_list()'s default cached=True), it must invalidate that
+            cache here so a subsequent get_game_list() call reflects the
+            change instead of returning stale Game objects.
+
         Raises:
             NotSupportedError: If the launcher does not support setting
                 per-game compatibility tools (check supports_per_game_tools).
