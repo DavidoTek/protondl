@@ -37,6 +37,8 @@ Tool Type | [Steam](https://store.steampowered.com/) | [Lutris](https://github.c
 - [DXVK (nightly)](https://github.com/doitsujin/dxvk) (DXVK)
 - [vkd3d-proton](https://github.com/HansKristian-Work/vkd3d-proton) (VKD3D)
 
+See [here](https://davidotek.github.io/protondl/#supported-tools) for a full list of supported tools.
+
 ## 🚀 Quick Start
 
 ### Installation (for users)
@@ -85,6 +87,8 @@ uvx run protondl
     protondl update-all 1 --yes-install --yes-batch-update
     ```
 
+See [here](https://davidotek.github.io/protondl/CLI/) for the full CLI documentation.
+
 ### Basic Usage (Library API)
 
 ```python
@@ -107,6 +111,8 @@ async def main():
 
 asyncio.run(main())
 ```
+
+See [here](https://davidotek.github.io/protondl/Library_API/) for the full API documentation.
 
 ## 🛠 Development Setup
 

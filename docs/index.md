@@ -59,7 +59,7 @@ Below, you can find a comparison chart of different compatibility tool installer
 Feature                        | protondl | ProtonUp-Qt[^1] | ProtonPlus[^2] | Protonup-rs[^3]
 -------------------------------|----------|-----------------|----------------|------------
 GUI                            | ⬜       | ✅              | ✅             | ⬜
-CLI                            | ✅       | ⬜              | ⬜             | ✅
+CLI                            | ✅       | ⬜              | ✅             | ✅
 Library                        | ✅       | ⬜              | ⬜             | ✅
 Install compatibility tools    | ✅       | ✅              | ✅             | ✅
 Fetch available tool versions  | ✅       | ✅              | ✅             | ✅
