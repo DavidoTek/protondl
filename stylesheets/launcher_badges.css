@@ -1,0 +1,26 @@
+.badge {
+  display: inline-block;
+  font-size: 0.7em;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+  color: white;
+}
+
+.badge.steam {
+  background: #1b2838;
+}
+
+.badge.lutris {
+  background: #ff9900;
+}
+
+.badge.heroic {
+  background: #2f80ed;
+}
+
+.badge.bottles {
+  background: #6fcf97;
+}
