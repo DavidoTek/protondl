@@ -1,6 +1,6 @@
 import json
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -245,41 +245,90 @@ class HeroicLauncher(Launcher):
         self._cached_game_list = games
         return games
 
-    def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
+    def set_games_tools(self, game_tool_map: Mapping[str, str | None]) -> None:
         """
         Sets the compatibility tool for the given games by writing the
         wineVersion into each game's Heroic configuration file.
 
         Args:
-            game_tool_map (Mapping[Game, str | None]):
-                Maps a game to a compatibility tool name or None to reset the
-                game to Heroic's default Wine.
+            game_tool_map (Mapping[str, str | None]):
+                Maps a game id (the Heroic app name, see HeroicGame.id) to a
+                compatibility tool name, or to None to reset the game to
+                Heroic's default Wine.
+
+        Note:
+            Ids are validated against the cached game list first; on a miss the
+            game list is reloaded once, so games installed after the last
+            get_game_list() call are found. An id that is still not listed is
+            accepted only if it already has a GamesConfig file (e.g. an
+            uninstalled game that is reset).
 
         Raises:
-            RuntimeError: If updating the game configurations failed.
+            ValueError: If a game id is not a valid Heroic app name, does not
+                belong to a known Heroic game, a compatibility tool is not
+                installed, or loading the game list failed. Raised before any
+                configuration file is written.
+            RuntimeError: If writing the game configurations failed.
         """
-        try:
+        if not game_tool_map:
+            return
+
+        games_config_dir = self.root_path / "GamesConfig"
+        for app_name in game_tool_map:
+            # The id becomes a file name: refuse anything that escapes GamesConfig
+            if not app_name or "/" in app_name or "\0" in app_name:
+                raise ValueError(f"Invalid Heroic game id: {app_name!r}")
+
+        if unknown_ids := [
+            app_name
+            for app_name in self._unknown_app_names(game_tool_map.keys())
+            if not (games_config_dir / f"{app_name}.json").is_file()
+        ]:
+            raise ValueError(f"Unknown Heroic game id(s): {', '.join(unknown_ids)}")
+
+        updates: list[tuple[str, dict[str, str]]] = []
+        tools_by_name: dict[str, CompatTool] = {}
+        if any(game_tool_map.values()):
             tools_by_name = {tool.full_name: tool for tool in self.get_installed_tools()}
-            updates: list[tuple[HeroicGame, dict[str, str]]] = []
-            for game, tool_name in game_tool_map.items():
-                if not isinstance(game, HeroicGame):
-                    raise ValueError(f"Game {game.name} is not managed by Heroic")
+        for app_name, tool_name in game_tool_map.items():
+            if tool_name:
+                tool = tools_by_name.get(tool_name)
+                if tool is None:
+                    raise ValueError(f"Compatibility tool not found: {tool_name}")
+                updates.append((app_name, self._get_wine_version(tool)))
+            else:
+                updates.append((app_name, {"bin": "", "name": DEFAULT_WINE_NAME, "type": "wine"}))
 
-                if tool_name:
-                    tool = tools_by_name.get(tool_name)
-                    if tool is None:
-                        raise ValueError(f"Compatibility tool not found: {tool_name}")
-                    updates.append((game, self._get_wine_version(tool)))
-                else:
-                    updates.append((game, {"bin": "", "name": DEFAULT_WINE_NAME, "type": "wine"}))
-
-            for game, wine_version in updates:
-                config_file = self.root_path / "GamesConfig" / f"{game.app_name}.json"
-                self._write_wine_version(config_file, game.app_name, wine_version)
+        try:
+            for app_name, wine_version in updates:
+                config_file = games_config_dir / f"{app_name}.json"
+                self._write_wine_version(config_file, app_name, wine_version)
         except Exception as e:
             raise RuntimeError(f"Setting the compatibility tools for games failed: {e}") from e
+        finally:
+            # Also after a partial failure: earlier games may already be written
+            self._cached_game_list = []
 
-        self._cached_game_list = []
+    def _unknown_app_names(self, app_names: Iterable[str]) -> list[str]:
+        """
+        Returns the app names that are not in the game list, reloading the
+        list once if the cached one does not contain all of them.
+
+        Args:
+            app_names (Iterable[str]): The app names (HeroicGame.id) to look up.
+
+        Returns:
+            list[str]: The app names that are not part of the game list.
+
+        Raises:
+            ValueError: If loading the game list failed.
+        """
+        app_names = list(app_names)
+        known = {game.id for game in self.get_game_list()}
+        if all(app_name in known for app_name in app_names):
+            return []
+        known = {game.id for game in self.get_game_list(cached=False)}
+        return [app_name for app_name in app_names if app_name not in known]
 
     def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:
         if tool_type not in (CompatToolType.PROTON, CompatToolType.WINE):

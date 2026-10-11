@@ -28,8 +28,20 @@ for game in games:
 
 ### Set compatibility tool for a specific game
 
-Set a specific compatibility tool for one or more games using `set_games_tools()`.
-This method accepts a mapping of games to tool names. Pass `None` to use the global compatibility tool.
+Set a specific compatibility tool for one game using `set_game_tool()`, or for several
+games at once using `set_games_tools()`. Games are addressed by their `Game.id`
+(Steam: the AppID as a string, Heroic: the app name, Lutris: the slug), not by the `Game`
+object itself. The id stays valid across `get_game_list()` calls, so you can keep just the
+id (e.g. in a GUI selection) and apply a tool after the game list has been refreshed.
+Pass `None` as the tool name to use the global compatibility tool.
+
+> **Note:** ids are not guaranteed to be unique (e.g. the same Lutris game installed
+> twice shares its slug); entries sharing an id are updated together.
+>
+> **Blocking I/O:** `set_game_tool()`, `set_games_tools()` and
+> `batch_update_games_tools()` read and write launcher configuration files on the
+> calling thread. Offload them from an async or GUI event loop, e.g.
+> `await asyncio.to_thread(launcher.set_game_tool, game.id, "GE-Proton10-14")`.
 
 ```python
 from protondl.launchers.steam import SteamLauncher
@@ -41,10 +53,13 @@ games = launcher.get_game_list()
 game_to_update = next(g for g in games if g.name == "My Game")
 
 # Set a specific tool
-launcher.set_games_tools({game_to_update: "Proton-8.0"})
+launcher.set_game_tool(game_to_update.id, "Proton-8.0")
 
 # Or use the global tool
-launcher.set_games_tools({game_to_update: None})
+launcher.set_game_tool(game_to_update.id, None)
+
+# Several games at once: map game ids to tool names
+launcher.set_games_tools({"275850": "GE-Proton10-14", "1091500": None})
 ```
 
 ### Read Steam Deck compatibility metadata
@@ -106,7 +121,7 @@ shortcut = launcher.add_shortcut(
 )
 
 # Assign a compatibility tool to the new shortcut like any other game
-launcher.set_games_tools({shortcut: "GE-Proton10-14"})
+launcher.set_game_tool(shortcut.id, "GE-Proton10-14")
 ```
 
 `add_shortcut()` raises a `ValueError` if `name` or `exe` is empty, or if no Steam user can be determined.
@@ -157,7 +172,7 @@ for game in games:
     )
 ```
 
-`HeroicGame` objects expose additional attributes: `runner`, `is_dlc`, `is_installed`, `install_path`, `wine_type`, and `platform`. Assign a tool the same way as with Steam via `set_games_tools()`; pass `None` to reset a game to the global tool.
+`HeroicGame` objects expose additional attributes: `runner`, `is_dlc`, `is_installed`, `install_path`, `wine_type`, and `platform`. Assign a tool the same way as with Steam via `set_game_tool()` / `set_games_tools()`; pass `None` to reset a game to the global tool.
 
 ```python
 from protondl.launchers.heroic import HeroicLauncher
@@ -165,11 +180,11 @@ from protondl.launchers.heroic import HeroicLauncher
 launcher = HeroicLauncher.discover()[0]
 game = launcher.get_game_list()[0]
 
-launcher.set_games_tools({game: "GE-Proton10-14"})  # set a specific tool
-launcher.set_games_tools({game: None})  # reset to the global tool
+launcher.set_game_tool(game.id, "GE-Proton10-14")  # set a specific tool
+launcher.set_game_tool(game.id, None)  # reset to the global tool
 ```
 
-The per-game and global tools in Heroic correspond to Proton and Wine installers only (DXVK and vkd3d-proton do not have a matching Heroic `wineVersion` entry). `set_global_tool()` raises a `ValueError` for unsupported tool types; `set_games_tools()` raises a `RuntimeError`.
+The per-game and global tools in Heroic correspond to Proton and Wine installers only (DXVK and vkd3d-proton do not have a matching Heroic `wineVersion` entry). `set_global_tool()` raises a `ValueError` for unsupported tool types; `set_games_tools()` raises a `ValueError` (before writing anything) if a tool is not installed, a game id is not a valid Heroic app name, or the id belongs to no known Heroic game. A missing id triggers one reload of the game list, so newly installed games are found; an id that is not listed but already has a `GamesConfig` file (e.g. an uninstalled game) is accepted, so it can still be reset.
 
 ### Lutris
 
@@ -187,7 +202,7 @@ for game in games:
     )
 ```
 
-`LutrisGame` objects expose additional attributes: `slug`, `runner` (e.g. `wine` or `steam`), `installer_slug`, and `installed_at`. `install_path` is set to the game's install directory or `?` if it cannot be determined. Setting per-game tools via `set_games_tools()` is not implemented yet for Lutris.
+`LutrisGame` objects expose additional attributes: `slug`, `runner` (e.g. `wine` or `steam`), `installer_slug`, and `installed_at`. `install_path` is set to the game's install directory or `?` if it cannot be determined. Setting per-game tools via `set_game_tool()` / `set_games_tools()` is not implemented yet for Lutris.
 
 Service-based online lookups such as AWACY and ProtonDB are documented in
 `Library_API/40_external_services_api.md`.

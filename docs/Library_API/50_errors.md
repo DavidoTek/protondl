@@ -48,7 +48,7 @@ keeps working. `NotSupportedError` also inherits from `NotImplementedError`.
 | `CtInstaller.remove()` / `Launcher.remove_tool()` | `FileNotFoundError`, `NoWritePermissionError`, `ValueError` (Steam-managed / outside tools dir) |
 | `check_for_updates()` | *nothing* — network/API failures are reported in `UpdateCheckResult.unchecked` |
 | `update_compatibility_tools()` | everything `install()` can raise, plus `ValueError` if a tool has no installer |
-| `batch_update_games_tools()` / `Launcher.set_games_tools()` | `RuntimeError` if the launcher cannot set game tools, `NotSupportedError` if the launcher does not support per-game tools at all |
+| `batch_update_games_tools()` / `Launcher.set_games_tools()` / `set_game_tool()` | `RuntimeError` if the launcher cannot set game tools, `ValueError` if the input is invalid, e.g. unknown game id or tool not installed (Heroic), or the game list cannot be loaded, `NotSupportedError` if the launcher does not support per-game tools at all |
 | `Launcher.get_game_list()` | `ValueError` if the launcher's config/game data cannot be loaded, `NotSupportedError` if the launcher does not support listing games |
 | `Launcher.get_global_tool()` / `set_global_tool()` | `NotSupportedError` if the launcher does not support a global tool, plus `ValueError`/`RuntimeError` (see above) |
 

@@ -30,7 +30,7 @@ for launcher in detect_all_launchers():
 | Property                    | Enables                                         |
 |------------------------------|-------------------------------------------------|
 | `supports_game_list`         | `get_game_list()`                               |
-| `supports_per_game_tools`    | `set_games_tools()`                             |
+| `supports_per_game_tools`    | `set_game_tool()` / `set_games_tools()`         |
 | `supports_global_tool`       | `get_global_tool()` / `set_global_tool()`       |
 | `supports_shortcuts`         | `get_shortcuts()` / `add_shortcut()` / `update_shortcuts()` / `remove_shortcuts()` (Steam only, see [Manage Games](30_manage_games_api.md)) |
 

@@ -53,7 +53,17 @@ def batch_update_games_tools(
         int: The number of games that were updated.
 
     Raises:
+        NotSupportedError: If the launcher does not support listing games or
+            setting per-game compatibility tools (check supports_game_list and
+            supports_per_game_tools).
+        ValueError: If loading the game list failed, or the launcher rejected
+            the update as invalid (see Launcher.set_games_tools()).
         RuntimeError: If updating the games' compatibility tools failed.
+
+    Note:
+        This blocks on filesystem I/O (game list, launcher configuration);
+        offload it from an async or GUI event loop, e.g. with
+        ``asyncio.to_thread()``.
     """
     games = launcher.get_game_list()
 
@@ -62,14 +72,14 @@ def batch_update_games_tools(
     else:
         games_to_update = [game for game in games if game.compat_tool_name == from_tool.full_name]
 
-    game_tool_map = {game: to_tool.full_name for game in games_to_update}
+    game_tool_map = {game.id: to_tool.full_name for game in games_to_update}
 
     try:
         launcher.set_games_tools(game_tool_map)
     except RuntimeError as e:
         raise RuntimeError(f"Batch update of games' compatibility tools failed: {e}") from e
 
-    return len(games_to_update)
+    return len(game_tool_map)
 
 
 async def check_for_updates(

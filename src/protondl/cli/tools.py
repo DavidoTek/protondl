@@ -519,7 +519,7 @@ def _batch_update_all_games(
         for old_tool in update.installed_tools:
             try:
                 updated = batch_update_games_tools(target_launcher, old_tool, to_tool)
-            except RuntimeError as e:
+            except (RuntimeError, ValueError) as e:
                 console.print(
                     f"[red]Batch update of games to {to_tool.full_name} failed: {e}[/red]"
                 )

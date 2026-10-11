@@ -12,8 +12,23 @@ class Game:
     """
     Abstract base class for games.
 
+    Games are identified by ``id``, not by object identity: two Game objects
+    returned by different get_game_list() calls refer to the same game if
+    their ``id`` matches. Launcher.set_games_tools() and
+    Launcher.set_game_tool() are keyed by this id, so a caller (e.g. a GUI
+    selection model) can keep just the id across game-list refreshes.
+
+    Note:
+        An id is not guaranteed to be unique within a launcher's game list:
+        e.g. the same Lutris game installed twice shares its slug. Entries with
+        the same id are treated as one game by the id-based setters (setting a
+        tool affects all of them). Keep that in mind when using id as a
+        unique key, e.g. for GUI table rows.
+
     Attributes:
-        id (str): Internal identifier
+        id (str): Stable launcher-specific identifier of the game, e.g. the
+            Steam AppID as a string, the Lutris slug or the Heroic app name.
+            Must not be changed after construction.
         name (str): The human-readable name/title of the game.
         compat_tool_name (str): Name of the used compatibility tool.
         install_path (Path): The filesystem path where the game is installed.
@@ -72,10 +87,10 @@ class Launcher(ABC):
     @property
     def supports_per_game_tools(self) -> bool:
         """
-        Whether set_games_tools() is implemented for this launcher.
+        Whether set_games_tools()/set_game_tool() are implemented for this launcher.
 
         Check this before offering a per-game compatibility-tool selector:
-        False means set_games_tools() raises NotSupportedError.
+        False means both methods raise NotSupportedError.
         """
         return False
 
@@ -256,15 +271,25 @@ class Launcher(ABC):
         pass
 
     @abstractmethod
-    def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
+    def set_games_tools(self, game_tool_map: Mapping[str, str | None]) -> None:
         """
         Set which compatibility tools the games should use.
 
+        Games are addressed by their Game.id, so the ids may come from any
+        get_game_list() call (they do not need to be the latest Game objects).
+
         Args:
-            game_tool_map (Mapping[Game, str|None]):
-                Maps the game to the compatibility tool name or None to use the global tool.
+            game_tool_map (Mapping[str, str|None]):
+                Maps a game id (Game.id) to the compatibility tool name, or to
+                None to make the game use the global tool.
 
         Note:
+            This performs blocking filesystem I/O on the calling thread: it
+            reads and writes the launcher's configuration files and may scan
+            the installed tools or reload the game list. From an async or GUI
+            event loop, offload it, e.g.
+            ``await asyncio.to_thread(launcher.set_games_tools, mapping)``.
+
             If the implementation caches its game list (as an optimization for
             get_game_list()'s default cached=True), it must invalidate that
             cache here so a subsequent get_game_list() call reflects the
@@ -274,9 +299,39 @@ class Launcher(ABC):
             NotSupportedError: If the launcher does not support setting
                 per-game compatibility tools (check supports_per_game_tools).
                 Also a NotImplementedError for backwards compatibility.
+            ValueError: If the input is invalid for the launcher, e.g. an
+                unknown game id or a tool that is not installed (only raised by
+                launchers that validate their input, e.g. Heroic). Raised
+                before anything is written.
             RuntimeError: If setting the compatibility tools failed.
         """
         pass
+
+    def set_game_tool(self, game_id: str, tool_name: str | None) -> None:
+        """
+        Set which compatibility tool a single game should use.
+
+        Convenience wrapper around set_games_tools() for one game.
+
+        Note:
+            Blocks on filesystem I/O like set_games_tools(); offload it from an
+            async or GUI event loop, e.g.
+            ``await asyncio.to_thread(launcher.set_game_tool, game_id, tool_name)``.
+
+        Args:
+            game_id (str): The id of the game (Game.id).
+            tool_name (str | None): The compatibility tool name, or None to make
+                the game use the global tool.
+
+        Raises:
+            NotSupportedError: If the launcher does not support setting
+                per-game compatibility tools (check supports_per_game_tools).
+                Also a NotImplementedError for backwards compatibility.
+            ValueError: If the game id or tool name is invalid for the launcher
+                (see set_games_tools()).
+            RuntimeError: If setting the compatibility tool failed.
+        """
+        self.set_games_tools({game_id: tool_name})
 
     @abstractmethod
     def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:

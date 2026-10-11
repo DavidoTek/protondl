@@ -31,6 +31,21 @@ PROTON_BATTLEYE_RUNTIME_APPID = 1161040
 STEAMLINUXRUNTIME_APPID = 1070560
 STEAMLINUXRUNTIME_SOLDIER_APPID = 1391110
 STEAMLINUXRUNTIME_SNIPER_APPID = 1628350
+# CompatToolMapping key Steam uses for the global/default compatibility tool
+GLOBAL_TOOL_APPID = "0"
+
+
+def _default_priority(appid: str) -> str:
+    """
+    Returns the CompatToolMapping priority Steam uses for an AppID's entry.
+
+    Args:
+        appid (str): The AppID string ("0" for the global tool).
+
+    Returns:
+        str: "75" for the global tool, "250" for a per-game override.
+    """
+    return "75" if appid == GLOBAL_TOOL_APPID else "250"
 
 
 class SteamRuntimeType(Enum):
@@ -397,31 +412,68 @@ class SteamLauncher(Launcher):
         self._cached_game_list = games
         return games
 
-    def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
+    def set_games_tools(self, game_tool_map: Mapping[str, str | None]) -> None:
+        """
+        Sets the compatibility tool for the given games by updating the
+        CompatToolMapping in Steam's config.vdf.
+
+        Args:
+            game_tool_map (Mapping[str, str | None]):
+                Maps a game id (the AppID as a string, see SteamGame.id) to a
+                compatibility tool name, or to None to remove the per-game
+                override so the game uses the global tool.
+
+        Raises:
+            RuntimeError: If reading or writing config.vdf failed.
+        """
+        self._write_compat_tool_mapping(game_tool_map)
+
+    def _write_compat_tool_mapping(self, appid_tool_map: Mapping[str, str | None]) -> None:
+        """
+        Writes entries of the CompatToolMapping in Steam's config.vdf and
+        invalidates the cached game list.
+
+        Args:
+            appid_tool_map (Mapping[str, str | None]): Maps an AppID string
+                ("0" for the global tool) to a compatibility tool name, or to
+                None to remove the entry.
+
+        Raises:
+            RuntimeError: If reading or writing config.vdf failed.
+        """
+        if not appid_tool_map:
+            return
+
         config_vdf_file: Path = self.root_path / "config" / "config.vdf"
 
         try:
             config_data = vdf_safe_load(config_vdf_file)
             compat_tool_mapping = get_steam_vdf_compat_tool_mapping(config_data)
 
-            for game, compat_tool_name in game_tool_map.items():
-                if game.id in compat_tool_mapping:
+            for appid, compat_tool_name in appid_tool_map.items():
+                if appid in compat_tool_mapping:
                     if not compat_tool_name:
-                        compat_tool_mapping.pop(game.id)
-                    elif game_entry := compat_tool_mapping.get(game.id):
-                        game_entry["name"] = compat_tool_name
+                        compat_tool_mapping.pop(appid)
+                    else:
+                        entry = compat_tool_mapping[appid]
+                        entry["name"] = compat_tool_name
+                        # An existing entry may be empty: fill in the keys Steam writes
+                        entry.setdefault("config", "")
+                        entry.setdefault("priority", _default_priority(appid))
                 elif compat_tool_name:
-                    compat_tool_mapping[game.id] = {
+                    compat_tool_mapping[appid] = {
                         "name": compat_tool_name,
                         "config": "",
-                        "priority": "75" if game.id == "0" else "250",
+                        "priority": _default_priority(appid),
                     }
 
-            vdf.dump(config_data, open(config_vdf_file, "w"), pretty=True)
+            with open(config_vdf_file, "w") as f:
+                vdf.dump(config_data, f, pretty=True)
         except Exception as e:
             raise RuntimeError(f"Setting the compatibility tools for games failed: {e}") from e
-
-        self._cached_game_list = []
+        finally:
+            # Also after a failure: config.vdf may have been (partially) written
+            self._cached_game_list = []
 
     def _update_steam_game_list_with_app_info(self, games: list[SteamGame]) -> list[SteamGame]:
         """
@@ -733,7 +785,7 @@ class SteamLauncher(Launcher):
             config_data = vdf_safe_load(config_vdf_file)
             compat_tool_mapping = get_steam_vdf_compat_tool_mapping(config_data)
             for tool in tools:
-                if tool.full_name in compat_tool_mapping.get("0", {}).get("name", ""):  # type: ignore
+                if tool.full_name in compat_tool_mapping.get(GLOBAL_TOOL_APPID, {}).get("name", ""):  # type: ignore
                     return tool
         except Exception as e:
             logger.warning("Could not load the compatibility tool mapping: %s", e)
@@ -746,4 +798,4 @@ class SteamLauncher(Launcher):
                 "SteamLauncher only supports the following tool types: "
                 + f"{self.supported_tools_folders.keys()}, got {tool.tool_type}"
             )
-        self.set_games_tools({SteamGame(0, "", Path("")): tool.full_name})
+        self._write_compat_tool_mapping({GLOBAL_TOOL_APPID: tool.full_name})

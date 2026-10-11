@@ -102,7 +102,7 @@ class BottlesLauncher(Launcher):
         """
         raise NotSupportedError("Bottles does not support listing games.")
 
-    def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
+    def set_games_tools(self, game_tool_map: Mapping[str, str | None]) -> None:
         """
         Not supported by BottlesLauncher.
 

@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import vdf
 
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
 from protondl.launchers.steam import SteamAppType, SteamDeckCompatType, SteamGame, SteamLauncher
@@ -168,12 +169,7 @@ def test_set_games_tools(tmp_path: Path) -> None:
         (fixtures_dir / "config.vdf").read_text(encoding="utf-8"), encoding="utf-8"
     )
 
-    launcher.set_games_tools(
-        {
-            SteamGame(275850, "No Man's Sky", tmp_path): "GE-Proton10-99",
-            SteamGame(0, "", tmp_path): None,
-        }
-    )
+    launcher.set_games_tools({"275850": "GE-Proton10-99", "0": None})
 
     config_data = vdf_safe_load(config_vdf_file)
     compat_tool_mapping = get_steam_vdf_compat_tool_mapping(config_data)
@@ -211,12 +207,87 @@ def test_set_games_tools_invalidates_cached_game_list(
     mapped_game = next(game for game in first if game.appid == 275850)
     assert mapped_game.compat_tool_name == "GE-Proton10-14"
 
-    launcher.set_games_tools({mapped_game: "GE-Proton10-99"})
+    launcher.set_games_tools({mapped_game.id: "GE-Proton10-99"})
 
     refreshed = launcher.get_game_list(shortcuts=False)
     assert refreshed is not first
     updated_game = next(game for game in refreshed if game.appid == 275850)
     assert updated_game.compat_tool_name == "GE-Proton10-99"
+
+
+def test_set_game_tool_adds_mapping_for_unmapped_game(tmp_path: Path) -> None:
+    """
+    Test that set_game_tool() adds a per-game mapping keyed by the AppID string.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    config_path = tmp_path / "config"
+    config_path.mkdir(parents=True, exist_ok=True)
+
+    fixtures_dir = Path(__file__).parent
+    config_vdf_file = config_path / "config.vdf"
+    config_vdf_file.write_text(
+        (fixtures_dir / "config.vdf").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    launcher.set_game_tool("123456", "GE-Proton10-99")
+
+    compat_tool_mapping = get_steam_vdf_compat_tool_mapping(vdf_safe_load(config_vdf_file))
+    assert compat_tool_mapping["123456"]["name"] == "GE-Proton10-99"
+    assert compat_tool_mapping["123456"]["priority"] == "250"
+
+
+def test_set_game_tool_fills_empty_mapping_entry(tmp_path: Path) -> None:
+    """
+    Test that an existing but empty CompatToolMapping entry gets the tool name.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    config_vdf_file = tmp_path / "config" / "config.vdf"
+    config_vdf_file.parent.mkdir(parents=True)
+    config_vdf_file.write_text(
+        vdf.dumps(
+            {
+                "InstallConfigStore": {
+                    "Software": {"Valve": {"Steam": {"CompatToolMapping": {"275850": {}}}}}
+                }
+            },
+            pretty=True,
+        ),
+        encoding="utf-8",
+    )
+
+    launcher.set_game_tool("275850", "GE-Proton10-99")
+
+    compat_tool_mapping = get_steam_vdf_compat_tool_mapping(vdf_safe_load(config_vdf_file))
+    assert compat_tool_mapping["275850"] == {
+        "name": "GE-Proton10-99",
+        "config": "",
+        "priority": "250",
+    }
+
+
+def test_set_games_tools_empty_map_does_not_touch_config(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    config_vdf_file = tmp_path / "config" / "config.vdf"
+    config_vdf_file.parent.mkdir(parents=True)
+    original = (Path(__file__).parent / "config.vdf").read_text(encoding="utf-8")
+    config_vdf_file.write_text(original, encoding="utf-8")
+    cached = [SteamGame(1, "Cached", tmp_path)]
+    launcher._cached_game_list = cached
+
+    launcher.set_games_tools({})
+
+    assert config_vdf_file.read_text(encoding="utf-8") == original
+    assert launcher._cached_game_list is cached
+
+
+def test_set_games_tools_failure_invalidates_cached_game_list(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    launcher._cached_game_list = [SteamGame(1, "Cached", tmp_path)]
+
+    with pytest.raises(RuntimeError):
+        launcher.set_game_tool("275850", "GE-Proton10-99")  # no config.vdf
+
+    assert launcher._cached_game_list == []
 
 
 def test_get_global_tool_returns_matching_tool(

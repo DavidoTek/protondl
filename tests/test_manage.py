@@ -20,17 +20,23 @@ from protondl.core.models import (
     ReleaseVersion,
     ToolUpdate,
 )
-from protondl.manage import check_for_updates, update_compatibility_tools
+from protondl.manage import (
+    batch_update_games_tools,
+    check_for_updates,
+    update_compatibility_tools,
+)
 from protondl.util.helpers import detect_host_arch
 
 
 class _FakeLauncher(Launcher):
     supported_tools_folders: dict[CompatToolType, Path] = {}
 
-    def __init__(self, installed_tools: list[CompatTool]) -> None:
+    def __init__(self, installed_tools: list[CompatTool], games: Sequence[Game] = ()) -> None:
         super().__init__("Fake", Path("/fake"), InstallMode.NATIVE)
         self._installed_tools = installed_tools
+        self._games = games
         self.removed: list[str] = []
+        self.applied_game_tools: dict[str, str | None] = {}
 
     @classmethod
     def discover(cls) -> list[Launcher]:
@@ -45,10 +51,11 @@ class _FakeLauncher(Launcher):
         raise NotImplementedError
 
     def get_game_list(self) -> Sequence[Game]:
-        return []
+        # Fresh Game objects on every call, like a real launcher re-reading its config
+        return [Game(g.id, g.name, g.compat_tool_name, g.install_path) for g in self._games]
 
-    def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
-        raise NotImplementedError
+    def set_games_tools(self, game_tool_map: Mapping[str, str | None]) -> None:
+        self.applied_game_tools.update(game_tool_map)
 
     def get_global_tool(self, tool_type: CompatToolType) -> CompatTool | None:
         raise NotImplementedError
@@ -160,6 +167,47 @@ def _mock_version_files(
 
 def _lutris_variant(version: str) -> str:
     return "fshack" if "fshack-" in version else ""
+
+
+def test_batch_update_games_tools_applies_by_game_id() -> None:
+    games = [
+        Game("1", "A", "GE-Proton10-1", Path("/a")),
+        Game("2", "B", "GE-Proton10-2", Path("/b")),
+        Game("3", "C", "Proton-9.0", Path("/c")),
+    ]
+    launcher = _FakeLauncher([], games)
+    new_tool = CompatTool("GE-Proton10-3", CompatToolType.PROTON, Path("/t"))
+
+    count = batch_update_games_tools(launcher, "GE-Proton", new_tool)
+
+    assert count == 2
+    assert launcher.applied_game_tools == {"1": "GE-Proton10-3", "2": "GE-Proton10-3"}
+
+
+def test_batch_update_games_tools_exact_tool_match() -> None:
+    games = [
+        Game("1", "A", "GE-Proton10-1", Path("/a")),
+        Game("2", "B", "GE-Proton10-2", Path("/b")),
+    ]
+    launcher = _FakeLauncher([], games)
+    old_tool = CompatTool("GE-Proton10-1", CompatToolType.PROTON, Path("/o"))
+    new_tool = CompatTool("GE-Proton10-3", CompatToolType.PROTON, Path("/t"))
+
+    count = batch_update_games_tools(launcher, old_tool, new_tool)
+
+    assert count == 1
+    assert launcher.applied_game_tools == {"1": "GE-Proton10-3"}
+
+
+def test_batch_update_games_tools_counts_duplicate_ids_once() -> None:
+    games = [
+        Game("1", "A", "GE-Proton10-1", Path("/a")),
+        Game("1", "A (other library)", "GE-Proton10-1", Path("/a2")),
+    ]
+    launcher = _FakeLauncher([], games)
+    new_tool = CompatTool("GE-Proton10-3", CompatToolType.PROTON, Path("/t"))
+
+    assert batch_update_games_tools(launcher, "GE-Proton", new_tool) == 1
 
 
 def test_check_for_updates_returns_available_update(monkeypatch: pytest.MonkeyPatch) -> None:

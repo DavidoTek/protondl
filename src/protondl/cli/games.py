@@ -253,18 +253,14 @@ def set_tool(
         console.print(f"[red]Failed to read the game list of {target_launcher.name}: {e}[/red]")
         raise typer.Exit(code=1) from e
 
-    game_by_id = {game.id: game for game in games}
-
-    if game_id not in game_by_id:
+    if game_id not in {game.id for game in games}:
         console.print(f"[red]Game ID '{game_id}' not found in {target_launcher.name}.[/red]")
         raise typer.Exit(code=1)
 
-    result_map: dict[Game, str | None] = {
-        game_by_id[game_id]: None if compat_tool_name == "none" else compat_tool_name
-    }
-
     try:
-        target_launcher.set_games_tools(result_map)
+        target_launcher.set_game_tool(
+            game_id, None if compat_tool_name == "none" else compat_tool_name
+        )
     except Exception as e:
         console.print(f"[red]Failed to set game tools: {e}[/red]")
         raise typer.Exit(code=1) from e

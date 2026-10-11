@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from protondl.core.base_launcher import Game
 from protondl.core.models import CompatTool, CompatToolType, InstallMode
 from protondl.launchers.heroic import DEFAULT_WINE_NAME, HeroicGame, HeroicLauncher
 from protondl.util.helpers import json_safe_load
@@ -26,6 +25,14 @@ def _install_tool(launcher: HeroicLauncher, tool_type: CompatToolType, name: str
 
 def _create_launcher(tmp_path: Path) -> HeroicLauncher:
     return HeroicLauncher("Heroic", tmp_path, InstallMode.NATIVE)
+
+
+def _write_sideload_game(tmp_path: Path, app_name: str) -> None:
+    _write(
+        tmp_path,
+        "sideload_apps/library.json",
+        {"games": [{"app_name": app_name, "title": app_name, "runner": "sideload"}]},
+    )
 
 
 def test_get_game_list_returns_installed_games(tmp_path: Path) -> None:
@@ -210,8 +217,7 @@ def test_set_games_tools_invalidates_cached_game_list(tmp_path: Path) -> None:
     first = launcher.get_game_list(cached=False)
     assert first[0].compat_tool_name == ""
 
-    game = HeroicGame("sideload-1", "Sideload Game", tmp_path, "sideload", tmp_path)
-    launcher.set_games_tools({game: "GE-Proton10-14"})
+    launcher.set_games_tools({"sideload-1": "GE-Proton10-14"})
 
     refreshed = launcher.get_game_list()
     assert refreshed is not first
@@ -244,9 +250,9 @@ def test_get_game_config_returns_per_game_config(tmp_path: Path) -> None:
 def test_set_games_tools_writes_wine_version(tmp_path: Path) -> None:
     launcher = _create_launcher(tmp_path)
     _install_tool(launcher, CompatToolType.PROTON, "GE-Proton10-14")
-    game = HeroicGame("Game1", "Game 1", tmp_path, "legendary", tmp_path)
+    _write_sideload_game(tmp_path, "Game1")
 
-    launcher.set_games_tools({game: "GE-Proton10-14"})
+    launcher.set_games_tools({"Game1": "GE-Proton10-14"})
 
     data = json_safe_load(tmp_path / "GamesConfig" / "Game1.json")
     assert data["Game1"]["wineVersion"] == {
@@ -269,9 +275,9 @@ def test_set_games_tools_resets_to_default_wine(tmp_path: Path) -> None:
             "explicit": True,
         },
     )
-    game = HeroicGame("Game1", "Game 1", tmp_path, "legendary", tmp_path)
+    _write_sideload_game(tmp_path, "Game1")
 
-    launcher.set_games_tools({game: None})
+    launcher.set_games_tools({"Game1": None})
 
     data = json_safe_load(tmp_path / "GamesConfig" / "Game1.json")
     assert data["Game1"]["wineVersion"] == {
@@ -283,20 +289,106 @@ def test_set_games_tools_resets_to_default_wine(tmp_path: Path) -> None:
     assert data["explicit"] is True
 
 
-def test_set_games_tools_unknown_tool_raises_runtime_error(tmp_path: Path) -> None:
+def test_set_games_tools_unknown_tool_raises_value_error(tmp_path: Path) -> None:
     launcher = _create_launcher(tmp_path)
-    game = HeroicGame("Game1", "Game 1", tmp_path, "legendary", tmp_path)
+    _write_sideload_game(tmp_path, "Game1")
 
-    with pytest.raises(RuntimeError, match="Compatibility tool not found"):
-        launcher.set_games_tools({game: "Not-Installed"})
+    with pytest.raises(ValueError, match="Compatibility tool not found"):
+        launcher.set_games_tools({"Game1": "Not-Installed"})
 
 
-def test_set_games_tools_rejects_non_heroic_game(tmp_path: Path) -> None:
+def test_set_games_tools_rejects_path_escaping_game_id(tmp_path: Path) -> None:
     launcher = _create_launcher(tmp_path)
-    foreign_game = Game("some-game", "Some Game", "", tmp_path)
+    _install_tool(launcher, CompatToolType.PROTON, "GE-Proton10-14")
 
-    with pytest.raises(RuntimeError, match="not managed by Heroic"):
-        launcher.set_games_tools({foreign_game: "GE-Proton"})
+    with pytest.raises(ValueError, match="Invalid Heroic game id"):
+        launcher.set_games_tools({"../escape": "GE-Proton10-14"})
+
+    assert not (tmp_path / "escape.json").exists()
+    assert not (tmp_path / "GamesConfig").exists()
+
+
+def test_set_games_tools_accepts_game_missing_from_game_list(tmp_path: Path) -> None:
+    """A game that is not (or no longer) listed, e.g. uninstalled, can still be reset."""
+    launcher = _create_launcher(tmp_path)
+    _write(
+        tmp_path,
+        "GamesConfig/Gone.json",
+        {"Gone": {"wineVersion": {"name": "GE-Proton10-14", "bin": "/p", "type": "proton"}}},
+    )
+
+    launcher.set_game_tool("Gone", None)
+
+    data = json_safe_load(tmp_path / "GamesConfig" / "Gone.json")
+    assert data["Gone"]["wineVersion"]["name"] == DEFAULT_WINE_NAME
+
+
+def test_set_games_tools_empty_map_is_noop(tmp_path: Path) -> None:
+    launcher = HeroicLauncher("Heroic", tmp_path / "not-here", InstallMode.NATIVE)
+
+    launcher.set_games_tools({})
+
+    assert not (tmp_path / "not-here").exists()
+
+
+def test_set_games_tools_rejects_unknown_game_id(tmp_path: Path) -> None:
+    launcher = _create_launcher(tmp_path)
+    _install_tool(launcher, CompatToolType.PROTON, "GE-Proton10-14")
+    _write_sideload_game(tmp_path, "Game1")
+
+    with pytest.raises(ValueError, match="Unknown Heroic game id"):
+        launcher.set_game_tool("275850", "GE-Proton10-14")
+
+    assert not (tmp_path / "GamesConfig").exists()
+
+
+def test_set_games_tools_finds_game_added_after_cached_game_list(tmp_path: Path) -> None:
+    launcher = _create_launcher(tmp_path)
+    _install_tool(launcher, CompatToolType.PROTON, "GE-Proton10-14")
+    _write_sideload_game(tmp_path, "Game1")
+    launcher.get_game_list()  # fills the cache without "Game2"
+    _write_sideload_game(tmp_path, "Game2")
+
+    launcher.set_game_tool("Game2", "GE-Proton10-14")
+
+    data = json_safe_load(tmp_path / "GamesConfig" / "Game2.json")
+    assert data["Game2"]["wineVersion"]["name"] == "GE-Proton10-14"
+
+
+def test_set_games_tools_partial_failure_invalidates_cache(tmp_path: Path) -> None:
+    launcher = _create_launcher(tmp_path)
+    _install_tool(launcher, CompatToolType.PROTON, "GE-Proton10-14")
+    _write(
+        tmp_path,
+        "sideload_apps/library.json",
+        {
+            "games": [
+                {"app_name": "A", "title": "A", "runner": "sideload"},
+                {"app_name": "B", "title": "B", "runner": "sideload"},
+            ]
+        },
+    )
+    (tmp_path / "GamesConfig" / "B.json").mkdir(parents=True)  # makes writing B fail
+    first = launcher.get_game_list()
+
+    with pytest.raises(RuntimeError):
+        launcher.set_games_tools({"A": "GE-Proton10-14", "B": "GE-Proton10-14"})
+
+    refreshed = launcher.get_game_list()
+    assert refreshed is not first
+    assert next(g for g in refreshed if g.id == "A").compat_tool_name == "GE-Proton10-14"
+
+
+def test_set_game_tool_accepts_id_from_previous_game_list(tmp_path: Path) -> None:
+    launcher = _create_launcher(tmp_path)
+    _install_tool(launcher, CompatToolType.PROTON, "GE-Proton10-14")
+    _write_sideload_game(tmp_path, "Game1")
+    game_id = launcher.get_game_list(cached=False)[0].id
+    launcher.get_game_list(cached=False)  # refresh: new Game objects
+
+    launcher.set_game_tool(game_id, "GE-Proton10-14")
+
+    assert launcher.get_game_list()[0].compat_tool_name == "GE-Proton10-14"
 
 
 def test_get_global_tool_returns_matching_tool(tmp_path: Path) -> None:

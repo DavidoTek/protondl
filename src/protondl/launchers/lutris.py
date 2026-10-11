@@ -273,7 +273,7 @@ class LutrisLauncher(Launcher):
 
         return ""
 
-    def set_games_tools(self, game_tool_map: Mapping[Game, str | None]) -> None:
+    def set_games_tools(self, game_tool_map: Mapping[str, str | None]) -> None:
         """
         Not supported by LutrisLauncher.
 
