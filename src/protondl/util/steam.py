@@ -1,4 +1,5 @@
 import binascii
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,6 +7,8 @@ from typing import Any, TypedDict
 
 import vdf
 from steam.utils.appcache import parse_appinfo
+
+logger = logging.getLogger(__name__)
 
 
 class CompatToolUsage(TypedDict):
@@ -52,13 +55,23 @@ def vdf_safe_load(vdf_file: Path) -> dict:  # type: ignore
     return data
 
 
-def get_steam_vdf_compat_tool_mapping(config_data: dict) -> dict[str, CompatToolUsage]:  # type: ignore
+def get_steam_vdf_compat_tool_mapping(
+    config_data: dict,  # type: ignore[type-arg]  # untyped VDF data
+    create: bool = False,
+) -> dict[str, CompatToolUsage]:
     """
     Get the game compatibility tool mapping from the Steam configuration.
     Maps the appid to the compatibility tool used by that game.
 
+    A fresh Steam installation may not have a CompatToolMapping (or Steam)
+    section yet. By default, an empty dict that is not part of config_data is
+    returned in that case. Pass create=True to insert the missing sections into
+    config_data, so that entries added to the returned dict are written back.
+
     Args:
         config_data (dict): Data from config.vdf. Load it using vdf_safe_load first.
+        create (bool): Create the Steam/CompatToolMapping sections in config_data
+            if they are missing. Defaults to False.
 
     Returns:
         dict[str, CompatToolUsage]: Game compatibility tool mapping
@@ -69,13 +82,21 @@ def get_steam_vdf_compat_tool_mapping(config_data: dict) -> dict[str, CompatTool
     s = config_data.get("InstallConfigStore", {}).get("Software", {})
 
     # Key may be 'Valve' or 'valve', see https://github.com/DavidoTek/ProtonUp-Qt/issues/226
-    c = s.get("Valve") or s.get("valve")
+    # An empty section is valid (e.g. fresh Steam install), only a missing one is an error
+    c = s.get("Valve")
     if not c:
+        c = s.get("valve", c)
+    if not isinstance(c, dict):
         raise ValueError("Steam config does not contain the 'valve' key (ignore case)")
 
-    m = c.get("Steam", {}).get("CompatToolMapping", {})
+    if not create:
+        return c.get("Steam", {}).get("CompatToolMapping", {})  # type: ignore[no-any-return]
 
-    return m  # type: ignore
+    steam_section = c.setdefault("Steam", {})
+    if "CompatToolMapping" not in steam_section:
+        logger.info("Steam config has no CompatToolMapping section, creating it")
+        steam_section["CompatToolMapping"] = {}
+    return steam_section["CompatToolMapping"]  # type: ignore[no-any-return]
 
 
 def get_steam_ctool_info(steam_root: Path) -> dict[str, CompatToolInfo]:

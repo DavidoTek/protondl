@@ -448,7 +448,11 @@ class SteamLauncher(Launcher):
 
         try:
             config_data = vdf_safe_load(config_vdf_file)
-            compat_tool_mapping = get_steam_vdf_compat_tool_mapping(config_data)
+            # A fresh Steam install may lack the CompatToolMapping section: create it
+            # when adding entries, otherwise they would not end up in config_data
+            compat_tool_mapping = get_steam_vdf_compat_tool_mapping(
+                config_data, create=any(appid_tool_map.values())
+            )
 
             for appid, compat_tool_name in appid_tool_map.items():
                 if appid in compat_tool_mapping:

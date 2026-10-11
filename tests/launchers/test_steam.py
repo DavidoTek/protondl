@@ -265,6 +265,68 @@ def test_set_game_tool_fills_empty_mapping_entry(tmp_path: Path) -> None:
     }
 
 
+def _write_config_without_compat_tool_mapping(config_vdf_file: Path) -> None:
+    config_vdf_file.parent.mkdir(parents=True)
+    config_vdf_file.write_text(
+        vdf.dumps(
+            {
+                "InstallConfigStore": {
+                    "Software": {"Valve": {"Steam": {"AutoUpdateWindowEnabled": "0"}}}
+                }
+            },
+            pretty=True,
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_set_game_tool_creates_missing_compat_tool_mapping(tmp_path: Path) -> None:
+    """
+    Test that a config.vdf without CompatToolMapping (fresh Steam install) gets one.
+    """
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    config_vdf_file = tmp_path / "config" / "config.vdf"
+    _write_config_without_compat_tool_mapping(config_vdf_file)
+
+    launcher.set_game_tool("275850", "GE-Proton10-99")
+
+    config_data = vdf_safe_load(config_vdf_file)
+    steam_section = config_data["InstallConfigStore"]["Software"]["Valve"]["Steam"]
+    assert steam_section["AutoUpdateWindowEnabled"] == "0"
+    assert steam_section["CompatToolMapping"] == {
+        "275850": {"name": "GE-Proton10-99", "config": "", "priority": "250"}
+    }
+
+
+def test_set_global_tool_creates_missing_compat_tool_mapping(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    config_vdf_file = tmp_path / "config" / "config.vdf"
+    _write_config_without_compat_tool_mapping(config_vdf_file)
+    tool = CompatTool("GE-Proton10-99", CompatToolType.PROTON, tmp_path / "GE-Proton10-99")
+
+    launcher.set_global_tool(tool)
+
+    compat_tool_mapping = get_steam_vdf_compat_tool_mapping(vdf_safe_load(config_vdf_file))
+    assert compat_tool_mapping["0"] == {
+        "name": tool.full_name,
+        "config": "",
+        "priority": "75",
+    }
+
+
+def test_set_game_tool_reset_does_not_create_compat_tool_mapping(tmp_path: Path) -> None:
+    launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
+    config_vdf_file = tmp_path / "config" / "config.vdf"
+    _write_config_without_compat_tool_mapping(config_vdf_file)
+
+    launcher.set_game_tool("275850", None)
+
+    steam_section = vdf_safe_load(config_vdf_file)["InstallConfigStore"]["Software"]["Valve"][
+        "Steam"
+    ]
+    assert "CompatToolMapping" not in steam_section
+
+
 def test_set_games_tools_empty_map_does_not_touch_config(tmp_path: Path) -> None:
     launcher = SteamLauncher("Steam", tmp_path, InstallMode.NATIVE)
     config_vdf_file = tmp_path / "config" / "config.vdf"

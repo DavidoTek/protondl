@@ -61,6 +61,47 @@ def test_get_steam_vdf_compat_tool_mapping_returns_mapping_for_valve_key() -> No
     }
 
 
+def test_get_steam_vdf_compat_tool_mapping_missing_section_returns_detached_dict() -> None:
+    config_data: dict[str, object] = {"InstallConfigStore": {"Software": {"Valve": {"Steam": {}}}}}
+
+    mapping = get_steam_vdf_compat_tool_mapping(config_data)
+
+    assert mapping == {}
+    assert config_data == {"InstallConfigStore": {"Software": {"Valve": {"Steam": {}}}}}
+
+
+def test_get_steam_vdf_compat_tool_mapping_create_adds_missing_section() -> None:
+    config_data: dict[str, object] = {"InstallConfigStore": {"Software": {"Valve": {}}}}
+
+    mapping = get_steam_vdf_compat_tool_mapping(config_data, create=True)
+    mapping["275850"] = {"name": "GE-Proton10-14", "config": "", "priority": "250"}
+
+    assert config_data == {
+        "InstallConfigStore": {
+            "Software": {
+                "Valve": {
+                    "Steam": {
+                        "CompatToolMapping": {
+                            "275850": {"name": "GE-Proton10-14", "config": "", "priority": "250"}
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+def test_get_steam_vdf_compat_tool_mapping_create_keeps_existing_section() -> None:
+    existing = {"0": {"name": "GE-Proton10-12", "config": "", "priority": "75"}}
+    config_data = {
+        "InstallConfigStore": {"Software": {"valve": {"Steam": {"CompatToolMapping": existing}}}}
+    }
+
+    mapping = get_steam_vdf_compat_tool_mapping(config_data, create=True)
+
+    assert mapping is existing
+
+
 def test_get_steam_ctool_info_returns_compat_tool_mapping(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
